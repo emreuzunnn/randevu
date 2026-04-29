@@ -1,0 +1,136 @@
+{
+  "info": {
+    "_postman_id": "1c1f2994-8c1f-4cc6-ae3e-randevu-api",
+    "name": "Randevu API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "" },
+    { "key": "studio_id", "value": "1" },
+    { "key": "user_id", "value": "2" },
+    { "key": "appointment_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": "{{base_url}}/login"
+          }
+        },
+        {
+          "name": "Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/profile"
+          }
+        },
+        {
+          "name": "Home",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/home"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Studio Options",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/studios/options"
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni\",\n  \"surname\": \"Calisan\",\n  \"phone\": \"5552223344\",\n  \"role\": \"calisan\",\n  \"studio_id\": 1,\n  \"email\": \"yenicalisan@example.com\",\n  \"password\": \"123456\",\n  \"password_confirmation\": \"123456\"\n}"
+            },
+            "url": "{{base_url}}/users"
+          }
+        },
+        {
+          "name": "Users By Studio",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/studios/{{studio_id}}/users"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Check Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"first_name\": \"Fabian\",\n    \"last_name\": \"Uzun\",\n    \"phone_country_code\": \"+90\",\n    \"phone_number\": \"5551112233\",\n    \"hotel_name\": \"Merkez Studio\"\n  }\n}"
+            },
+            "url": "{{base_url}}/studios/{{studio_id}}/appointments/check-customer"
+          }
+        },
+        {
+          "name": "Create Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slip_image_path\": \"slips/test.jpg\",\n  \"first_name\": \"Yeni\",\n  \"last_name\": \"Musteri\",\n  \"phone\": \"5554445566\",\n  \"room_number\": \"500\",\n  \"pax\": 2,\n  \"date\": \"2026-04-28\",\n  \"time\": \"17:30\",\n  \"appointment_type\": \"standard\",\n  \"place\": \"Hotel Lobby\",\n  \"notes\": \"Test kaydi\",\n  \"assigned_driver_user_id\": 4\n}"
+            },
+            "url": "{{base_url}}/studios/{{studio_id}}/appointments"
+          }
+        },
+        {
+          "name": "Appointment Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/studios/{{studio_id}}/appointments/{{appointment_id}}"
+          }
+        },
+        {
+          "name": "List Appointments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/studios/{{studio_id}}/appointments"
+          }
+        }
+      ]
+    }
+  ]
+}
