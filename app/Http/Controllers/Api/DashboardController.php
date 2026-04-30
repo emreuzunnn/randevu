@@ -88,6 +88,13 @@ class DashboardController extends Controller
                     'transfer_count' => $transferCount,
                 ],
                 'reports' => $reports,
+                'studios' => $studios->map(fn (Studio $studio): array => [
+                    'id' => $studio->id,
+                    'name' => $studio->name,
+                    'location' => $studio->location,
+                    'active_staff_count' => $studio->active_staff_count,
+                    'appointments_count' => $studio->appointments_count,
+                ])->values(),
                 'today_appointments' => $todayAppointments->map(fn ($appointment): array => [
                     'id' => $appointment->id,
                     'customer' => [

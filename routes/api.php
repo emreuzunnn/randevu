@@ -25,16 +25,22 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     // Mobil tarafla uyumluluk icin /me ile ayni profil bilgisini alternatif endpointten dondurur.
     Route::get('/profile', [AuthController::class, 'me']);
+    // Giris yapan kullanicinin kendi profil alanlarini guncellemesini saglar.
+    Route::patch('/profile', [AuthController::class, 'updateProfile']);
     // Mevcut kullanicinin bearer token ini iptal ederek cikis yapar.
     Route::post('/logout', [AuthController::class, 'logout']);
     // Giris yapan kullanicinin gorebildigi studyo seceneklerini dropdown icin listeler.
     Route::get('/studios/options', [UserDirectoryController::class, 'studioOptions']);
+    // Giris yapan kullanicinin rolune uygun genel kullanici seceneklerini dropdown icin listeler.
+    Route::get('/users/options', [UserDirectoryController::class, 'userOptions']);
     // Giris yapan kullanicinin erisebildigi dukkanlari ve onlara bagli studyolari listeler.
     Route::get('/shops', [ShopController::class, 'index']);
 });
 
 // Yapisal yonetim API'leri: sadece admin ve yonetici dukkan/studyo/personel duzenleyebilir.
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+    // Erisilebilir studyolari detay ve sayac bilgileriyle listeler.
+    Route::get('/studios/overview', [StudioController::class, 'overview']);
     // Secili studyo ayarlarini gunceller.
     Route::patch('/studios/{studio}', [StudioController::class, 'update']);
     // Secili studyoya yeni personel ekler.
@@ -108,6 +114,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
 
 // Randevu operasyonlari: admin, yonetici, supervisor ve calisan bu grup uzerinden randevu yonetebilir.
 Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,calisan'])->group(function (): void {
+    // Randevu olusturma/guncelleme ekranlari icin surucu ve durum kaynaklarini dondurur.
+    Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Musterinin onceki randevusuna bakarak eski mi yeni mi oldugunu kontrol eder.
     Route::post('/studios/{studio}/appointments/check-customer', [AppointmentController::class, 'checkCustomerStatus']);
     // Secili studyodaki randevulari listeler.

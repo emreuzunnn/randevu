@@ -35,7 +35,9 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        $request->user()?->revokeApiToken();
         Auth::logout();
+        $request->session()->forget('admin_api_token');
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

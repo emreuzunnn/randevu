@@ -71,12 +71,58 @@ Response:
     "id": 1,
     "name": "Ahmet Yilmaz",
     "email": "ahmet@example.com",
+    "phone": "5551234567",
     "role": "admin",
     "profile_image": "https://example.com/avatar.jpg",
     "status": "working",
     "location": "Merkez Ofis",
     "is_active": true,
     "created_at": "2026-04-27T10:00:00+03:00"
+  }
+}
+```
+
+### 1.3 Profil Guncelle
+
+**PATCH** `/api/profile`
+
+Request:
+
+```json
+{
+  "name": "Ahmet",
+  "surname": "Yilmaz",
+  "email": "ahmet@example.com",
+  "phone": "5551234567",
+  "profile_image": "profiles/ahmet.png",
+  "status": "break",
+  "password": "654321",
+  "password_confirmation": "654321"
+}
+```
+
+Not:
+
+- Tum alanlar opsiyoneldir, sadece degisen alanlar gonderilebilir.
+- `status` sadece `working`, `break`, `transfer` degerlerini alir.
+- Sifre guncellenecekse `password_confirmation` ile birlikte gonderilmelidir.
+
+Response:
+
+```json
+{
+  "message": "Profil guncellendi.",
+  "data": {
+    "id": 1,
+    "name": "Ahmet Yilmaz",
+    "email": "ahmet@example.com",
+    "phone": "5551234567",
+    "role": "calisan",
+    "profile_image": "profiles/ahmet.png",
+    "status": "break",
+    "location": "Merkez Studio",
+    "is_active": true,
+    "created_at": "2026-04-30T10:00:00+03:00"
   }
 }
 ```

@@ -4,46 +4,68 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Admin Panel' }}</title>
+    @php
+        $adminApiToken = session('admin_api_token');
+        if (auth()->check() && (! is_string($adminApiToken) || $adminApiToken === '')) {
+            $adminApiToken = auth()->user()->issueApiToken();
+            session(['admin_api_token' => $adminApiToken]);
+        }
+    @endphp
+    <meta name="admin-api-base" content="/api">
+    <meta name="admin-api-token" content="{{ $adminApiToken }}">
+    <meta name="admin-user-role" content="{{ auth()->user()?->role?->value }}">
+    <meta name="admin-can-manage-structure" content="{{ auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]) ? '1' : '0' }}">
+    <meta name="admin-is-admin" content="{{ auth()->user()?->hasRole(\App\Enums\UserRole::Admin) ? '1' : '0' }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-stone-100 text-stone-900">
-    <div class="flex min-h-screen">
-        <aside class="hidden w-72 bg-stone-950 px-6 py-8 text-stone-100 lg:block">
-            <div class="mb-10">
-                <div class="text-xs font-semibold uppercase tracking-[0.3em] text-orange-300">Randevu</div>
-                <div class="mt-2 text-2xl font-semibold">Admin Panel</div>
+<body class="admin-stage">
+    <div class="ambient-orb ambient-orb--gold"></div>
+    <div class="ambient-orb ambient-orb--blue"></div>
+    <div class="ambient-orb ambient-orb--orange"></div>
+    <div class="admin-shell">
+        <aside class="admin-sidebar hidden px-6 py-8 text-stone-100 lg:block">
+            <div class="admin-sidebar__brand mb-8 rounded-[1.7rem] p-5">
+                <div class="section-eyebrow">Operasyon merkezi</div>
+                <div class="mt-3 text-3xl font-semibold">Admin Panel</div>
+                <p class="mt-3 text-sm leading-6 text-slate-300">Dukkanlarini, studyolarini ve randevu operasyonunu tek merkezden guvenle yonet.</p>
             </div>
             <nav class="space-y-2 text-sm">
-                <a href="{{ route('admin.dashboard') }}" class="block rounded-xl px-4 py-3 hover:bg-stone-800">Dashboard</a>
+                <a href="{{ route('admin.dashboard') }}" class="admin-nav-link {{ request()->routeIs('admin.dashboard') ? 'is-active' : '' }}">Dashboard</a>
                 @if (auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]))
-                    <a href="{{ route('admin.shops.index') }}" class="block rounded-xl px-4 py-3 hover:bg-stone-800">Dukkanlar</a>
-                    <a href="{{ route('admin.users.index') }}" class="block rounded-xl px-4 py-3 hover:bg-stone-800">Kullanicilar</a>
+                    <a href="{{ route('admin.shops.index') }}" class="admin-nav-link {{ request()->routeIs('admin.shops.*') ? 'is-active' : '' }}">Dukkanlar</a>
+                    <a href="{{ route('admin.users.index') }}" class="admin-nav-link {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }}">Kullanicilar</a>
                 @endif
-                <a href="{{ route('admin.appointments.index') }}" class="block rounded-xl px-4 py-3 hover:bg-stone-800">Randevular</a>
+                <a href="{{ route('admin.appointments.index') }}" class="admin-nav-link {{ request()->routeIs('admin.appointments.*') ? 'is-active' : '' }}">Randevular</a>
                 @if (auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]))
-                    <a href="{{ route('admin.studios.index') }}" class="block rounded-xl px-4 py-3 hover:bg-stone-800">Studyolar</a>
+                    <a href="{{ route('admin.studios.index') }}" class="admin-nav-link {{ request()->routeIs('admin.studios.*') ? 'is-active' : '' }}">Studyolar</a>
                 @endif
             </nav>
         </aside>
-        <main class="flex-1">
-            <header class="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-4">
+        <main class="admin-main">
+            <header class="admin-topbar">
                 <div>
-                    <div class="text-sm text-stone-500">{{ $title ?? 'Admin Panel' }}</div>
-                    <div class="text-lg font-semibold">{{ auth()->user()?->fullName() ?: auth()->user()?->name }}</div>
+                    <div class="section-eyebrow">{{ $title ?? 'Admin Panel' }}</div>
+                    <div class="mt-2 text-2xl font-semibold">{{ auth()->user()?->fullName() ?: auth()->user()?->name }}</div>
+                    <div class="mt-2 text-sm text-muted">Tum ekip, randevu ve lokasyon hareketleri bu ekranda anlik olarak takip edilir.</div>
                 </div>
-                <form action="{{ route('admin.logout') }}" method="POST">
-                    @csrf
-                    <button class="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white">Cikis</button>
-                </form>
+                <div class="action-row">
+                    <span class="badge-pill">{{ auth()->user()?->role?->value }}</span>
+                    <form action="{{ route('admin.logout') }}" method="POST">
+                        @csrf
+                        <button class="button-secondary">Cikis</button>
+                    </form>
+                </div>
             </header>
-            <div class="px-6 py-6">
+            <div class="page-shell">
                 @if (session('status'))
-                    <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                        {{ session('status') }}
+                    <div class="toast toast--success">
+                        <div class="text-sm font-semibold">Bilgi</div>
+                        <div class="mt-1 text-sm text-slate-300">{{ session('status') }}</div>
                     </div>
                 @endif
                 @yield('content')
             </div>
+            <div class="toast-stack" id="admin-toast-root"></div>
         </main>
     </div>
 </body>

@@ -11,6 +11,28 @@ use Illuminate\Http\Request;
 
 class AppointmentController extends Controller
 {
+    public function support(Studio $studio, Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->canManageStudioAppointments($studio), 403);
+
+        $drivers = $studio->users()
+            ->wherePivot('role', \App\Enums\UserRole::Sofor->value)
+            ->wherePivot('is_active', true)
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name', 'users.surname', 'users.phone']);
+
+        return response()->json([
+            'data' => [
+                'drivers' => $drivers->map(fn ($driver): array => [
+                    'id' => $driver->id,
+                    'name' => $driver->fullName(),
+                    'phone' => $driver->phone,
+                ])->values(),
+                'statuses' => ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'],
+            ],
+        ]);
+    }
+
     public function show(Studio $studio, Appointment $appointment): JsonResponse
     {
         abort_if($appointment->studio_id !== $studio->id, 404);

@@ -12,6 +12,33 @@ use Illuminate\Http\Request;
 
 class UserDirectoryController extends Controller
 {
+    public function userOptions(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
+
+        $roles = collect(explode(',', (string) $request->query('roles')))
+            ->filter()
+            ->map(fn (string $role): string => UserRole::fromValue($role)->value)
+            ->values();
+
+        $users = User::query()
+            ->when(
+                $roles->isNotEmpty(),
+                fn ($query) => $query->whereIn('role', $roles->all())
+            )
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'data' => $users->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->fullName(),
+                'email' => $user->email,
+                'role' => $user->role?->value,
+            ])->values(),
+        ]);
+    }
+
     public function store(Request $request, StudioStaffService $studioStaffService): JsonResponse
     {
         abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);

@@ -61,12 +61,86 @@ class AuthController extends Controller
                 'id' => $user?->id,
                 'name' => $user?->fullName(),
                 'email' => $user?->email,
+                'phone' => $user?->phone,
                 'role' => $membership?->role ?? $user?->role?->value,
                 'profile_image' => $user?->profile_image,
                 'status' => $membership?->work_status ?? 'working',
                 'location' => $primaryStudio?->location ?? $user?->managedShops->first()?->location,
                 'is_active' => (bool) ($membership?->is_active ?? true),
                 'created_at' => $user?->created_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'surname' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'email' => ['sometimes', 'string', 'email', 'max:255'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'profile_image' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'status' => ['sometimes', 'string', 'in:working,break,transfer'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        if (array_key_exists('email', $validated)) {
+            $emailExists = \App\Models\User::query()
+                ->where('email', $validated['email'])
+                ->whereKeyNot($user->id)
+                ->exists();
+
+            if ($emailExists) {
+                return response()->json([
+                    'message' => 'Bu email zaten kullanimda.',
+                    'errors' => [
+                        'email' => ['Bu email zaten kullanimda.'],
+                    ],
+                ], 422);
+            }
+        }
+
+        $user->fill(collect($validated)->only([
+            'name',
+            'surname',
+            'email',
+            'phone',
+            'profile_image',
+        ])->all());
+
+        if (! empty($validated['password'] ?? null)) {
+            $user->password = $validated['password'];
+        }
+
+        $user->save();
+
+        $primaryStudio = $this->resolvePrimaryStudio($user);
+        if ($primaryStudio !== null && array_key_exists('status', $validated)) {
+            $primaryStudio->users()->updateExistingPivot($user->id, [
+                'work_status' => $validated['status'],
+            ]);
+        }
+
+        $refreshedUser = $user->fresh()?->load(['studios', 'managedShops']);
+        $primaryStudio = $refreshedUser ? $this->resolvePrimaryStudio($refreshedUser) : null;
+        $membership = $primaryStudio?->users()->where('users.id', $refreshedUser?->id)->first()?->pivot;
+
+        return response()->json([
+            'message' => 'Profil guncellendi.',
+            'data' => [
+                'id' => $refreshedUser?->id,
+                'name' => $refreshedUser?->fullName(),
+                'email' => $refreshedUser?->email,
+                'role' => $membership?->role ?? $refreshedUser?->role?->value,
+                'profile_image' => $refreshedUser?->profile_image,
+                'status' => $membership?->work_status ?? 'working',
+                'location' => $primaryStudio?->location ?? $refreshedUser?->managedShops->first()?->location,
+                'is_active' => (bool) ($membership?->is_active ?? true),
+                'created_at' => $refreshedUser?->created_at?->toIso8601String(),
+                'phone' => $refreshedUser?->phone,
             ],
         ]);
     }
