@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Studio;
+use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, AppointmentReportService $appointmentReportService): JsonResponse
     {
         $user = $request->user();
         $dateFrom = $request->input('date_from');
@@ -74,6 +75,10 @@ class DashboardController extends Controller
             ->take(12)
             ->get();
 
+        $reports = $user !== null
+            ? $appointmentReportService->buildPeriodReports($user, $studioId > 0 ? $studioId : null)
+            : [];
+
         return response()->json([
             'data' => [
                 'summary' => [
@@ -82,6 +87,7 @@ class DashboardController extends Controller
                     'active_staff_count' => $activeStaffCount,
                     'transfer_count' => $transferCount,
                 ],
+                'reports' => $reports,
                 'today_appointments' => $todayAppointments->map(fn ($appointment): array => [
                     'id' => $appointment->id,
                     'customer' => [

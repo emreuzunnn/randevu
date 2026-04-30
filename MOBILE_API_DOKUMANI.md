@@ -93,6 +93,12 @@ Opsiyonel query:
 - `date_to=2026-04-27`
 - `studio_id=1`
 
+Not:
+
+- `admin` tum studyolarin raporunu gorur.
+- `yonetici` sadece kendi dukkani altindaki studyolarin raporunu gorur.
+- Raporlar ayri endpoint degil, bu endpointin `reports` alaninda doner.
+
 Response:
 
 ```json
@@ -103,6 +109,38 @@ Response:
       "cancelled_appointments": 2,
       "active_staff_count": 5,
       "transfer_count": 7
+    },
+    "reports": {
+      "daily": {
+        "label": "Gunluk",
+        "date_from": "2026-04-30",
+        "date_to": "2026-04-30",
+        "total_appointments": 5,
+        "completed_appointments": 2,
+        "cancelled_appointments": 1,
+        "confirmed_appointments": 1,
+        "pending_appointments": 1
+      },
+      "monthly": {
+        "label": "Aylik",
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-30",
+        "total_appointments": 40,
+        "completed_appointments": 21,
+        "cancelled_appointments": 6,
+        "confirmed_appointments": 8,
+        "pending_appointments": 5
+      },
+      "quarterly": {
+        "label": "3 Aylik",
+        "date_from": "2026-02-01",
+        "date_to": "2026-04-30",
+        "total_appointments": 120,
+        "completed_appointments": 71,
+        "cancelled_appointments": 18,
+        "confirmed_appointments": 17,
+        "pending_appointments": 14
+      }
     },
     "today_appointments": [
       {
@@ -125,6 +163,25 @@ Response:
   }
 }
 ```
+
+### 2.2 Rapor Alanlari
+
+`GET /api/home` icindeki `reports` nesnesi su 3 donemi dondurur:
+
+- `daily`: bugunun raporu
+- `monthly`: icinde bulunulan ayin raporu
+- `quarterly`: son 3 aylik rapor
+
+Her rapor nesnesinde su alanlar bulunur:
+
+- `label`
+- `date_from`
+- `date_to`
+- `total_appointments`
+- `completed_appointments`
+- `cancelled_appointments`
+- `confirmed_appointments`
+- `pending_appointments`
 
 ## 3. Kullanici Yonetimi
 

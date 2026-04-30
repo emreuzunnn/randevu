@@ -8,6 +8,38 @@
         <div class="rounded-3xl bg-white p-5 shadow-sm"><div class="text-sm text-stone-500">Transfer Sayisi</div><div class="mt-3 text-4xl font-semibold">{{ $summary['transfer_count'] }}</div></div>
     </div>
 
+    <div class="mt-8 grid gap-4 lg:grid-cols-3">
+        @foreach ($reports as $report)
+            <section class="rounded-3xl bg-white p-5 shadow-sm">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <div class="text-sm text-stone-500">{{ $report['label'] }} Rapor</div>
+                        <div class="mt-1 text-xs text-stone-400">{{ $report['date_from'] }} - {{ $report['date_to'] }}</div>
+                    </div>
+                    <div class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600">Rapor</div>
+                </div>
+                <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+                    <div class="rounded-2xl bg-stone-50 p-4">
+                        <div class="text-stone-500">Toplam</div>
+                        <div class="mt-2 text-2xl font-semibold">{{ $report['total_appointments'] }}</div>
+                    </div>
+                    <div class="rounded-2xl bg-emerald-50 p-4">
+                        <div class="text-emerald-700">Tamamlandi</div>
+                        <div class="mt-2 text-2xl font-semibold text-emerald-900">{{ $report['completed_appointments'] }}</div>
+                    </div>
+                    <div class="rounded-2xl bg-rose-50 p-4">
+                        <div class="text-rose-700">Iptal</div>
+                        <div class="mt-2 text-2xl font-semibold text-rose-900">{{ $report['cancelled_appointments'] }}</div>
+                    </div>
+                    <div class="rounded-2xl bg-amber-50 p-4">
+                        <div class="text-amber-700">Bekleyen</div>
+                        <div class="mt-2 text-2xl font-semibold text-amber-900">{{ $report['pending_appointments'] }}</div>
+                    </div>
+                </div>
+            </section>
+        @endforeach
+    </div>
+
     <div class="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <section class="rounded-3xl bg-white p-6 shadow-sm">
             <h2 class="text-xl font-semibold">Studyo Detaylari</h2>

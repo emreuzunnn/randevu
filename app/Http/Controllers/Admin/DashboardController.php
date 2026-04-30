@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Studio;
 use App\Models\User;
+use App\Services\AppointmentReportService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request, AppointmentReportService $appointmentReportService): View
     {
         $user = $request->user();
         $dateFrom = $request->input('date_from');
@@ -67,6 +68,10 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
 
-        return view('admin.dashboard', compact('summary', 'studios', 'recentAppointments'));
+        $reports = $user !== null
+            ? $appointmentReportService->buildPeriodReports($user)
+            : [];
+
+        return view('admin.dashboard', compact('summary', 'studios', 'recentAppointments', 'reports'));
     }
 }

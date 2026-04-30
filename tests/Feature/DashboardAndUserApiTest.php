@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,12 +22,14 @@ class DashboardAndUserApiTest extends TestCase
             'studio_id' => $studio->id,
             'created_by_user_id' => $admin->id,
             'status' => 'pending',
+            'appointment_at' => now()->subDay(),
         ]);
 
         Appointment::factory()->create([
             'studio_id' => $studio->id,
             'created_by_user_id' => $admin->id,
             'status' => 'cancelled',
+            'appointment_at' => now()->subDays(2),
         ]);
 
         $this->actingAs($admin)
@@ -34,7 +37,54 @@ class DashboardAndUserApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.total_appointments', 2)
             ->assertJsonPath('data.summary.cancelled_appointments', 1)
-            ->assertJsonPath('data.summary.active_staff_count', 1);
+            ->assertJsonPath('data.summary.active_staff_count', 1)
+            ->assertJsonPath('data.reports.daily.total_appointments', 0)
+            ->assertJsonPath('data.reports.monthly.total_appointments', 2)
+            ->assertJsonPath('data.reports.monthly.cancelled_appointments', 1);
+    }
+
+    public function test_manager_only_sees_reports_for_owned_shop(): void
+    {
+        $manager = User::factory()->create([
+            'role' => UserRole::Yonetici,
+        ]);
+
+        $shop = Shop::factory()->create([
+            'manager_user_id' => $manager->id,
+        ]);
+
+        $ownedStudio = Studio::factory()->create([
+            'shop_id' => $shop->id,
+        ]);
+
+        $otherStudio = Studio::factory()->create();
+
+        Appointment::factory()->create([
+            'studio_id' => $ownedStudio->id,
+            'status' => 'completed',
+            'appointment_at' => now(),
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $ownedStudio->id,
+            'status' => 'cancelled',
+            'appointment_at' => now()->subMonth(),
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $otherStudio->id,
+            'status' => 'completed',
+            'appointment_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($manager)
+            ->getJson('/api/home')
+            ->assertOk()
+            ->assertJsonPath('data.reports.daily.total_appointments', 1)
+            ->assertJsonPath('data.reports.daily.completed_appointments', 1)
+            ->assertJsonPath('data.reports.monthly.total_appointments', 1)
+            ->assertJsonPath('data.reports.monthly.cancelled_appointments', 0)
+            ->assertJsonPath('data.reports.quarterly.total_appointments', 2);
     }
 
     public function test_admin_can_create_user_with_studio_and_role(): void
