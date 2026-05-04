@@ -23,6 +23,8 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::get('/home', [DashboardController::class, 'index']);
     // Giris yapan kullanicinin temel profil bilgisini dondurur.
     Route::get('/me', [AuthController::class, 'me']);
+    // Giris yapan kullanicinin kendi profil alanlarini alternatif endpointten guncellemesini saglar.
+    Route::patch('/me', [AuthController::class, 'updateProfile']);
     // Mobil tarafla uyumluluk icin /me ile ayni profil bilgisini alternatif endpointten dondurur.
     Route::get('/profile', [AuthController::class, 'me']);
     // Giris yapan kullanicinin kendi profil alanlarini guncellemesini saglar.

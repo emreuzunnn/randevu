@@ -31,6 +31,8 @@ class AppointmentService
     public function create(Studio $studio, User $user, array $attributes): Appointment
     {
         return DB::transaction(function () use ($studio, $user, $attributes): Appointment {
+            $this->ensureStudioTimeslotIsAvailable($studio, $attributes['appointment_at']);
+
             if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
                 $driver = User::query()->find($attributes['assigned_driver_user_id']);
 
@@ -71,6 +73,10 @@ class AppointmentService
         }
 
         return DB::transaction(function () use ($studio, $appointment, $attributes): Appointment {
+            $appointmentAt = $attributes['appointment_at'] ?? $appointment->appointment_at;
+
+            $this->ensureStudioTimeslotIsAvailable($studio, $appointmentAt, $appointment);
+
             if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
                 $driver = User::query()->find($attributes['assigned_driver_user_id']);
 
@@ -168,5 +174,22 @@ class AppointmentService
             'photo_path' => $appointment->photo_path,
             'customer_notes' => $appointment->customer_notes,
         ];
+    }
+
+    private function ensureStudioTimeslotIsAvailable(Studio $studio, mixed $appointmentAt, ?Appointment $ignoreAppointment = null): void
+    {
+        $query = Appointment::query()
+            ->where('studio_id', $studio->id)
+            ->where('appointment_at', $appointmentAt);
+
+        if ($ignoreAppointment !== null) {
+            $query->whereKeyNot($ignoreAppointment->id);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'appointment_at' => ['Bu studyoda ayni tarih ve saatte baska bir randevu zaten bulunuyor.'],
+            ]);
+        }
     }
 }

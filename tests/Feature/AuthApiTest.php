@@ -138,6 +138,37 @@ class AuthApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_update_own_profile_from_me_endpoint(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Mobil',
+            'surname' => 'Kullanici',
+            'phone' => '5550001000',
+            'email' => 'mobil@example.com',
+            'role' => UserRole::Calisan,
+        ]);
+
+        $studio = Studio::factory()->create();
+
+        $studio->users()->attach($user->id, [
+            'role' => UserRole::Calisan->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $token = $user->issueApiToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->patchJson('/api/me', [
+                'name' => 'Mobil Guncel',
+                'status' => 'transfer',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Mobil Guncel Kullanici')
+            ->assertJsonPath('data.status', 'transfer');
+    }
+
     public function test_authenticated_user_can_logout_and_revoke_token(): void
     {
         $user = User::factory()->create();

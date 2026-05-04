@@ -143,6 +143,33 @@ class AppointmentApiTest extends TestCase
         ]);
     }
 
+    public function test_employee_cannot_create_appointment_for_same_studio_same_datetime(): void
+    {
+        [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
+
+        $payload = [
+            'customer' => [
+                'first_name' => 'Ayni',
+                'last_name' => 'Saat',
+            ],
+            'pax' => 2,
+            'appointment_at' => '2026-04-18 18:00:00',
+        ];
+
+        $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", $payload)
+            ->assertCreated();
+
+        $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            ...$payload,
+            'customer' => [
+                'first_name' => 'Baska',
+                'last_name' => 'Musteri',
+            ],
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['appointment_at']);
+    }
+
     public function test_employee_can_update_appointment(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
@@ -174,6 +201,41 @@ class AppointmentApiTest extends TestCase
             'room_number' => '555',
             'pax' => 4,
             'status' => 'rescheduled',
+        ]);
+    }
+
+    public function test_employee_cannot_update_appointment_to_conflicting_datetime(): void
+    {
+        [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
+
+        $firstAppointmentId = $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Ilk',
+                'last_name' => 'Randevu',
+            ],
+            'pax' => 2,
+            'appointment_at' => '2026-04-18 18:00:00',
+        ])->assertCreated()->json('data.id');
+
+        $secondAppointmentId = $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Ikinci',
+                'last_name' => 'Randevu',
+            ],
+            'pax' => 1,
+            'appointment_at' => '2026-04-18 19:00:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($employee)
+            ->patchJson("/api/studios/{$studio->id}/appointments/{$secondAppointmentId}", [
+                'appointment_at' => '2026-04-18 18:00:00',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['appointment_at']);
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $firstAppointmentId,
+            'appointment_at' => '2026-04-18 18:00:00',
         ]);
     }
 
