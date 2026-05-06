@@ -4,21 +4,66 @@ namespace App\Enums;
 
 enum UserRole: string
 {
+    // Platform seviyesi
     case Admin = 'admin';
     case Yonetici = 'yonetici';
+
+    // Stüdyo yönetimi
+    case StudioAdmin = 'studio_admin';
     case Supervisor = 'supervisor';
+
+    // Stüdyo çalışanları
+    case Designer = 'designer';
+    case Artist = 'artist';
+    case Info = 'info';
     case Sofor = 'sofor';
-    case Calisan = 'calisan';
+    case Calisan = 'calisan'; // Geriye dönük uyumluluk
+
+    // Bağımsız kullanıcılar
+    case KullaniciRol = 'kullanici_rol';
+    case Kullanici = 'kullanici';
 
     public function label(): string
     {
         return match ($this) {
-            self::Admin => 'Admin',
-            self::Yonetici => 'Yönetici',
-            self::Supervisor => 'Süpervizör',
-            self::Sofor => 'Şoför',
-            self::Calisan => 'Çalışan',
+            self::Admin        => 'Admin',
+            self::Yonetici     => 'Yönetici',
+            self::StudioAdmin  => 'Stüdyo Yöneticisi',
+            self::Supervisor   => 'Süpervizör',
+            self::Designer     => 'Tasarımcı',
+            self::Artist       => 'Artist',
+            self::Info         => 'Info',
+            self::Sofor        => 'Şoför',
+            self::Calisan      => 'Çalışan',
+            self::KullaniciRol => 'Kullanıcı (Rol)',
+            self::Kullanici    => 'Kullanıcı',
         };
+    }
+
+    /** Stüdyoya atanabilen roller */
+    public static function studioRoles(): array
+    {
+        return [
+            self::StudioAdmin,
+            self::Supervisor,
+            self::Designer,
+            self::Artist,
+            self::Info,
+            self::Sofor,
+        ];
+    }
+
+    /** Randevu oluşturma/düzenleme yetkisi olan stüdyo rolleri */
+    public static function appointmentManagerRoles(): array
+    {
+        return [
+            self::StudioAdmin,
+            self::Supervisor,
+            self::Designer,
+            self::Info,
+            self::Sofor,
+            self::Calisan,
+        ];
     }
 
     /**
@@ -39,10 +84,15 @@ enum UserRole: string
         }
 
         return self::from(match (mb_strtolower($role)) {
-            'yönetici' => 'yonetici',
-            'şoför' => 'sofor',
-            'çalışan' => 'calisan',
-            default => mb_strtolower($role),
+            'yönetici'                          => 'yonetici',
+            'stüdyo yöneticisi', 'studio admin' => 'studio_admin',
+            'süpervizör'                        => 'supervisor',
+            'tasarımcı'                         => 'designer',
+            'sanatçı'                           => 'artist',
+            'şoför'                             => 'sofor',
+            'çalışan'                           => 'calisan',
+            'kullanıcı'                         => 'kullanici',
+            default                             => mb_strtolower($role),
         });
     }
 }

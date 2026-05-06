@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Models\Studio;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,21 +12,59 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /** Kayıt: kullanici veya kullanici_rol olarak hesap oluştur */
+    public function register(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'                  => ['required', 'string', 'max:255'],
+            'surname'               => ['nullable', 'string', 'max:255'],
+            'email'                 => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone'                 => ['nullable', 'string', 'max:30'],
+            'password'              => ['required', 'string', 'min:6', 'confirmed'],
+            'role'                  => ['nullable', 'string', 'in:kullanici,kullanici_rol'],
+            'bio'                   => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $role = UserRole::fromValue($validated['role'] ?? 'kullanici');
+
+        $user = User::query()->create([
+            'name'     => $validated['name'],
+            'surname'  => $validated['surname'] ?? null,
+            'email'    => $validated['email'],
+            'phone'    => $validated['phone'] ?? null,
+            'password' => $validated['password'],
+            'role'     => $role,
+            'bio'      => $validated['bio'] ?? null,
+        ]);
+
+        $token = $user->issueApiToken();
+
+        return response()->json([
+            'message' => 'Kayıt başarılı.',
+            'data' => [
+                'token'      => $token,
+                'token_type' => 'Bearer',
+                'user'       => [
+                    'id'    => $user->id,
+                    'name'  => $user->fullName(),
+                    'email' => $user->email,
+                    'role'  => $user->role?->value,
+                ],
+            ],
+        ], 201);
+    }
+
     public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'string', 'email'],
+            'email'    => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        $user = \App\Models\User::query()
-            ->where('email', $validated['email'])
-            ->first();
+        $user = User::query()->where('email', $validated['email'])->first();
 
         if ($user === null || ! Hash::check($validated['password'], $user->password)) {
-            return response()->json([
-                'message' => 'Email veya sifre hatali.',
-            ], 422);
+            return response()->json(['message' => 'Email veya şifre hatalı.'], 422);
         }
 
         $token = $user->issueApiToken();
@@ -32,19 +72,20 @@ class AuthController extends Controller
         $membership = $primaryStudio?->users()->where('users.id', $user->id)->first()?->pivot;
 
         return response()->json([
-            'message' => 'Giris basarili.',
+            'message' => 'Giriş başarılı.',
             'data' => [
-                'token' => $token,
+                'token'      => $token,
                 'token_type' => 'Bearer',
-                'studio_id' => $primaryStudio?->id,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->fullName(),
-                    'email' => $user->email,
-                    'role' => $membership?->role ?? $user->role?->value,
+                'studio_id'  => $primaryStudio?->id,
+                'user'       => [
+                    'id'            => $user->id,
+                    'name'          => $user->fullName(),
+                    'email'         => $user->email,
+                    'role'          => $membership?->role ?? $user->role?->value,
                     'profile_image' => $user->profile_image,
-                    'status' => $membership?->work_status ?? 'working',
-                    'is_active' => (bool) ($membership?->is_active ?? true),
+                    'bio'           => $user->bio,
+                    'status'        => $membership?->work_status ?? 'working',
+                    'is_active'     => (bool) ($membership?->is_active ?? true),
                 ],
             ],
         ]);
@@ -56,17 +97,36 @@ class AuthController extends Controller
         $primaryStudio = $user ? $this->resolvePrimaryStudio($user) : null;
         $membership = $primaryStudio?->users()->where('users.id', $user?->id)->first()?->pivot;
 
+        $studioHistory = $user?->studios()
+            ->wherePivot('is_active', false)
+            ->get(['studios.id', 'studios.name', 'studios.location', 'studio_user.joined_at', 'studio_user.left_at']);
+
         return response()->json([
             'data' => [
-                'id' => $user?->id,
-                'name' => $user?->fullName(),
-                'email' => $user?->email,
-                'phone' => $user?->phone,
-                'role' => $membership?->role ?? $user?->role?->value,
-                'profile_image' => $user?->profile_image,
-                'status' => $membership?->work_status ?? 'working',
-                'location' => $primaryStudio?->location ?? $user?->managedShops->first()?->location,
-                'is_active' => (bool) ($membership?->is_active ?? true),
+                'id'             => $user?->id,
+                'name'           => $user?->fullName(),
+                'email'          => $user?->email,
+                'phone'          => $user?->phone,
+                'bio'            => $user?->bio,
+                'portfolio'      => $user?->portfolio ?? [],
+                'role'           => $membership?->role ?? $user?->role?->value,
+                'profile_image'  => $user?->profile_image,
+                'rating'         => $user?->rating,
+                'status'         => $membership?->work_status ?? 'working',
+                'location'       => $primaryStudio?->location ?? $user?->managedShops->first()?->location,
+                'is_active'      => (bool) ($membership?->is_active ?? true),
+                'current_studio' => $primaryStudio ? [
+                    'id'       => $primaryStudio->id,
+                    'name'     => $primaryStudio->name,
+                    'location' => $primaryStudio->location,
+                ] : null,
+                'studio_history' => $studioHistory?->map(fn ($s): array => [
+                    'id'        => $s->id,
+                    'name'      => $s->name,
+                    'location'  => $s->location,
+                    'joined_at' => $s->pivot->joined_at,
+                    'left_at'   => $s->pivot->left_at,
+                ])->values() ?? [],
                 'created_at' => $user?->created_at?->toIso8601String(),
             ],
         ]);
@@ -78,38 +138,31 @@ class AuthController extends Controller
         abort_if($user === null, 401);
 
         $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'surname' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'email' => ['sometimes', 'string', 'email', 'max:255'],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:30'],
-            'profile_image' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'status' => ['sometimes', 'string', 'in:working,break,transfer'],
-            'password' => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
+            'name'           => ['sometimes', 'string', 'max:255'],
+            'surname'        => ['sometimes', 'nullable', 'string', 'max:255'],
+            'email'          => ['sometimes', 'string', 'email', 'max:255'],
+            'phone'          => ['sometimes', 'nullable', 'string', 'max:30'],
+            'bio'            => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'profile_image'  => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'status'         => ['sometimes', 'string', 'in:working,break,transfer'],
+            'password'       => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
         ]);
 
         if (array_key_exists('email', $validated)) {
-            $emailExists = \App\Models\User::query()
+            $emailExists = User::query()
                 ->where('email', $validated['email'])
                 ->whereKeyNot($user->id)
                 ->exists();
 
             if ($emailExists) {
                 return response()->json([
-                    'message' => 'Bu email zaten kullanimda.',
-                    'errors' => [
-                        'email' => ['Bu email zaten kullanimda.'],
-                    ],
+                    'message' => 'Bu email zaten kullanımda.',
+                    'errors'  => ['email' => ['Bu email zaten kullanımda.']],
                 ], 422);
             }
         }
 
-        $user->fill(collect($validated)->only([
-            'name',
-            'surname',
-            'email',
-            'phone',
-            'profile_image',
-        ])->all());
+        $user->fill(collect($validated)->only(['name', 'surname', 'email', 'phone', 'bio', 'profile_image'])->all());
 
         if (! empty($validated['password'] ?? null)) {
             $user->password = $validated['password'];
@@ -119,9 +172,7 @@ class AuthController extends Controller
 
         $primaryStudio = $this->resolvePrimaryStudio($user);
         if ($primaryStudio !== null && array_key_exists('status', $validated)) {
-            $primaryStudio->users()->updateExistingPivot($user->id, [
-                'work_status' => $validated['status'],
-            ]);
+            $primaryStudio->users()->updateExistingPivot($user->id, ['work_status' => $validated['status']]);
         }
 
         $refreshedUser = $user->fresh()?->load(['studios', 'managedShops']);
@@ -129,35 +180,66 @@ class AuthController extends Controller
         $membership = $primaryStudio?->users()->where('users.id', $refreshedUser?->id)->first()?->pivot;
 
         return response()->json([
-            'message' => 'Profil guncellendi.',
-            'data' => [
-                'id' => $refreshedUser?->id,
-                'name' => $refreshedUser?->fullName(),
-                'email' => $refreshedUser?->email,
-                'role' => $membership?->role ?? $refreshedUser?->role?->value,
+            'message' => 'Profil güncellendi.',
+            'data'    => [
+                'id'            => $refreshedUser?->id,
+                'name'          => $refreshedUser?->fullName(),
+                'email'         => $refreshedUser?->email,
+                'phone'         => $refreshedUser?->phone,
+                'bio'           => $refreshedUser?->bio,
+                'portfolio'     => $refreshedUser?->portfolio ?? [],
+                'role'          => $membership?->role ?? $refreshedUser?->role?->value,
                 'profile_image' => $refreshedUser?->profile_image,
-                'status' => $membership?->work_status ?? 'working',
-                'location' => $primaryStudio?->location ?? $refreshedUser?->managedShops->first()?->location,
-                'is_active' => (bool) ($membership?->is_active ?? true),
-                'created_at' => $refreshedUser?->created_at?->toIso8601String(),
-                'phone' => $refreshedUser?->phone,
+                'rating'        => $refreshedUser?->rating,
+                'status'        => $membership?->work_status ?? 'working',
+                'location'      => $primaryStudio?->location ?? $refreshedUser?->managedShops->first()?->location,
+                'is_active'     => (bool) ($membership?->is_active ?? true),
+                'created_at'    => $refreshedUser?->created_at?->toIso8601String(),
             ],
+        ]);
+    }
+
+    /** Portfolyo güncelle (kullanici_rol ve artist için) */
+    public function updatePortfolio(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $validated = $request->validate([
+            'portfolio'             => ['required', 'array'],
+            'portfolio.*.title'     => ['required', 'string', 'max:255'],
+            'portfolio.*.image_path' => ['required', 'string', 'max:2048'],
+            'portfolio.*.description' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $user->update(['portfolio' => $validated['portfolio']]);
+
+        return response()->json([
+            'message'   => 'Portfolyo güncellendi.',
+            'data'      => ['portfolio' => $user->portfolio],
+        ]);
+    }
+
+    /** Portfolyo getir */
+    public function getPortfolio(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        return response()->json([
+            'data' => ['portfolio' => $user->portfolio ?? []],
         ]);
     }
 
     public function logout(Request $request): JsonResponse
     {
         $request->user()?->revokeApiToken();
-
-        return response()->json([
-            'message' => 'Cikis yapildi.',
-        ]);
+        return response()->json(['message' => 'Çıkış yapıldı.']);
     }
 
-    private function resolvePrimaryStudio(\App\Models\User $user): ?Studio
+    private function resolvePrimaryStudio(User $user): ?Studio
     {
         $studioId = $user->accessibleStudioIds()[0] ?? null;
-
         return $studioId ? Studio::query()->find($studioId) : null;
     }
 }

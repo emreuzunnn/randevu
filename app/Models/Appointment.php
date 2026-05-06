@@ -16,6 +16,7 @@ class Appointment extends Model
         'studio_id',
         'created_by_user_id',
         'assigned_driver_user_id',
+        'assigned_artist_user_id',
         'appointment_type',
         'first_name',
         'last_name',
@@ -30,6 +31,7 @@ class Appointment extends Model
         'appointment_at',
         'status',
         'driver_status',
+        'artist_status',
         'is_old_customer',
         'notes',
         'source_image_path',
@@ -57,5 +59,10 @@ class Appointment extends Model
     public function assignedDriver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_driver_user_id');
+    }
+
+    public function assignedArtist(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_artist_user_id');
     }
 }

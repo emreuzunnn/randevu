@@ -28,21 +28,28 @@ class RoleMiddleware
         $studio = $this->resolveStudio($request);
 
         if ($studio !== null) {
+            // Stüdyo pivot rolünü kontrol et
             $canPass = $user->hasStudioRole($studio, $allowedRoles);
 
+            // Platform admin her zaman geçer
             if (! $canPass && in_array(UserRole::Admin, $allowedRoles, true) && $user->hasRole(UserRole::Admin)) {
                 $canPass = true;
             }
 
-            if (
-                ! $canPass
-                && (
-                    in_array(UserRole::Yonetici, $allowedRoles, true)
-                    || in_array(UserRole::Supervisor, $allowedRoles, true)
-                )
-                && $user->canManageStudioAppointments($studio)
-            ) {
-                $canPass = true;
+            // Yönetim rolleri için canManageStudioAppointments kontrolü
+            $managementRoles = [UserRole::Yonetici, UserRole::StudioAdmin, UserRole::Supervisor];
+            if (! $canPass && array_intersect($allowedRoles, $managementRoles) !== []) {
+                if ($user->canManageStudioAppointments($studio)) {
+                    $canPass = true;
+                }
+            }
+
+            // Randevu yönetimi gerektiren çalışan rolleri
+            $staffRoles = [UserRole::Designer, UserRole::Info, UserRole::Sofor, UserRole::Calisan];
+            if (! $canPass && array_intersect($allowedRoles, $staffRoles) !== []) {
+                if ($user->canManageStudioAppointments($studio)) {
+                    $canPass = true;
+                }
             }
 
             abort_if(! $canPass, Response::HTTP_FORBIDDEN);

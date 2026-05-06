@@ -93,7 +93,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): View
     {
-        $appointment->load(['assignedDriver', 'createdBy', 'studio']);
+        $appointment->load(['assignedDriver', 'assignedArtist', 'createdBy', 'studio']);
         abort_unless(request()->user()?->canManageStudioAppointments($appointment->studio_id), 403);
 
         return view('admin.appointments.show', compact('appointment'));

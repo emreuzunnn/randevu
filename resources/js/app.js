@@ -37,11 +37,17 @@ const STATUS_LABELS = {
 };
 
 const ROLE_LABELS = {
-    admin:      'Admin',
-    yonetici:   'Yönetici',
-    supervisor: 'Süpervizör',
-    sofor:      'Şoför',
-    calisan:    'Çalışan',
+    admin:          'Admin',
+    yonetici:       'Yönetici',
+    studio_admin:   'Stüdyo Yöneticisi',
+    supervisor:     'Süpervizör',
+    designer:       'Tasarımcı',
+    artist:         'Artist',
+    info:           'Info',
+    sofor:          'Şoför',
+    calisan:        'Çalışan',
+    kullanici_rol:  'Kullanıcı (Rol)',
+    kullanici:      'Kullanıcı',
 };
 
 const statusLabel = (status) => STATUS_LABELS[status] ?? status;
@@ -349,8 +355,8 @@ const renderDashboard = async (root) => {
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
-        ? ['admin', 'yonetici', 'supervisor', 'sofor', 'calisan']
-        : ['supervisor', 'sofor', 'calisan'];
+        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        : ['studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan'];
 
     root.innerHTML = `
         <section class="hero-card">
@@ -603,10 +609,13 @@ const renderAppointmentsPage = async (root) => {
         createStudioSelect.innerHTML = options;
     };
 
+    let supportArtists = [];
+
     const loadSupport = async (studioId) => {
         if (!studioId) return;
         const payload = await apiFetch(`/studios/${studioId}/appointment-support`);
         const drivers = payload.data?.drivers || [];
+        supportArtists = payload.data?.artists || [];
         driverSelect.innerHTML = `<option value="">Sürücü seçin</option>${drivers.map((driver) => `
             <option value="${driver.id}">${escapeHtml(driver.name)}${driver.phone ? ` — ${escapeHtml(driver.phone)}` : ''}</option>
         `).join('')}`;
@@ -652,6 +661,12 @@ const renderAppointmentsPage = async (root) => {
                             </select>
                         </div>
                     </div>
+                    ${appointment.artist || appointment.artist_status ? `
+                    <div class="mt-2 flex items-center gap-2 text-xs" style="color:var(--text-muted)">
+                        <span>Artist:</span>
+                        <span class="font-semibold">${escapeHtml(appointment.artist?.name || '—')}</span>
+                        ${appointment.artist_status ? `<span class="${appointment.artist_status === 'accepted' ? 'badge-pill badge-pill--success' : appointment.artist_status === 'rejected' ? 'badge-pill badge-pill--danger' : 'badge-pill badge-pill--warning'}" style="font-size:0.68rem">${appointment.artist_status === 'accepted' ? 'Kabul' : appointment.artist_status === 'rejected' ? 'Red' : 'Bekliyor'}</span>` : ''}
+                    </div>` : ''}
                     <div class="mt-4 action-row">
                         <a href="/admin/appointments/${appointment.id}" class="button-ghost">Detay</a>
                         <button class="button-secondary" data-appointment-save>Kaydet</button>

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Database\Factories\UserFactory;
@@ -17,16 +16,13 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'surname',
         'email',
         'phone',
+        'bio',
+        'portfolio',
         'profile_image',
         'rating',
         'password',
@@ -34,29 +30,20 @@ class User extends Authenticatable
         'can_open_multiple_studios',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
         'api_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'role' => UserRole::class,
+            'email_verified_at'        => 'datetime',
+            'password'                 => 'hashed',
+            'role'                     => UserRole::class,
             'can_open_multiple_studios' => 'boolean',
+            'portfolio'                => 'array',
         ];
     }
 
@@ -73,19 +60,13 @@ class User extends Authenticatable
     public function issueApiToken(): string
     {
         $plainToken = Str::random(80);
-
-        $this->forceFill([
-            'api_token' => hash('sha256', $plainToken),
-        ])->save();
-
+        $this->forceFill(['api_token' => hash('sha256', $plainToken)])->save();
         return $plainToken;
     }
 
     public function revokeApiToken(): void
     {
-        $this->forceFill([
-            'api_token' => null,
-        ])->save();
+        $this->forceFill(['api_token' => null])->save();
     }
 
     /**
@@ -98,7 +79,6 @@ class User extends Authenticatable
                 return true;
             }
         }
-
         return false;
     }
 
@@ -115,13 +95,7 @@ class User extends Authenticatable
     public function studios(): BelongsToMany
     {
         return $this->belongsToMany(Studio::class)
-            ->withPivot([
-                'role',
-                'work_status',
-                'is_active',
-                'joined_at',
-                'left_at',
-            ])
+            ->withPivot(['role', 'work_status', 'is_active', 'joined_at', 'left_at'])
             ->withTimestamps();
     }
 
@@ -180,7 +154,8 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici])) {
+        // Platform yöneticisi ve stüdyo yöneticisi
+        if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici, UserRole::StudioAdmin])) {
             return true;
         }
 
@@ -200,10 +175,18 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($this->hasStudioRole($studioModel, [UserRole::Supervisor])) {
+        // Supervisor, designer, info, sofor randevu yönetebilir
+        if ($this->hasStudioRole($studioModel, [
+            UserRole::Supervisor,
+            UserRole::Designer,
+            UserRole::Info,
+            UserRole::Sofor,
+            UserRole::Calisan,
+        ])) {
             return true;
         }
 
+        // Shop supervisor
         if (! $this->hasRole(UserRole::Supervisor)) {
             return false;
         }
@@ -215,9 +198,32 @@ class User extends Authenticatable
                 ->exists();
     }
 
+    /** Sanatçıya randevu atama yetkisi (supervisor ve üstü) */
+    public function canAssignArtist(Studio|int $studio): bool
+    {
+        if ($this->canManageStudio($studio)) {
+            return true;
+        }
+
+        $studioModel = $studio instanceof Studio ? $studio : Studio::query()->find($studio);
+
+        if ($studioModel === null) {
+            return false;
+        }
+
+        return $this->hasStudioRole($studioModel, [UserRole::Supervisor]);
+    }
+
     public function canAccessStudio(Studio|int $studio): bool
     {
-        return $this->canManageStudioAppointments($studio) || $this->belongsToStudio($studio);
+        $studioModel = $studio instanceof Studio ? $studio : Studio::query()->find($studio);
+        if ($studioModel === null) {
+            return false;
+        }
+
+        return $this->canManageStudioAppointments($studio)
+            || $this->hasStudioRole($studioModel, [UserRole::Artist])
+            || $this->belongsToStudio($studio);
     }
 
     /**
@@ -242,5 +248,11 @@ class User extends Authenticatable
         }
 
         return array_values(array_unique(array_map('intval', $studioIds)));
+    }
+
+    /** Kullanıcının stüdyoda artist olup olmadığını kontrol eder */
+    public function isStudioArtist(Studio|int $studio): bool
+    {
+        return $this->hasStudioRole($studio, [UserRole::Artist]);
     }
 }

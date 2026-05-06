@@ -35,10 +35,9 @@ class AppointmentService
 
             if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
                 $driver = User::query()->find($attributes['assigned_driver_user_id']);
-
                 if ($driver === null || ! $driver->hasStudioRole($studio, [UserRole::Sofor])) {
                     throw ValidationException::withMessages([
-                        'assigned_driver_user_id' => ['Secilen kullanici bu studyoda sofor degil.'],
+                        'assigned_driver_user_id' => ['Seçilen kullanıcı bu stüdyoda şoför değil.'],
                     ]);
                 }
             }
@@ -46,16 +45,18 @@ class AppointmentService
             $status = $this->checkCustomerStatus($studio, $attributes['customer']);
 
             return Appointment::query()->create([
-                'studio_id' => $studio->id,
-                'created_by_user_id' => $user->id,
+                'studio_id'               => $studio->id,
+                'created_by_user_id'      => $user->id,
                 'assigned_driver_user_id' => $attributes['assigned_driver_user_id'] ?? null,
-                'appointment_type' => $attributes['appointment_type'] ?? 'standard',
+                'assigned_artist_user_id' => null,
+                'artist_status'           => null,
+                'appointment_type'        => $attributes['appointment_type'] ?? 'standard',
                 ...$attributes['customer'],
-                'pax' => $attributes['pax'],
-                'appointment_at' => $attributes['appointment_at'],
-                'status' => 'pending',
+                'pax'             => $attributes['pax'],
+                'appointment_at'  => $attributes['appointment_at'],
+                'status'          => 'pending',
                 'is_old_customer' => $status['is_old_customer'],
-                'notes' => $attributes['notes'] ?? null,
+                'notes'           => $attributes['notes'] ?? null,
                 'source_image_path' => $attributes['source_image_path'] ?? null,
             ]);
         })->load(['createdBy', 'assignedDriver']);
@@ -68,7 +69,7 @@ class AppointmentService
     {
         if ((int) $appointment->studio_id !== (int) $studio->id) {
             throw ValidationException::withMessages([
-                'appointment' => ['Randevu bu studyoya ait degil.'],
+                'appointment' => ['Randevu bu stüdyoya ait değil.'],
             ]);
         }
 
@@ -79,10 +80,9 @@ class AppointmentService
 
             if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
                 $driver = User::query()->find($attributes['assigned_driver_user_id']);
-
                 if ($driver === null || ! $driver->hasStudioRole($studio, [UserRole::Sofor])) {
                     throw ValidationException::withMessages([
-                        'assigned_driver_user_id' => ['Secilen kullanici bu studyoda sofor degil.'],
+                        'assigned_driver_user_id' => ['Seçilen kullanıcı bu stüdyoda şoför değil.'],
                     ]);
                 }
             }
@@ -92,7 +92,6 @@ class AppointmentService
                 : $this->extractCustomerSnapshot($appointment);
 
             $status = $this->checkCustomerStatus($studio, $customerData);
-
             if ($status['matched_appointment']?->id === $appointment->id) {
                 $status['is_old_customer'] = false;
             }
@@ -101,26 +100,71 @@ class AppointmentService
                 ...$customerData,
                 'assigned_driver_user_id' => $attributes['assigned_driver_user_id'] ?? $appointment->assigned_driver_user_id,
                 'appointment_type' => $attributes['appointment_type'] ?? $appointment->appointment_type,
-                'pax' => $attributes['pax'] ?? $appointment->pax,
-                'appointment_at' => $attributes['appointment_at'] ?? $appointment->appointment_at,
-                'status' => $attributes['status'] ?? $appointment->status,
-                'is_old_customer' => $status['is_old_customer'],
-                'notes' => array_key_exists('notes', $attributes) ? $attributes['notes'] : $appointment->notes,
+                'pax'              => $attributes['pax'] ?? $appointment->pax,
+                'appointment_at'   => $attributes['appointment_at'] ?? $appointment->appointment_at,
+                'status'           => $attributes['status'] ?? $appointment->status,
+                'is_old_customer'  => $status['is_old_customer'],
+                'notes'            => array_key_exists('notes', $attributes) ? $attributes['notes'] : $appointment->notes,
                 'source_image_path' => $attributes['source_image_path'] ?? $appointment->source_image_path,
             ])->save();
 
-            return $appointment->fresh(['createdBy', 'assignedDriver']);
+            return $appointment->fresh(['createdBy', 'assignedDriver', 'assignedArtist']);
         });
+    }
+
+    /** Supervisor+ tarafından randevuya artist atar. */
+    public function assignArtist(Studio $studio, Appointment $appointment, ?int $artistUserId): Appointment
+    {
+        if ((int) $appointment->studio_id !== (int) $studio->id) {
+            throw ValidationException::withMessages([
+                'appointment' => ['Randevu bu stüdyoya ait değil.'],
+            ]);
+        }
+
+        if ($artistUserId !== null) {
+            $artist = User::query()->find($artistUserId);
+            if ($artist === null) {
+                throw ValidationException::withMessages([
+                    'assigned_artist_user_id' => ['Kullanıcı bulunamadı.'],
+                ]);
+            }
+
+            // Artist stüdyoda kayıtlı artist olabilir ya da bağımsız KullaniciRol olabilir
+            $isStudioArtist = $artist->hasStudioRole($studio, [UserRole::Artist]);
+            $isIndependent  = $artist->hasRole(UserRole::KullaniciRol);
+
+            if (! $isStudioArtist && ! $isIndependent) {
+                throw ValidationException::withMessages([
+                    'assigned_artist_user_id' => ['Seçilen kullanıcı artist ya da bağımsız çalışan değil.'],
+                ]);
+            }
+        }
+
+        $appointment->fill([
+            'assigned_artist_user_id' => $artistUserId,
+            'artist_status'           => $artistUserId !== null ? 'pending' : null,
+        ])->save();
+
+        return $appointment->fresh(['assignedArtist']);
+    }
+
+    /** Artist randevuyu kabul veya reddeder. */
+    public function artistRespond(Appointment $appointment, string $response): Appointment
+    {
+        abort_unless(in_array($response, ['accepted', 'rejected'], true), 422);
+
+        $appointment->fill(['artist_status' => $response])->save();
+
+        return $appointment->fresh();
     }
 
     public function delete(Studio $studio, Appointment $appointment): void
     {
         if ((int) $appointment->studio_id !== (int) $studio->id) {
             throw ValidationException::withMessages([
-                'appointment' => ['Randevu bu studyoya ait degil.'],
+                'appointment' => ['Randevu bu stüdyoya ait değil.'],
             ]);
         }
-
         $appointment->delete();
     }
 
@@ -129,8 +173,7 @@ class AppointmentService
      */
     private function findExistingAppointment(Studio $studio, array $customer): ?Appointment
     {
-        $query = Appointment::query()
-            ->where('studio_id', $studio->id);
+        $query = Appointment::query()->where('studio_id', $studio->id);
 
         $phoneCountryCode = $customer['phone_country_code'] ?? null;
         $phoneNumber = $customer['phone_number'] ?? null;
@@ -140,10 +183,8 @@ class AppointmentService
                 ->where('phone_number', $phoneNumber)
                 ->when(
                     filled($phoneCountryCode),
-                    fn ($innerQuery) => $innerQuery->where(function ($countryQuery) use ($phoneCountryCode) {
-                        $countryQuery
-                            ->where('phone_country_code', $phoneCountryCode)
-                            ->orWhereNull('phone_country_code');
+                    fn ($q) => $q->where(function ($cq) use ($phoneCountryCode) {
+                        $cq->where('phone_country_code', $phoneCountryCode)->orWhereNull('phone_country_code');
                     })
                 )
                 ->latest('appointment_at')
@@ -164,15 +205,15 @@ class AppointmentService
     private function extractCustomerSnapshot(Appointment $appointment): array
     {
         return [
-            'first_name' => $appointment->first_name,
-            'last_name' => $appointment->last_name,
+            'first_name'        => $appointment->first_name,
+            'last_name'         => $appointment->last_name,
             'phone_country_code' => $appointment->phone_country_code,
-            'phone_number' => $appointment->phone_number,
-            'hotel_name' => $appointment->hotel_name,
-            'room_number' => $appointment->room_number,
-            'place' => $appointment->place,
-            'photo_path' => $appointment->photo_path,
-            'customer_notes' => $appointment->customer_notes,
+            'phone_number'      => $appointment->phone_number,
+            'hotel_name'        => $appointment->hotel_name,
+            'room_number'       => $appointment->room_number,
+            'place'             => $appointment->place,
+            'photo_path'        => $appointment->photo_path,
+            'customer_notes'    => $appointment->customer_notes,
         ];
     }
 
@@ -188,7 +229,7 @@ class AppointmentService
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'appointment_at' => ['Bu studyoda ayni tarih ve saatte baska bir randevu zaten bulunuyor.'],
+                'appointment_at' => ['Bu stüdyoda aynı tarih ve saatte başka bir randevu zaten bulunuyor.'],
             ]);
         }
     }

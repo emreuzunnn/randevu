@@ -132,6 +132,32 @@
                         {{ trim(($appointment->assignedDriver?->name ?? '') . ' ' . ($appointment->assignedDriver?->surname ?? '')) ?: '—' }}
                     </span>
                 </div>
+                @if($appointment->assignedArtist)
+                <div class="detail-row">
+                    <span class="detail-label">Artist</span>
+                    <span class="detail-value">
+                        {{ trim(($appointment->assignedArtist?->name ?? '') . ' ' . ($appointment->assignedArtist?->surname ?? '')) ?: '—' }}
+                    </span>
+                </div>
+                @php
+                    $artistStatusMap = [
+                        'pending'  => ['label' => 'Bekliyor',    'class' => 'badge-pill--warning'],
+                        'accepted' => ['label' => 'Kabul Etti',  'class' => 'badge-pill--success'],
+                        'rejected' => ['label' => 'Reddetti',    'class' => 'badge-pill--danger'],
+                    ];
+                    $artistStatusInfo = $artistStatusMap[$appointment->artist_status] ?? null;
+                @endphp
+                @if($artistStatusInfo)
+                <div class="detail-row">
+                    <span class="detail-label">Artist Yanıtı</span>
+                    <span class="detail-value">
+                        <span class="badge-pill {{ $artistStatusInfo['class'] }}" style="font-size:0.68rem">
+                            {{ $artistStatusInfo['label'] }}
+                        </span>
+                    </span>
+                </div>
+                @endif
+                @endif
             </div>
 
             @if($appointment->customer_notes)
