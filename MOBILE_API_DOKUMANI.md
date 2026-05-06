@@ -340,6 +340,7 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
       "id": 5,
       "name": "Hasan Çalışan",
       "email": "hasan@example.com",
+      "phone": "5551234567",
       "role": "calisan",
       "profile_image": null,
       "studio_id": 1,
@@ -495,6 +496,69 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
     "notification_lead_minutes": 45,
     "shop_id": 1
   }
+}
+```
+
+---
+
+### 3.6 Stüdyo Oluştur
+
+**POST** `/api/studios`
+
+> Yetki: `admin`, `yonetici`
+
+```json
+{
+  "shop_id": 1,
+  "name": "Yeni Stüdyo",
+  "location": "Antalya",
+  "notification_lead_minutes": 30
+}
+```
+
+> `shop_id` zorunludur. Şirketin `max_studio_count` limitine ulaşılmışsa `422` döner.
+
+**Response `422`** — limit aşımı
+
+```json
+{
+  "status": "error",
+  "code": 422,
+  "message": "Stüdyo limitinize ulaştınız. Daha fazla stüdyo oluşturmak için lütfen admin ile iletişime geçin.",
+  "data": { "current": 10, "limit": 10 }
+}
+```
+
+**Response `201`**
+
+```json
+{
+  "status": "success",
+  "code": 201,
+  "message": "Stüdyo oluşturuldu.",
+  "data": {
+    "id": 3,
+    "name": "Yeni Stüdyo",
+    "location": "Antalya",
+    "slug": "yeni-studyo-ab12c",
+    "shop_id": 1
+  }
+}
+```
+
+---
+
+### 3.6b Stüdyo Sil
+
+**DELETE** `/api/studios/{studio_id}`
+
+> Yetki: `admin`, `yonetici`
+
+**Response `200`**
+
+```json
+{
+  "message": "Stüdyo silindi."
 }
 ```
 
@@ -731,6 +795,20 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
     "name": "Sahil Dükkan (Yeni)",
     "location": "Kemer"
   }
+}
+```
+
+### 5.4 Dükkan Sil
+
+**DELETE** `/api/shops/{shop_id}`
+
+> Yetki: yalnızca `admin`
+
+**Response `200`**
+
+```json
+{
+  "message": "Dükkan silindi."
 }
 ```
 
@@ -986,12 +1064,15 @@ Randevu oluşturma/güncelleme ekranları için sürücü listesi ve diğer kayn
 | POST | `/api/companies` | Admin | Şirket oluştur |
 | PATCH | `/api/companies/{id}` | Admin | Şirket güncelle / limit ayarla |
 | GET | `/api/studios/overview` | Admin, Yönetici | Stüdyoları listele (personel + randevu sayısıyla) |
+| POST | `/api/studios` | Admin, Yönetici | Stüdyo oluştur |
 | PATCH | `/api/studios/{id}` | Admin, Yönetici | Stüdyo güncelle |
+| DELETE | `/api/studios/{id}` | Admin, Yönetici | Stüdyo sil |
 | GET | `/api/studios/options` | Tümü | Stüdyo dropdown |
 | GET | `/api/users/options` | Admin, Yönetici | Kullanıcı dropdown |
 | GET | `/api/shops` | Tümü | Dükkanları listele |
 | POST | `/api/shops` | Admin | Dükkan oluştur |
 | PATCH | `/api/shops/{id}` | Admin, Yönetici | Dükkan güncelle |
+| DELETE | `/api/shops/{id}` | Admin | Dükkan sil |
 | GET | `/api/studios/{id}/users` | Admin, Yönetici | Kullanıcıları listele |
 | POST | `/api/users` | Admin, Yönetici | Kullanıcı oluştur |
 | PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici | Kullanıcı güncelle |
