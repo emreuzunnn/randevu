@@ -247,6 +247,10 @@ class AppointmentController extends Controller
         Appointment $appointment,
         AppointmentService $appointmentService
     ): JsonResponse {
+        $appointment = $studio->appointments()
+            ->whereKey($appointment->id)
+            ->firstOrFail();
+
         $appointmentService->delete($studio, $appointment);
 
         return response()->json([
