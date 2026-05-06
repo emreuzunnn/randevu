@@ -66,7 +66,7 @@ class AppointmentService
      */
     public function update(Studio $studio, Appointment $appointment, array $attributes): Appointment
     {
-        if ($appointment->studio_id !== $studio->id) {
+        if ((int) $appointment->studio_id !== (int) $studio->id) {
             throw ValidationException::withMessages([
                 'appointment' => ['Randevu bu studyoya ait degil.'],
             ]);
@@ -115,7 +115,7 @@ class AppointmentService
 
     public function delete(Studio $studio, Appointment $appointment): void
     {
-        if ($appointment->studio_id !== $studio->id) {
+        if ((int) $appointment->studio_id !== (int) $studio->id) {
             throw ValidationException::withMessages([
                 'appointment' => ['Randevu bu studyoya ait degil.'],
             ]);
