@@ -58,6 +58,7 @@ class AppointmentController extends Controller
                     'surname' => $appointment->createdBy->surname,
                 ] : null,
                 'status' => $appointment->status,
+                'driver_status' => $appointment->driver_status,
             ],
         ]);
     }
@@ -86,10 +87,16 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function index(Studio $studio): JsonResponse
+    public function index(Request $request, Studio $studio): JsonResponse
     {
+        $user = $request->user();
+
         $appointments = $studio->appointments()
             ->with(['createdBy', 'assignedDriver'])
+            ->when(
+                $user?->hasRole(\App\Enums\UserRole::Sofor),
+                fn ($q) => $q->where('assigned_driver_user_id', $user->id)
+            )
             ->orderBy('appointment_at')
             ->get();
 
@@ -108,6 +115,7 @@ class AppointmentController extends Controller
                 'pax' => $appointment->pax,
                 'appointment_at' => optional($appointment->appointment_at)->toIso8601String(),
                 'status' => $appointment->status,
+                'driver_status' => $appointment->driver_status,
                 'notes' => $appointment->notes,
                 'source_image_path' => $appointment->source_image_path,
                 'assigned_driver_user_id' => $appointment->assigned_driver_user_id,
@@ -120,6 +128,35 @@ class AppointmentController extends Controller
                 'studio' => $studio->name,
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
             ])->values(),
+        ]);
+    }
+
+    public function driverAction(Request $request, Studio $studio, Appointment $appointment): JsonResponse
+    {
+        abort_if($appointment->studio_id !== $studio->id, 404);
+        abort_unless($appointment->assigned_driver_user_id === $request->user()?->id, 403);
+
+        $validated = $request->validate([
+            'driver_status' => ['required', 'string', 'in:picked_up,dropped_off,cancelled'],
+        ]);
+
+        $appointment->driver_status = $validated['driver_status'];
+
+        if ($validated['driver_status'] === 'dropped_off') {
+            $appointment->status = 'completed';
+        } elseif ($validated['driver_status'] === 'cancelled') {
+            $appointment->status = 'cancelled';
+        }
+
+        $appointment->save();
+
+        return response()->json([
+            'message' => 'Durum güncellendi.',
+            'data' => [
+                'id' => $appointment->id,
+                'status' => $appointment->status,
+                'driver_status' => $appointment->driver_status,
+            ],
         ]);
     }
 

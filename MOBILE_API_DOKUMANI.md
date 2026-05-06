@@ -820,7 +820,8 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
 
 **GET** `/api/studios/{studio_id}/appointments`
 
-> Yetki: `admin`, `yonetici`, `supervisor`, `calisan`
+> Yetki: `admin`, `yonetici`, `supervisor`, `calisan`, `sofor`  
+> `sofor` rolü yalnızca kendine atanmış randevuları görür.
 
 **Response `200`**
 
@@ -841,6 +842,7 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
       "pax": 2,
       "appointment_at": "2026-05-05T10:00:00+03:00",
       "status": "confirmed",
+      "driver_status": null,
       "notes": "Ön kapıdan alınacak.",
       "source_image_path": "uploads/slips/slip_123.jpg",
       "assigned_driver_user_id": 4,
@@ -892,6 +894,8 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
 
 **GET** `/api/studios/{studio_id}/appointments/{appointment_id}`
 
+> Yetki: `admin`, `yonetici`, `supervisor`, `calisan`, `sofor`
+
 **Response `200`**
 
 ```json
@@ -913,7 +917,8 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
       "name": "Çalışan",
       "surname": "Bir"
     },
-    "status": "confirmed"
+    "status": "confirmed",
+    "driver_status": null
   }
 }
 ```
@@ -997,7 +1002,43 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
 
 ---
 
-### 6.7 Randevu Destek Verisi (Dropdown)
+### 6.7 Şoför Aksiyon Güncelle
+
+**PATCH** `/api/studios/{studio_id}/appointments/{appointment_id}/driver-action`
+
+> Yetki: yalnızca `sofor`  
+> Şoför yalnızca kendine atanmış randevularda aksiyon alabilir.
+
+```json
+{
+  "driver_status": "picked_up"
+}
+```
+
+| `driver_status` | Anlamı | Yan Etki |
+|---|---|---|
+| `picked_up` | Aldım | Ana durum değişmez |
+| `dropped_off` | Bıraktım | Ana `status` → `completed` |
+| `cancelled` | İptal ettim | Ana `status` → `cancelled` |
+
+**Response `200`**
+
+```json
+{
+  "message": "Durum güncellendi.",
+  "data": {
+    "id": 1,
+    "status": "completed",
+    "driver_status": "dropped_off"
+  }
+}
+```
+
+**Response `403`** — başkasına ait randevuya aksiyon alınmaya çalışılırsa döner.
+
+---
+
+### 6.8 Randevu Destek Verisi (Dropdown)
 
 **GET** `/api/studios/{studio_id}/appointment-support`
 
@@ -1076,11 +1117,12 @@ Randevu oluşturma/güncelleme ekranları için sürücü listesi ve diğer kayn
 | GET | `/api/studios/{id}/users` | Admin, Yönetici | Kullanıcıları listele |
 | POST | `/api/users` | Admin, Yönetici | Kullanıcı oluştur |
 | PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici | Kullanıcı güncelle |
-| GET | `/api/studios/{id}/appointments` | Admin, Yönetici, Supervisor, Çalışan | Randevuları listele |
+| GET | `/api/studios/{id}/appointments` | Admin, Yönetici, Supervisor, Çalışan, **Şoför** | Randevuları listele (şoför: sadece kendine atananlar) |
 | POST | `/api/studios/{id}/appointments` | Admin, Yönetici, Supervisor, Çalışan | Randevu oluştur |
-| GET | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu detayı |
+| GET | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan, **Şoför** | Randevu detayı |
 | PATCH | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu güncelle |
 | DELETE | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu sil |
+| PATCH | `/api/studios/{id}/appointments/{id}/driver-action` | **Şoför** | Şoför aksiyonu (aldım / bıraktım / iptal) |
 | POST | `/api/studios/{id}/appointments/check-customer` | Admin, Yönetici, Supervisor, Çalışan | Müşteri geçmişi |
 | GET | `/api/studios/{id}/appointment-support` | Admin, Yönetici, Supervisor, Çalışan | Sürücü dropdown |
 | POST | `/api/ocr/appointment-slip` | — | Fiş OCR |

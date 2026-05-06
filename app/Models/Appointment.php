@@ -29,6 +29,7 @@ class Appointment extends Model
         'pax',
         'appointment_at',
         'status',
+        'driver_status',
         'is_old_customer',
         'notes',
         'source_image_path',

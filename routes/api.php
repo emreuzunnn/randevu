@@ -135,14 +135,24 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,calisan'])->group
     Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Musterinin onceki randevusuna bakarak eski mi yeni mi oldugunu kontrol eder.
     Route::post('/studios/{studio}/appointments/check-customer', [AppointmentController::class, 'checkCustomerStatus']);
-    // Secili studyodaki randevulari listeler.
-    Route::get('/studios/{studio}/appointments', [AppointmentController::class, 'index']);
-    // Tek bir randevunun detayini getirir.
-    Route::get('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'show']);
     // Yeni randevu olusturur.
     Route::post('/studios/{studio}/appointments', [AppointmentController::class, 'store']);
     // Var olan randevunun durum, surucu veya musteri bilgilerini gunceller.
     Route::patch('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'update']);
     // Randevuyu sistemden siler.
     Route::delete('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'destroy']);
+});
+
+// Sofor dahil tum roller randevu listeleyip detay gorebilir.
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,calisan,sofor'])->group(function (): void {
+    // Secili studyodaki randevulari listeler; sofor yalnizca kendine atananlari gorur.
+    Route::get('/studios/{studio}/appointments', [AppointmentController::class, 'index']);
+    // Tek bir randevunun detayini getirir.
+    Route::get('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'show']);
+});
+
+// Sofor kendi randevusundaki suruc durumunu gunceller (alim, birakis, iptal).
+Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
+    // driver_status: picked_up (aldim) | dropped_off (biraktim) | cancelled (iptal ettim)
+    Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
 });
