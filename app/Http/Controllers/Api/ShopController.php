@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -26,18 +27,19 @@ class ShopController extends Controller
 
         return response()->json([
             'data' => $shops->map(fn (Shop $shop): array => [
-                'id' => $shop->id,
-                'name' => $shop->name,
-                'location' => $shop->location,
-                'is_active' => (bool) $shop->is_active,
-                'manager' => $shop->manager ? [
-                    'id' => $shop->manager->id,
-                    'name' => $shop->manager->fullName(),
+                'id'         => $shop->id,
+                'company_id' => $shop->company_id,
+                'name'       => $shop->name,
+                'location'   => $shop->location,
+                'is_active'  => (bool) $shop->is_active,
+                'manager'    => $shop->manager ? [
+                    'id'    => $shop->manager->id,
+                    'name'  => $shop->manager->fullName(),
                     'email' => $shop->manager->email,
-                    'role' => $shop->manager->role?->value,
+                    'role'  => $shop->manager->role?->value,
                 ] : null,
                 'studios' => $shop->studios->map(fn ($studio): array => [
-                    'id' => $studio->id,
+                    'id'   => $studio->id,
                     'name' => $studio->name,
                 ])->values(),
             ])->values(),
@@ -49,11 +51,25 @@ class ShopController extends Controller
         abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'location' => ['nullable', 'string', 'max:255'],
+            'company_id'      => ['required', 'integer', 'exists:companies,id'],
+            'name'            => ['required', 'string', 'max:255'],
+            'location'        => ['nullable', 'string', 'max:255'],
             'manager_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'is_active' => ['sometimes', 'boolean'],
+            'is_active'       => ['sometimes', 'boolean'],
         ]);
+
+        // Şirket dükkan limiti kontrolü
+        $company = Company::query()->findOrFail($validated['company_id']);
+
+        if (! $company->canAddShop()) {
+            return response()->json([
+                'message' => 'Dükkan limitinize ulaştınız. Daha fazla dükkan oluşturmak için lütfen admin ile iletişime geçin.',
+                'data'    => [
+                    'current' => $company->currentShopCount(),
+                    'limit'   => $company->max_shop_count,
+                ],
+            ], 422);
+        }
 
         if (isset($validated['manager_user_id'])) {
             $manager = User::query()->findOrFail($validated['manager_user_id']);
@@ -61,15 +77,16 @@ class ShopController extends Controller
         }
 
         $shop = Shop::query()->create([
-            'name' => $validated['name'],
-            'location' => $validated['location'] ?? null,
+            'company_id'      => $company->id,
+            'name'            => $validated['name'],
+            'location'        => $validated['location'] ?? null,
             'manager_user_id' => $validated['manager_user_id'] ?? null,
-            'is_active' => $validated['is_active'] ?? true,
+            'is_active'       => $validated['is_active'] ?? true,
         ]);
 
         return response()->json([
-            'message' => 'Dukkan olusturuldu.',
-            'data' => $shop->load('manager'),
+            'message' => 'Dükkan oluşturuldu.',
+            'data'    => $shop->load('manager'),
         ], 201);
     }
 

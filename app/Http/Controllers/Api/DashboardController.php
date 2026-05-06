@@ -64,6 +64,7 @@ class DashboardController extends Controller
             )
             ->withCount([
                 'appointments',
+                'users as total_staff_count',
                 'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
             ])
             ->get();
@@ -92,6 +93,7 @@ class DashboardController extends Controller
                     'id' => $studio->id,
                     'name' => $studio->name,
                     'location' => $studio->location,
+                    'total_staff_count' => $studio->total_staff_count,
                     'active_staff_count' => $studio->active_staff_count,
                     'appointments_count' => $studio->appointments_count,
                 ])->values(),

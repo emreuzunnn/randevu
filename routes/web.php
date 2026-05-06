@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
@@ -18,6 +19,10 @@ Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+
+    Route::get('/companies', [AdminCompanyController::class, 'index'])->name('companies.index');
+    Route::post('/companies', [AdminCompanyController::class, 'store'])->name('companies.store');
+    Route::post('/companies/{company}', [AdminCompanyController::class, 'update'])->name('companies.update');
 
     Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');

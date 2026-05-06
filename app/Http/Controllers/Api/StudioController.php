@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Shop;
 use App\Models\Studio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class StudioController extends Controller
 {
@@ -21,6 +23,7 @@ class StudioController extends Controller
             )
             ->withCount([
                 'appointments',
+                'users as total_staff_count',
                 'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
             ])
             ->orderBy('name')
@@ -38,10 +41,61 @@ class StudioController extends Controller
                     'id' => $studio->shop->id,
                     'name' => $studio->shop->name,
                 ] : null,
+                'total_staff_count' => $studio->total_staff_count,
                 'active_staff_count' => $studio->active_staff_count,
                 'appointments_count' => $studio->appointments_count,
             ])->values(),
         ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]), 403);
+
+        $validated = $request->validate([
+            'shop_id'                    => ['required', 'integer', 'exists:shops,id'],
+            'name'                       => ['required', 'string', 'max:255'],
+            'location'                   => ['nullable', 'string', 'max:255'],
+            'notification_lead_minutes'  => ['sometimes', 'integer', 'min:0', 'max:1440'],
+        ]);
+
+        $shop = Shop::query()->with('company')->findOrFail($validated['shop_id']);
+
+        abort_unless($request->user()?->canManageShop($shop), 403);
+
+        // Şirket stüdyo limiti kontrolü
+        if ($shop->company !== null && ! $shop->company->canAddStudio()) {
+            return response()->json([
+                'status'  => 'error',
+                'code'    => 422,
+                'message' => 'Stüdyo limitinize ulaştınız. Daha fazla stüdyo oluşturmak için lütfen admin ile iletişime geçin.',
+                'data'    => [
+                    'current' => $shop->company->currentStudioCount(),
+                    'limit'   => $shop->company->max_studio_count,
+                ],
+            ], 422);
+        }
+
+        $studio = Studio::query()->create([
+            'shop_id'                   => $shop->id,
+            'name'                      => $validated['name'],
+            'location'                  => $validated['location'] ?? null,
+            'slug'                      => Str::slug($validated['name']) . '-' . Str::random(5),
+            'notification_lead_minutes' => $validated['notification_lead_minutes'] ?? 30,
+        ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'code'    => 201,
+            'message' => 'Stüdyo oluşturuldu.',
+            'data'    => [
+                'id'       => $studio->id,
+                'name'     => $studio->name,
+                'location' => $studio->location,
+                'slug'     => $studio->slug,
+                'shop_id'  => $studio->shop_id,
+            ],
+        ], 201);
     }
 
     public function update(Request $request, Studio $studio): JsonResponse

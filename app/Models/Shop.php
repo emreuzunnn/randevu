@@ -14,6 +14,7 @@ class Shop extends Model
     use HasFactory;
 
     protected $fillable = [
+        'company_id',
         'name',
         'location',
         'manager_user_id',
@@ -25,6 +26,11 @@ class Shop extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function manager(): BelongsTo

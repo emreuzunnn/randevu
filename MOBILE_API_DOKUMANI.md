@@ -1,34 +1,40 @@
-# Randevu Mobil Uygulamasi - Backend API Spesifikasyonlari
+# Randevu Mobil Uygulaması — Backend API Spesifikasyonları
 
-Bu dokuman mobil uygulamanin bekledigi endpointleri, istek alanlarini ve donen JSON formatlarini guncel haliyle tanimlar.
+Bu doküman mobil uygulamanın beklediği endpoint'leri, istek alanlarını ve dönen JSON formatlarını güncel haliyle tanımlar.
 
-Base URL:
+**Base URL:** `http://127.0.0.1:8000/api`
 
-`http://127.0.0.1:8000/api`
+---
 
 ## Genel Kurallar
 
-1. `POST /api/login` haric tum endpointlerde `Authorization: Bearer {token}` header'i kullanilir.
-2. Roller: `admin`, `yonetici`, `supervisor`, `calisan`, `sofor`
-3. Kullanici durumlari: `working`, `break`, `transfer`
-4. Randevu durumlari: `pending`, `confirmed`, `completed`, `cancelled`, `rescheduled`
+1. `POST /api/login` hariç tüm endpoint'lerde `Authorization: Bearer {token}` header'ı kullanılır.
+2. Tüm isteklerde `Accept: application/json` header'ı gönderilmelidir.
+3. Roller: `admin`, `yonetici`, `supervisor`, `calisan`, `sofor`
+4. Kullanıcı durumları: `working`, `break`, `transfer`
+5. Randevu durumları: `pending`, `confirmed`, `completed`, `cancelled`, `rescheduled`
 
-## Yetki Hiyerarsisi
+---
 
-- `admin`: tum dukkanlari, studyolari, kullanicilari ve randevulari yonetir.
-- `yonetici`: kendisine bagli dukkanlari, bu dukkanlara bagli studyolari, kullanicilari ve randevulari yonetir.
-- `supervisor`: kendisine bagli dukkanin sadece randevu tarafini yonetir.
-- Her `dukkan` birden fazla `studio` icerebilir.
-- Calisanlar, soforler ve diger personeller `studio` bazinda baglidir.
-- Bir supervisor kullanici/studyo/dukkan ayarlarini degistiremez.
+## Yetki Hiyerarşisi
+
+| Rol | Yetki |
+|---|---|
+| `admin` | Tüm dükkanları, stüdyoları, kullanıcıları ve randevuları yönetir |
+| `yonetici` | Kendine bağlı dükkanları, stüdyoları, kullanıcıları ve randevuları yönetir |
+| `supervisor` | Yalnızca randevu tarafını yönetir; kullanıcı/stüdyo ayarı değiştiremez |
+| `calisan` | Randevu oluşturabilir ve güncelleyebilir |
+| `sofor` | Randevu akışını takip eder |
+
+Yapı: **şirket → dükkan → stüdyo → personel / randevu**
+
+---
 
 ## 1. Auth ve Profil
 
-### 1.1 Login
+### 1.1 Giriş
 
 **POST** `/api/login`
-
-Request:
 
 ```json
 {
@@ -37,21 +43,21 @@ Request:
 }
 ```
 
-Response:
+**Response `200`**
 
 ```json
 {
-  "message": "Giris basarili.",
+  "message": "Giriş başarılı.",
   "data": {
     "token": "1|xxxxxxxxx",
     "token_type": "Bearer",
     "studio_id": 1,
     "user": {
       "id": 1,
-      "name": "Ahmet Yilmaz",
+      "name": "Ahmet Yılmaz",
       "email": "ahmet@example.com",
-      "role": "admin",
-      "profile_image": "https://example.com/avatar.jpg",
+      "role": "calisan",
+      "profile_image": "profiles/ahmet.png",
       "status": "working",
       "is_active": true
     }
@@ -59,39 +65,53 @@ Response:
 }
 ```
 
+**Response `422`** — hatalı kimlik bilgisi
+
+```json
+{
+  "message": "Email veya şifre hatalı."
+}
+```
+
+---
+
 ### 1.2 Profil Getir
 
-**GET** `/api/profile`
+**GET** `/api/profile` veya **GET** `/api/me`
 
-Response:
+**Response `200`**
 
 ```json
 {
   "data": {
     "id": 1,
-    "name": "Ahmet Yilmaz",
+    "name": "Ahmet Yılmaz",
     "email": "ahmet@example.com",
     "phone": "5551234567",
-    "role": "admin",
-    "profile_image": "https://example.com/avatar.jpg",
+    "role": "calisan",
+    "profile_image": "profiles/ahmet.png",
     "status": "working",
-    "location": "Merkez Ofis",
+    "location": "Merkez Stüdyo",
     "is_active": true,
     "created_at": "2026-04-27T10:00:00+03:00"
   }
 }
 ```
 
-### 1.3 Profil Guncelle
+> `location`: kullanıcının birincil stüdyosunun veya yönettiği dükkanın lokasyonudur.
 
-**PATCH** `/api/profile`
+---
 
-Request:
+### 1.3 Profil Güncelle
+
+**PATCH** `/api/profile` veya **PATCH** `/api/me`
+
+Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
 
 ```json
 {
   "name": "Ahmet",
-  "surname": "Yilmaz",
+  "surname": "Yılmaz",
   "email": "ahmet@example.com",
   "phone": "5551234567",
   "profile_image": "profiles/ahmet.png",
@@ -101,51 +121,60 @@ Request:
 }
 ```
 
-Not:
+> `status` yalnızca `working`, `break`, `transfer` değerlerini kabul eder.  
+> Şifre güncellenecekse `password_confirmation` ile birlikte gönderilmelidir.
 
-- Tum alanlar opsiyoneldir, sadece degisen alanlar gonderilebilir.
-- `status` sadece `working`, `break`, `transfer` degerlerini alir.
-- Sifre guncellenecekse `password_confirmation` ile birlikte gonderilmelidir.
-
-Response:
+**Response `200`**
 
 ```json
 {
-  "message": "Profil guncellendi.",
+  "message": "Profil güncellendi.",
   "data": {
     "id": 1,
-    "name": "Ahmet Yilmaz",
+    "name": "Ahmet Yılmaz",
     "email": "ahmet@example.com",
     "phone": "5551234567",
     "role": "calisan",
     "profile_image": "profiles/ahmet.png",
     "status": "break",
-    "location": "Merkez Studio",
+    "location": "Merkez Stüdyo",
     "is_active": true,
-    "created_at": "2026-04-30T10:00:00+03:00"
+    "created_at": "2026-04-27T10:00:00+03:00"
   }
 }
 ```
 
-## 2. Home ve Dashboard
+---
 
-### 2.1 Anasayfa Ozeti
+### 1.4 Çıkış
+
+**POST** `/api/logout`
+
+**Response `200`**
+
+```json
+{
+  "message": "Çıkış yapıldı."
+}
+```
+
+---
+
+## 2. Dashboard ve Raporlama
+
+### 2.1 Anasayfa Özeti
 
 **GET** `/api/home`
 
-Opsiyonel query:
+| Query Parametresi | Tip | Açıklama |
+|---|---|---|
+| `date_from` | `YYYY-MM-DD` | Başlangıç tarihi (opsiyonel) |
+| `date_to` | `YYYY-MM-DD` | Bitiş tarihi (opsiyonel) |
+| `studio_id` | integer | Stüdyo filtresi (opsiyonel) |
 
-- `date_from=2026-04-27`
-- `date_to=2026-04-27`
-- `studio_id=1`
+> `admin` tüm stüdyoların verisini görür. `yonetici` yalnızca kendi dükkanına bağlı stüdyoları görür.
 
-Not:
-
-- `admin` tum studyolarin raporunu gorur.
-- `yonetici` sadece kendi dukkani altindaki studyolarin raporunu gorur.
-- Raporlar ayri endpoint degil, bu endpointin `reports` alaninda doner.
-
-Response:
+**Response `200`**
 
 ```json
 {
@@ -158,9 +187,9 @@ Response:
     },
     "reports": {
       "daily": {
-        "label": "Gunluk",
-        "date_from": "2026-04-30",
-        "date_to": "2026-04-30",
+        "label": "Günlük",
+        "date_from": "2026-05-05",
+        "date_to": "2026-05-05",
         "total_appointments": 5,
         "completed_appointments": 2,
         "cancelled_appointments": 1,
@@ -168,9 +197,9 @@ Response:
         "pending_appointments": 1
       },
       "monthly": {
-        "label": "Aylik",
-        "date_from": "2026-04-01",
-        "date_to": "2026-04-30",
+        "label": "Aylık",
+        "date_from": "2026-05-01",
+        "date_to": "2026-05-31",
         "total_appointments": 40,
         "completed_appointments": 21,
         "cancelled_appointments": 6,
@@ -178,9 +207,9 @@ Response:
         "pending_appointments": 5
       },
       "quarterly": {
-        "label": "3 Aylik",
-        "date_from": "2026-02-01",
-        "date_to": "2026-04-30",
+        "label": "3 Aylık",
+        "date_from": "2026-03-01",
+        "date_to": "2026-05-31",
         "total_appointments": 120,
         "completed_appointments": 71,
         "cancelled_appointments": 18,
@@ -188,6 +217,16 @@ Response:
         "pending_appointments": 14
       }
     },
+    "studios": [
+      {
+        "id": 1,
+        "name": "Merkez Stüdyo",
+        "location": "Antalya",
+        "total_staff_count": 8,
+        "active_staff_count": 3,
+        "appointments_count": 22
+      }
+    ],
     "today_appointments": [
       {
         "id": 1,
@@ -197,12 +236,12 @@ Response:
           "hotel_name": "Ramada"
         },
         "pax": 3,
-        "appointment_at": "2026-04-28T17:30:00+03:00",
+        "appointment_at": "2026-05-05T17:30:00+03:00",
         "status": "pending",
-        "studio": "Merkez Studio",
+        "studio": "Merkez Stüdyo",
         "driver": {
           "id": 4,
-          "name": "Sofor Bir"
+          "name": "Şoför Bir"
         }
       }
     ]
@@ -210,43 +249,100 @@ Response:
 }
 ```
 
-### 2.2 Rapor Alanlari
+---
 
-`GET /api/home` icindeki `reports` nesnesi su 3 donemi dondurur:
+### 2.2 Dönemsel Rapor
 
-- `daily`: bugunun raporu
-- `monthly`: icinde bulunulan ayin raporu
-- `quarterly`: son 3 aylik rapor
+**GET** `/api/reports`
 
-Her rapor nesnesinde su alanlar bulunur:
+| Query Parametresi | Değerler | Varsayılan | Açıklama |
+|---|---|---|---|
+| `period` | `daily`, `weekly`, `monthly`, `quarterly` | `monthly` | Raporlama dönemi |
+| `studio_id` | integer | — | Stüdyo filtresi (opsiyonel) |
 
-- `label`
-- `date_from`
-- `date_to`
-- `total_appointments`
-- `completed_appointments`
-- `cancelled_appointments`
-- `confirmed_appointments`
-- `pending_appointments`
+**Response `200`**
 
-## 3. Kullanici Yonetimi
+```json
+{
+  "status": "success",
+  "code": 200,
+  "data": {
+    "selected_period": "Bu Ay",
+    "stats": {
+      "total_appointments": 1284,
+      "cancelled": 42,
+      "completed": 1210,
+      "this_week": 312
+    },
+    "weekly_data": [
+      { "day": "Pzt", "value": 60 },
+      { "day": "Sal", "value": 90 },
+      { "day": "Çar", "value": 140 },
+      { "day": "Per", "value": 105 },
+      { "day": "Cum", "value": 95 },
+      { "day": "Cmt", "value": 45 },
+      { "day": "Paz", "value": 20 }
+    ],
+    "performance": [
+      {
+        "name": "Aslı Demir",
+        "role": "Çalışan",
+        "appointments": 142,
+        "rating": 4.9
+      },
+      {
+        "name": "Mert Kaya",
+        "role": "Şoför",
+        "appointments": 128,
+        "rating": 4.8
+      },
+      {
+        "name": "Selin Yılmaz",
+        "role": "Çalışan",
+        "appointments": 96,
+        "rating": 4.7
+      }
+    ],
+    "insight": "Bu hafta randevu yoğunluğu %12 arttı."
+  }
+}
+```
 
-### 3.1 Kullanicilari Listele
+**`selected_period` değerleri:**
+
+| `period` | `selected_period` |
+|---|---|
+| `daily` | Bugün |
+| `weekly` | Bu Hafta |
+| `monthly` | Bu Ay |
+| `quarterly` | Son 3 Ay |
+
+> `performance` listesi dönem içinde en çok randevu oluşturan 5 kullanıcıyı gösterir.  
+> `insight` metni bu hafta ile geçen hafta arasındaki değişime göre otomatik üretilir.  
+> `rating` kullanıcıda kayıtlı değer yoksa `null` döner.
+
+---
+
+## 3. Kullanıcı Yönetimi
+
+### 3.1 Kullanıcıları Listele
 
 **GET** `/api/studios/{studio_id}/users`
 
-Response:
+> Yetki: `admin`, `yonetici`
+
+**Response `200`**
 
 ```json
 {
   "data": [
     {
       "id": 5,
-      "name": "Hasan Calisan",
+      "name": "Hasan Çalışan",
       "email": "hasan@example.com",
       "role": "calisan",
       "profile_image": null,
-      "location": "Studyo 1",
+      "studio_id": 1,
       "status": "working",
       "is_active": true
     }
@@ -254,16 +350,18 @@ Response:
 }
 ```
 
-### 3.2 Kullanici Olustur
+---
+
+### 3.2 Kullanıcı Oluştur
 
 **POST** `/api/users`
 
-Request:
+> Yetki: `admin`, `yonetici`
 
 ```json
 {
   "name": "Mehmet",
-  "surname": "Sofor",
+  "surname": "Şoför",
   "email": "mehmet@example.com",
   "phone": "5551234567",
   "role": "sofor",
@@ -273,14 +371,14 @@ Request:
 }
 ```
 
-Response:
+**Response `201`**
 
 ```json
 {
-  "message": "Kullanici basariyla olusturuldu.",
+  "message": "Kullanıcı başarıyla oluşturuldu.",
   "data": {
     "id": 6,
-    "name": "Mehmet Sofor",
+    "name": "Mehmet Şoför",
     "email": "mehmet@example.com",
     "role": "sofor",
     "is_active": true
@@ -288,124 +386,365 @@ Response:
 }
 ```
 
-### 3.3 Kullanici Guncelle
+---
+
+### 3.3 Kullanıcı Güncelle
 
 **PATCH** `/api/studios/{studio_id}/users/{user_id}`
 
-Request:
+> Yetki: `admin`, `yonetici`  
+> Tüm alanlar opsiyoneldir.
 
 ```json
 {
   "name": "Mehmet Yeni",
+  "surname": "Soyadı",
+  "email": "mehmet@example.com",
+  "phone": "5559876543",
   "role": "supervisor",
   "status": "break",
-  "is_active": false
+  "is_active": false,
+  "profile_image": "profiles/mehmet.png"
 }
 ```
 
-Response:
+> `admin` dışındaki roller `admin` veya `yonetici` rolü atayamaz.
+
+**Response `200`**
 
 ```json
 {
-  "message": "Kullanici guncellendi.",
+  "message": "Kullanıcı güncellendi.",
   "data": {
     "id": 6,
-    "name": "Mehmet Sofor",
+    "name": "Mehmet Yeni",
     "email": "mehmet@example.com",
     "role": "supervisor",
     "profile_image": null,
-    "location": "Merkez Studio",
+    "studio_id": 1,
     "status": "break",
     "is_active": false
   }
 }
 ```
 
-### 3.4 Studyo Secenekleri
+---
 
-**GET** `/api/studios/options`
+### 3.4 Stüdyoları Listele (Genel Bakış)
 
-Response:
+**GET** `/api/studios/overview`
 
-```json
-{
-  "data": [
-    { "id": 1, "name": "Merkez Studio" },
-    { "id": 2, "name": "Sube 1" }
-  ]
-}
-```
+> Yetki: `admin`, `yonetici`
 
-### 3.5 Dukkanlari Listele
-
-`GET /api/shops`
-
-Not:
-
-- `admin` tum dukkanlari gorur.
-- `yonetici` ve `supervisor` sadece kendi dukkanlarini gorur.
-
-Response:
+**Response `200`**
 
 ```json
 {
   "data": [
     {
       "id": 1,
-      "name": "Merkez Dukkan",
-      "location": "Istanbul",
+      "name": "Merkez Stüdyo",
+      "location": "Antalya",
+      "slug": "merkez-studyo",
+      "logo_path": null,
+      "notification_lead_minutes": 30,
+      "shop": {
+        "id": 1,
+        "name": "Merkez Dükkan"
+      },
+      "total_staff_count": 8,
+      "active_staff_count": 3,
+      "appointments_count": 22
+    }
+  ]
+}
+```
+
+> `total_staff_count`: stüdyoya kayıtlı toplam personel sayısı.  
+> `active_staff_count`: şu an aktif (is_active = true) personel sayısı.
+
+---
+
+### 3.5 Stüdyo Güncelle
+
+**PATCH** `/api/studios/{studio_id}`
+
+> Yetki: `admin`, `yonetici`  
+> Tüm alanlar opsiyoneldir.
+
+```json
+{
+  "name": "Merkez Stüdyo (Yeni)",
+  "location": "Kemer",
+  "logo_path": "logos/merkez.png",
+  "notification_lead_minutes": 45
+}
+```
+
+**Response `200`**
+
+```json
+{
+  "message": "Stüdyo güncellendi.",
+  "data": {
+    "id": 1,
+    "name": "Merkez Stüdyo (Yeni)",
+    "location": "Kemer",
+    "slug": "merkez-studyo",
+    "logo_path": "logos/merkez.png",
+    "notification_lead_minutes": 45,
+    "shop_id": 1
+  }
+}
+```
+
+---
+
+### 3.7 Stüdyo Seçenekleri (Dropdown)
+
+**GET** `/api/studios/options`
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    { "id": 1, "name": "Merkez Stüdyo" },
+    { "id": 2, "name": "Şube 1" }
+  ]
+}
+```
+
+---
+
+### 3.8 Kullanıcı Seçenekleri (Dropdown)
+
+**GET** `/api/users/options`
+
+| Query Parametresi | Örnek | Açıklama |
+|---|---|---|
+| `roles` | `yonetici,supervisor` | Virgülle ayrılmış rol filtresi (opsiyonel) |
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    {
+      "id": 2,
+      "name": "Yönetici Bir",
+      "email": "manager@example.com",
+      "role": "yonetici"
+    }
+  ]
+}
+```
+
+---
+
+## 4. Şirket Yönetimi (Admin Only)
+
+### 4.1 Şirketleri Listele
+
+**GET** `/api/companies`
+
+> Yetki: yalnızca `admin`
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Dövme Şirketi A.Ş.",
+      "address": "Antalya, Türkiye",
+      "phone": "05321234567",
+      "email": "info@dovme.com",
+      "is_active": true,
+      "max_shop_count": 5,
+      "max_studio_count": 10,
+      "shop_count": 2,
+      "studio_count": 4,
+      "appointment_count": 320
+    }
+  ]
+}
+```
+
+> `max_shop_count` / `max_studio_count`: 0 ise sınırsız demektir.  
+> `shop_count` / `studio_count`: şu an kayıtlı aktif sayılar.
+
+---
+
+### 4.2 Şirket Oluştur
+
+**POST** `/api/companies`
+
+> Yetki: yalnızca `admin`
+
+```json
+{
+  "name": "Yeni Şirket A.Ş.",
+  "address": "İstanbul, Türkiye",
+  "phone": "05329876543",
+  "email": "info@yenisirket.com",
+  "max_shop_count": 3,
+  "max_studio_count": 6
+}
+```
+
+**Response `201`**
+
+```json
+{
+  "message": "Şirket oluşturuldu.",
+  "data": { "id": 2, "name": "Yeni Şirket A.Ş." }
+}
+```
+
+---
+
+### 4.3 Şirket Güncelle
+
+**PATCH** `/api/companies/{company_id}`
+
+> Yetki: yalnızca `admin`  
+> Tüm alanlar opsiyoneldir.
+
+```json
+{
+  "name": "Şirket Adı (Güncel)",
+  "max_shop_count": 5,
+  "max_studio_count": 10
+}
+```
+
+**Response `200`**
+
+```json
+{
+  "message": "Şirket güncellendi.",
+  "data": { "id": 1, "name": "Şirket Adı (Güncel)" }
+}
+```
+
+---
+
+## 5. Dükkan Yönetimi
+
+### 5.1 Dükkanları Listele
+
+**GET** `/api/shops`
+
+> `admin` tüm dükkanları görür. `yonetici` ve `supervisor` yalnızca kendi dükkanlarını görür.
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Merkez Dükkan",
+      "location": "Antalya",
       "is_active": true,
       "manager": {
         "id": 2,
-        "name": "Yonetici Bir",
+        "name": "Yönetici Bir",
         "email": "manager@example.com",
         "role": "yonetici"
       },
       "studios": [
-        {
-          "id": 1,
-          "name": "Merkez Studio"
-        }
+        { "id": 1, "name": "Merkez Stüdyo" }
       ]
     }
   ]
 }
 ```
 
-### 3.6 Dukkan Olustur
+---
 
-`POST /api/shops`
+### 5.2 Dükkan Oluştur
 
-Not:
+**POST** `/api/shops`
 
-- Sadece `admin`
-
-Request:
+> Yetki: yalnızca `admin`
 
 ```json
 {
-  "name": "Sahil Dukkan",
+  "company_id": 1,
+  "name": "Sahil Dükkan",
   "location": "Antalya",
   "manager_user_id": 2
 }
 ```
 
-### 3.7 Dukkan Guncelle
+> `company_id` zorunludur. Şirketin `max_shop_count` limitine ulaşılmışsa `422` döner.
 
-`PATCH /api/shops/{shop_id}`
+**Response `422`** — limit aşımı
 
-Not:
+```json
+{
+  "message": "Dükkan limitinize ulaştınız. Daha fazla dükkan oluşturmak için lütfen admin ile iletişime geçin.",
+  "data": { "current": 3, "limit": 3 }
+}
+```
 
-- `admin` her dukkanı guncelleyebilir.
-- `yonetici` ve `supervisor` sadece kendi dukkanini guncelleyebilir.
+**Response `201`**
 
-## 4. Randevular
+```json
+{
+  "message": "Dükkan oluşturuldu.",
+  "data": {
+    "id": 3,
+    "name": "Sahil Dükkan",
+    "location": "Antalya",
+    "is_active": true
+  }
+}
+```
 
-### 4.1 Randevulari Listele
+---
+
+### 5.3 Dükkan Güncelle
+
+**PATCH** `/api/shops/{shop_id}`
+
+> `admin` her dükkanı güncelleyebilir. `yonetici` yalnızca kendi dükkanını güncelleyebilir.
+
+```json
+{
+  "name": "Sahil Dükkan (Yeni)",
+  "location": "Kemer",
+  "manager_user_id": 3
+}
+```
+
+**Response `200`**
+
+```json
+{
+  "message": "Dükkan güncellendi.",
+  "data": {
+    "id": 3,
+    "name": "Sahil Dükkan (Yeni)",
+    "location": "Kemer"
+  }
+}
+```
+
+---
+
+## 6. Randevular
+
+### 6.1 Randevuları Listele
 
 **GET** `/api/studios/{studio_id}/appointments`
 
-Response:
+> Yetki: `admin`, `yonetici`, `supervisor`, `calisan`
+
+**Response `200`**
 
 ```json
 {
@@ -419,32 +758,32 @@ Response:
         "phone_number": "5550001122",
         "hotel_name": "Hilton",
         "room_number": "402",
-        "customer_notes": "VIP Musteri"
+        "customer_notes": "VIP Müşteri"
       },
       "pax": 2,
-      "appointment_at": "2026-04-28T10:00:00+03:00",
+      "appointment_at": "2026-05-05T10:00:00+03:00",
       "status": "confirmed",
-      "notes": "On kapi dan alinacak",
+      "notes": "Ön kapıdan alınacak.",
       "source_image_path": "uploads/slips/slip_123.jpg",
       "assigned_driver_user_id": 4,
       "driver": {
         "id": 4,
-        "name": "Sofor Bir",
+        "name": "Şoför Bir",
         "phone": "5559998877",
         "rating": 4.8
       },
-      "studio": "Merkez Studio",
-      "created_at": "2026-04-27T08:00:00+03:00"
+      "studio": "Merkez Stüdyo",
+      "created_at": "2026-05-04T08:00:00+03:00"
     }
   ]
 }
 ```
 
-### 4.2 Musteri Gecmisi Kontrol
+---
+
+### 6.2 Müşteri Geçmişi Kontrol
 
 **POST** `/api/studios/{studio_id}/appointments/check-customer`
-
-Request:
 
 ```json
 {
@@ -457,41 +796,43 @@ Request:
 }
 ```
 
-Response:
+**Response `200`**
 
 ```json
 {
   "data": {
     "is_old_customer": true,
     "last_appointment_id": 12,
-    "customer_notes": "VIP Musteri"
+    "customer_notes": "VIP Müşteri"
   }
 }
 ```
 
-### 4.3 Randevu Detayi
+---
+
+### 6.3 Randevu Detayı
 
 **GET** `/api/studios/{studio_id}/appointments/{appointment_id}`
 
-Response:
+**Response `200`**
 
 ```json
 {
   "data": {
     "id": 1,
-    "appointment_type": "vip",
+    "appointment_type": "standard",
     "full_name": "John Doe",
-    "date": "2026-04-28",
+    "date": "2026-05-05",
     "time": "10:00",
     "place": "Hilton",
     "driver": {
       "id": 4,
-      "name": "Sofor",
+      "name": "Şoför",
       "surname": "Bir"
     },
     "created_by": {
       "id": 2,
-      "name": "Calisan",
+      "name": "Çalışan",
       "surname": "Bir"
     },
     "status": "confirmed"
@@ -499,11 +840,11 @@ Response:
 }
 ```
 
-### 4.4 Randevu Olustur
+---
+
+### 6.4 Randevu Oluştur
 
 **POST** `/api/studios/{studio_id}/appointments`
-
-Request:
 
 ```json
 {
@@ -516,19 +857,19 @@ Request:
     "room_number": "402"
   },
   "pax": 2,
-  "appointment_at": "2026-04-28T10:00:00+03:00",
+  "appointment_at": "2026-05-05T10:00:00+03:00",
   "appointment_type": "standard",
-  "notes": "On kapi dan alinacak",
+  "notes": "Ön kapıdan alınacak.",
   "source_image_path": "uploads/slips/slip_123.jpg",
   "assigned_driver_user_id": 4
 }
 ```
 
-Response:
+**Response `201`**
 
 ```json
 {
-  "message": "Randevu olusturuldu.",
+  "message": "Randevu oluşturuldu.",
   "data": {
     "id": 15,
     "status": "pending"
@@ -536,25 +877,25 @@ Response:
 }
 ```
 
-### 4.5 Randevu Guncelle
+---
+
+### 6.5 Randevu Güncelle
 
 **PATCH** `/api/studios/{studio_id}/appointments/{appointment_id}`
-
-Request:
 
 ```json
 {
   "status": "completed",
   "assigned_driver_user_id": 5,
-  "notes": "Musteri erken geldi."
+  "notes": "Müşteri erken geldi."
 }
 ```
 
-Response:
+**Response `200`**
 
 ```json
 {
-  "message": "Randevu guncellendi.",
+  "message": "Randevu güncellendi.",
   "data": {
     "id": 15,
     "status": "completed"
@@ -562,11 +903,13 @@ Response:
 }
 ```
 
-### 4.6 Randevu Sil
+---
+
+### 6.6 Randevu Sil
 
 **DELETE** `/api/studios/{studio_id}/appointments/{appointment_id}`
 
-Response:
+**Response `200`**
 
 ```json
 {
@@ -574,19 +917,44 @@ Response:
 }
 ```
 
-## 5. OCR
+---
 
-### 5.1 Fis Okuma
+### 6.7 Randevu Destek Verisi (Dropdown)
+
+**GET** `/api/studios/{studio_id}/appointment-support`
+
+Randevu oluşturma/güncelleme ekranları için sürücü listesi ve diğer kaynakları döner.
+
+**Response `200`**
+
+```json
+{
+  "data": {
+    "drivers": [
+      {
+        "id": 4,
+        "name": "Şoför Bir",
+        "phone": "5559998877"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 7. OCR — Fiş Okuma
 
 **POST** `/api/ocr/appointment-slip`
 
-Content-Type: `multipart/form-data`
+> Kimlik doğrulaması gerekmez.  
+> `Content-Type: multipart/form-data`
 
-Body:
+| Alan | Tip | Zorunlu |
+|---|---|---|
+| `image` | file | ✓ |
 
-- `image` (file)
-
-Response:
+**Response `200`**
 
 ```json
 {
@@ -596,20 +964,54 @@ Response:
     "hotel_name": "Ramada",
     "room_number": "3211",
     "pax": 3,
-    "date": "2026-04-28",
+    "date": "2026-05-05",
     "time": "17:30"
   }
 }
 ```
 
-## Test Hesaplari
+---
 
-- `admin@example.com` / `123456`
-- `manager@example.com` / `123456`
-- `supervisor@example.com` / `123456`
-- `driver@example.com` / `123456`
-- `employee@example.com` / `123456`
+## Endpoint Özeti
 
-## Not
+| Yöntem | Endpoint | Yetki | Açıklama |
+|---|---|---|---|
+| POST | `/api/login` | — | Giriş yap |
+| GET | `/api/me` veya `/api/profile` | Tümü | Profil getir |
+| PATCH | `/api/me` veya `/api/profile` | Tümü | Profil güncelle |
+| POST | `/api/logout` | Tümü | Çıkış yap |
+| GET | `/api/home` | Tümü | Dashboard özeti |
+| GET | `/api/reports` | Tümü | Dönemsel rapor |
+| GET | `/api/companies` | Admin | Şirketleri listele |
+| POST | `/api/companies` | Admin | Şirket oluştur |
+| PATCH | `/api/companies/{id}` | Admin | Şirket güncelle / limit ayarla |
+| GET | `/api/studios/overview` | Admin, Yönetici | Stüdyoları listele (personel + randevu sayısıyla) |
+| PATCH | `/api/studios/{id}` | Admin, Yönetici | Stüdyo güncelle |
+| GET | `/api/studios/options` | Tümü | Stüdyo dropdown |
+| GET | `/api/users/options` | Admin, Yönetici | Kullanıcı dropdown |
+| GET | `/api/shops` | Tümü | Dükkanları listele |
+| POST | `/api/shops` | Admin | Dükkan oluştur |
+| PATCH | `/api/shops/{id}` | Admin, Yönetici | Dükkan güncelle |
+| GET | `/api/studios/{id}/users` | Admin, Yönetici | Kullanıcıları listele |
+| POST | `/api/users` | Admin, Yönetici | Kullanıcı oluştur |
+| PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici | Kullanıcı güncelle |
+| GET | `/api/studios/{id}/appointments` | Admin, Yönetici, Supervisor, Çalışan | Randevuları listele |
+| POST | `/api/studios/{id}/appointments` | Admin, Yönetici, Supervisor, Çalışan | Randevu oluştur |
+| GET | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu detayı |
+| PATCH | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu güncelle |
+| DELETE | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu sil |
+| POST | `/api/studios/{id}/appointments/check-customer` | Admin, Yönetici, Supervisor, Çalışan | Müşteri geçmişi |
+| GET | `/api/studios/{id}/appointment-support` | Admin, Yönetici, Supervisor, Çalışan | Sürücü dropdown |
+| POST | `/api/ocr/appointment-slip` | — | Fiş OCR |
 
-Bu projede mevcut yapi artik `dukkan -> studio -> personel/randevu` seklindedir.
+---
+
+## Test Hesapları
+
+| E-posta | Şifre | Rol |
+|---|---|---|
+| admin@example.com | 123456 | Admin |
+| manager@example.com | 123456 | Yönetici |
+| supervisor@example.com | 123456 | Supervisor |
+| driver@example.com | 123456 | Şoför |
+| employee@example.com | 123456 | Çalışan |

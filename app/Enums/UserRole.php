@@ -14,10 +14,10 @@ enum UserRole: string
     {
         return match ($this) {
             self::Admin => 'Admin',
-            self::Yonetici => 'Yonetici',
-            self::Supervisor => 'Supervisor',
-            self::Sofor => 'Sofor',
-            self::Calisan => 'Calisan',
+            self::Yonetici => 'Yönetici',
+            self::Supervisor => 'Süpervizör',
+            self::Sofor => 'Şoför',
+            self::Calisan => 'Çalışan',
         };
     }
 

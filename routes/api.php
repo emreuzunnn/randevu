@@ -3,7 +3,9 @@
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentSlipOcrController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\StudioManagerController;
@@ -21,6 +23,9 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware(['api.auth'])->group(function (): void {
     // Kullaniciya gore filtrelenmis dashboard ozeti ve gunluk randevu verilerini dondurur.
     Route::get('/home', [DashboardController::class, 'index']);
+    // Donem bazli raporlama: stats, haftalik grafik verisi, performans listesi ve insight dondurur.
+    // Sorgu parametreleri: period (daily|weekly|monthly|quarterly), studio_id (opsiyonel)
+    Route::get('/reports', [ReportController::class, 'index']);
     // Giris yapan kullanicinin temel profil bilgisini dondurur.
     Route::get('/me', [AuthController::class, 'me']);
     // Giris yapan kullanicinin kendi profil alanlarini alternatif endpointten guncellemesini saglar.
@@ -43,6 +48,8 @@ Route::middleware(['api.auth'])->group(function (): void {
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
     // Erisilebilir studyolari detay ve sayac bilgileriyle listeler.
     Route::get('/studios/overview', [StudioController::class, 'overview']);
+    // Yeni studyo olusturur (sirket limiti kontrol edilir).
+    Route::post('/studios', [StudioController::class, 'store']);
     // Secili studyo ayarlarini gunceller.
     Route::patch('/studios/{studio}', [StudioController::class, 'update']);
     // Secili studyoya yeni personel ekler.
@@ -57,6 +64,10 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
 
 // Sadece admin tarafindan kullanilan ust seviye yonetim API'leri.
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    // Şirket yönetimi (admin only)
+    Route::get('/companies', [CompanyController::class, 'index']);
+    Route::post('/companies', [CompanyController::class, 'store']);
+    Route::patch('/companies/{company}', [CompanyController::class, 'update']);
     // Yeni dukkan olusturur ve yonetici atayabilir.
     Route::post('/shops', [ShopController::class, 'store']);
     // Bir studyodaki yonetici rolundeki kullanicilari listeler.
