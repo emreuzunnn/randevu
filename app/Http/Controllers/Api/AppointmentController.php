@@ -11,6 +11,47 @@ use Illuminate\Http\Request;
 
 class AppointmentController extends Controller
 {
+    public function myAppointments(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $appointments = Appointment::query()
+            ->with(['studio', 'createdBy'])
+            ->where('assigned_driver_user_id', $user->id)
+            ->orderBy('appointment_at')
+            ->get();
+
+        return response()->json([
+            'data' => $appointments->map(fn ($appointment): array => [
+                'id' => $appointment->id,
+                'studio' => $appointment->studio ? [
+                    'id'   => $appointment->studio->id,
+                    'name' => $appointment->studio->name,
+                ] : null,
+                'customer' => [
+                    'first_name'        => $appointment->first_name,
+                    'last_name'         => $appointment->last_name,
+                    'phone_country_code' => $appointment->phone_country_code,
+                    'phone_number'      => $appointment->phone_number,
+                    'hotel_name'        => $appointment->hotel_name,
+                    'room_number'       => $appointment->room_number,
+                    'customer_notes'    => $appointment->customer_notes,
+                ],
+                'place'          => $appointment->place,
+                'pax'            => $appointment->pax,
+                'appointment_at' => optional($appointment->appointment_at)->toIso8601String(),
+                'status'         => $appointment->status,
+                'driver_status'  => $appointment->driver_status,
+                'notes'          => $appointment->notes,
+                'created_by'     => $appointment->createdBy ? [
+                    'id'      => $appointment->createdBy->id,
+                    'name'    => $appointment->createdBy->fullName(),
+                ] : null,
+                'created_at' => optional($appointment->created_at)->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+
     public function support(Studio $studio, Request $request): JsonResponse
     {
         abort_unless($request->user()?->canManageStudioAppointments($studio), 403);

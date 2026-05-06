@@ -74,9 +74,24 @@
                     <span class="detail-label">Durum</span>
                     <span class="detail-value">{{ $statusInfo['label'] }}</span>
                 </div>
+                @php
+                    $driverStatusMap = [
+                        'picked_up'   => 'Aldım',
+                        'dropped_off' => 'Bıraktım',
+                        'cancelled'   => 'İptal Etti',
+                    ];
+                @endphp
+                <div class="detail-row">
+                    <span class="detail-label">Sürücü Durumu</span>
+                    <span class="detail-value">{{ $driverStatusMap[$appointment->driver_status] ?? ($appointment->driver_status ?: '—') }}</span>
+                </div>
                 <div class="detail-row">
                     <span class="detail-label">Stüdyo</span>
                     <span class="detail-value">{{ $appointment->studio?->name ?: '—' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Otel</span>
+                    <span class="detail-value">{{ $appointment->hotel_name ?: '—' }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Oda No</span>
@@ -84,11 +99,17 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Telefon</span>
-                    <span class="detail-value">{{ $appointment->phone_number ?: '—' }}</span>
+                    <span class="detail-value">
+                        {{ $appointment->phone_country_code ? $appointment->phone_country_code.' ' : '' }}{{ $appointment->phone_number ?: '—' }}
+                    </span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Kişi Sayısı</span>
                     <span class="detail-value">{{ $appointment->pax }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Eski Müşteri</span>
+                    <span class="detail-value">{{ $appointment->is_old_customer ? 'Evet' : 'Hayır' }}</span>
                 </div>
             </div>
         </div>
@@ -112,6 +133,15 @@
                     </span>
                 </div>
             </div>
+
+            @if($appointment->customer_notes)
+                <div class="mt-5">
+                    <div class="field-label mb-2">Müşteri Notu</div>
+                    <div class="list-card text-sm leading-relaxed" style="color:var(--text-muted)">
+                        {{ $appointment->customer_notes }}
+                    </div>
+                </div>
+            @endif
 
             @if($appointment->notes)
                 <div class="mt-5">

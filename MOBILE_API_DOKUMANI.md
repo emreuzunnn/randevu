@@ -1038,7 +1038,55 @@ Tüm alanlar opsiyoneldir; yalnızca değişen alanlar gönderilir.
 
 ---
 
-### 6.8 Randevu Destek Verisi (Dropdown)
+### 6.8 Şoförün Kendi Randevuları
+
+**GET** `/api/my-appointments`
+
+> Yetki: yalnızca `sofor`  
+> Stüdyodan bağımsız olarak giriş yapan şoföre atanmış **tüm** randevuları döner. Şoför hangi stüdyoda kayıtlı olduğundan bağımsız, kendine atanan her randevuyu bu endpoint üzerinden görebilir.
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "studio": {
+        "id": 1,
+        "name": "Merkez Stüdyo"
+      },
+      "customer": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "phone_country_code": "+90",
+        "phone_number": "5550001122",
+        "hotel_name": "Hilton",
+        "room_number": "402",
+        "customer_notes": "VIP Müşteri"
+      },
+      "place": "Hilton Giriş",
+      "pax": 2,
+      "appointment_at": "2026-05-05T10:00:00+03:00",
+      "status": "confirmed",
+      "driver_status": null,
+      "notes": "Ön kapıdan alınacak.",
+      "created_by": {
+        "id": 2,
+        "name": "Çalışan Bir"
+      },
+      "created_at": "2026-05-04T08:00:00+03:00"
+    }
+  ]
+}
+```
+
+> Randevular `appointment_at` alanına göre artan sırada (eskiden yeniye) gelir.  
+> `driver_status` değerleri: `null` (henüz aksiyon yok), `picked_up`, `dropped_off`, `cancelled`.
+
+---
+
+### 6.9 Randevu Destek Verisi (Dropdown)
 
 **GET** `/api/studios/{studio_id}/appointment-support`
 
@@ -1123,6 +1171,7 @@ Randevu oluşturma/güncelleme ekranları için sürücü listesi ve diğer kayn
 | PATCH | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu güncelle |
 | DELETE | `/api/studios/{id}/appointments/{id}` | Admin, Yönetici, Supervisor, Çalışan | Randevu sil |
 | PATCH | `/api/studios/{id}/appointments/{id}/driver-action` | **Şoför** | Şoför aksiyonu (aldım / bıraktım / iptal) |
+| GET | `/api/my-appointments` | **Şoför** | Kendine atanan tüm randevuları listele (stüdyodan bağımsız) |
 | POST | `/api/studios/{id}/appointments/check-customer` | Admin, Yönetici, Supervisor, Çalışan | Müşteri geçmişi |
 | GET | `/api/studios/{id}/appointment-support` | Admin, Yönetici, Supervisor, Çalışan | Sürücü dropdown |
 | POST | `/api/ocr/appointment-slip` | — | Fiş OCR |

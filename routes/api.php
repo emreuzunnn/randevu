@@ -153,6 +153,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,calisan,sofor'])-
 
 // Sofor kendi randevusundaki suruc durumunu gunceller (alim, birakis, iptal).
 Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
+    // Giris yapan soforun kendine atanmis tum randevularini stüdyodan bagimsiz listeler.
+    Route::get('/my-appointments', [AppointmentController::class, 'myAppointments']);
     // driver_status: picked_up (aldim) | dropped_off (biraktim) | cancelled (iptal ettim)
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
 });
