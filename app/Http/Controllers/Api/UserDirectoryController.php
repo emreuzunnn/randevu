@@ -108,6 +108,7 @@ class UserDirectoryController extends Controller
                 'id' => $user->id,
                 'name' => $user->fullName(),
                 'email' => $user->email,
+                'phone' => $user->phone,
                 'role' => $user->pivot->role,
                 'profile_image' => $user->profile_image,
                 'studio_id' => $studio->id,

@@ -98,6 +98,15 @@ class StudioController extends Controller
         ], 201);
     }
 
+    public function destroy(Request $request, Studio $studio): JsonResponse
+    {
+        abort_unless($request->user()?->hasRole(\App\Enums\UserRole::Admin), 403);
+
+        $studio->delete();
+
+        return response()->json(['message' => 'Stüdyo silindi.']);
+    }
+
     public function update(Request $request, Studio $studio): JsonResponse
     {
         abort_unless($request->user()?->canManageStudio($studio), 403);

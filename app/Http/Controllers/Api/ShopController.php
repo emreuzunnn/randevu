@@ -90,6 +90,15 @@ class ShopController extends Controller
         ], 201);
     }
 
+    public function destroy(Request $request, Shop $shop): JsonResponse
+    {
+        abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
+
+        $shop->delete();
+
+        return response()->json(['message' => 'Dükkan silindi.']);
+    }
+
     public function update(Request $request, Shop $shop): JsonResponse
     {
         $user = $request->user();

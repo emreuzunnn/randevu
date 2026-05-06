@@ -52,6 +52,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
     Route::post('/studios', [StudioController::class, 'store']);
     // Secili studyo ayarlarini gunceller.
     Route::patch('/studios/{studio}', [StudioController::class, 'update']);
+    // Secili studyoyu sistemden siler.
+    Route::delete('/studios/{studio}', [StudioController::class, 'destroy']);
     // Secili studyoya yeni personel ekler.
     Route::post('/users', [UserDirectoryController::class, 'store']);
     // Secili studyoya bagli tum kullanicilari listeler.
@@ -70,6 +72,8 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     Route::patch('/companies/{company}', [CompanyController::class, 'update']);
     // Yeni dukkan olusturur ve yonetici atayabilir.
     Route::post('/shops', [ShopController::class, 'store']);
+    // Secili dukkanı sistemden siler.
+    Route::delete('/shops/{shop}', [ShopController::class, 'destroy']);
     // Bir studyodaki yonetici rolundeki kullanicilari listeler.
     Route::get('/studios/{studio}/managers', [StudioStaffController::class, 'index'])
         ->defaults('role', 'yonetici');
