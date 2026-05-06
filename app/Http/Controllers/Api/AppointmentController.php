@@ -35,8 +35,7 @@ class AppointmentController extends Controller
 
     public function show(Studio $studio, Appointment $appointment): JsonResponse
     {
-        return response()->json($appointment);
-        abort_if($appointment->studio_id !== $studio->id, 404);
+        abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
 
         $appointment->load(['createdBy', 'assignedDriver']);
 
