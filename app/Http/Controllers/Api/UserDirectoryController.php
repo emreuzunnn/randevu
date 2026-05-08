@@ -41,24 +41,37 @@ class UserDirectoryController extends Controller
 
     public function store(Request $request, StudioStaffService $studioStaffService): JsonResponse
     {
-        abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
+        abort_unless($request->user()?->hasAnyRole([
+            UserRole::Admin,
+            UserRole::Yonetici,
+            UserRole::StudioAdmin,
+        ]), 403);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'surname' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:30'],
-            'role' => ['required', 'string', 'in:admin,yonetici,calisan,sofor,supervisor'],
+            'name'     => ['required', 'string', 'max:255'],
+            'surname'  => ['required', 'string', 'max:255'],
+            'phone'    => ['required', 'string', 'max:30'],
+            'role'     => ['required', 'string', 'in:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'],
             'studio_id' => ['required', 'integer', 'exists:studios,id'],
-            'email' => ['required', 'string', 'email', 'max:255'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'email'    => ['required', 'string', 'email', 'max:255'],
+            'password' => ['nullable', 'string', 'min:6', 'confirmed'],
         ]);
 
         $studio = Studio::query()->findOrFail($validated['studio_id']);
         abort_unless($request->user()?->canManageStudio($studio), 403);
 
+        // Sadece admin, admin/yonetici rolü atayabilir
         if (
             ! $request->user()?->hasRole(UserRole::Admin)
             && in_array($validated['role'], ['admin', 'yonetici'], true)
+        ) {
+            abort(403);
+        }
+
+        // Studio admin kendi seviyesinde veya üstünde rol atayamaz
+        if (
+            $request->user()?->hasRole(UserRole::StudioAdmin)
+            && in_array($validated['role'], ['admin', 'yonetici', 'studio_admin'], true)
         ) {
             abort(403);
         }
@@ -130,7 +143,7 @@ class UserDirectoryController extends Controller
             'surname' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'string', 'email'],
             'phone' => ['sometimes', 'string', 'max:30'],
-            'role' => ['sometimes', 'string', 'in:admin,yonetici,supervisor,calisan,sofor'],
+            'role' => ['sometimes', 'string', 'in:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'],
             'status' => ['sometimes', 'string', 'in:working,break,transfer'],
             'is_active' => ['sometimes', 'boolean'],
             'profile_image' => ['nullable', 'string', 'max:2048'],
@@ -140,6 +153,14 @@ class UserDirectoryController extends Controller
             ! $request->user()?->hasRole(UserRole::Admin)
             && isset($validated['role'])
             && in_array($validated['role'], ['admin', 'yonetici'], true)
+        ) {
+            abort(403);
+        }
+
+        if (
+            $request->user()?->hasRole(UserRole::StudioAdmin)
+            && isset($validated['role'])
+            && in_array($validated['role'], ['admin', 'yonetici', 'studio_admin'], true)
         ) {
             abort(403);
         }

@@ -359,6 +359,8 @@
     .badge-pill--danger  { background: rgba(248, 113, 113, 0.12); color: #fecaca; border-color: rgba(248, 113, 113, 0.22); }
     .badge-pill--warning { background: rgba(251, 191, 36, 0.12);  color: #fde68a; border-color: rgba(251, 191, 36, 0.22); }
     .badge-pill--info    { background: rgba(96, 165, 250, 0.12);  color: #bfdbfe; border-color: rgba(96, 165, 250, 0.22); }
+    .badge-pill--purple  { background: rgba(167, 139, 250, 0.13); color: #ddd6fe; border-color: rgba(167, 139, 250, 0.24); }
+    .badge-pill--teal    { background: rgba(45, 212, 191, 0.12);  color: #99f6e4; border-color: rgba(45, 212, 191, 0.22); }
 
     /* ── Forms ────────────────────────────────────────── */
 

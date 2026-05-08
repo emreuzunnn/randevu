@@ -404,13 +404,27 @@ admin
 
 ```json
 {
-  "role": "artist",
+  "role": "designer",
   "is_active": false,
   "status": "break"
 }
 ```
 
 > `is_active: false` → kullanıcıyı banlar / stüdyodan uzaklaştırır.
+
+**Geçerli `role` değerleri:**
+
+| Değer | Açıklama | Atayabilir |
+|---|---|---|
+| `studio_admin` | Stüdyo yöneticisi | Admin, Yönetici |
+| `supervisor` | Süpervizör | Admin, Yönetici, Stüdyo Yöneticisi |
+| `designer` | Tasarımcı | Admin, Yönetici, Stüdyo Yöneticisi |
+| `artist` | Artist | Admin, Yönetici, Stüdyo Yöneticisi |
+| `info` | Info çalışanı | Admin, Yönetici, Stüdyo Yöneticisi |
+| `sofor` | Şoför | Admin, Yönetici, Stüdyo Yöneticisi |
+| `calisan` | Genel çalışan | Admin, Yönetici, Stüdyo Yöneticisi |
+
+> Stüdyo yöneticisi kendi seviyesinde veya üstünde rol (`admin`, `yonetici`, `studio_admin`) atayamaz.
 
 ---
 
@@ -421,32 +435,65 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 | Yöntem | Endpoint | Açıklama |
 |---|---|---|
 | GET | `/api/studios/{id}/supervisors` | Süpervizörleri listele |
-| POST | `/api/studios/{id}/supervisors` | Süpervizör ekle |
+| POST | `/api/studios/{id}/supervisors` | Süpervizör ekle/ata |
 | PATCH | `/api/studios/{id}/supervisors/{user}` | Güncelle |
 | DELETE | `/api/studios/{id}/supervisors/{user}` | Pasife al |
 | GET | `/api/studios/{id}/artists` | Artistleri listele |
-| POST | `/api/studios/{id}/artists` | Artist ekle |
+| POST | `/api/studios/{id}/artists` | Artist ekle/ata |
 | PATCH | `/api/studios/{id}/artists/{user}` | Güncelle |
 | DELETE | `/api/studios/{id}/artists/{user}` | Pasife al |
 | GET | `/api/studios/{id}/designers` | Tasarımcıları listele |
-| POST | `/api/studios/{id}/designers` | Tasarımcı ekle |
+| POST | `/api/studios/{id}/designers` | Tasarımcı ekle/ata |
+| PATCH | `/api/studios/{id}/designers/{user}` | Güncelle |
+| DELETE | `/api/studios/{id}/designers/{user}` | Pasife al |
 | GET | `/api/studios/{id}/info-staff` | Info personeli listele |
-| POST | `/api/studios/{id}/info-staff` | Info personeli ekle |
+| POST | `/api/studios/{id}/info-staff` | Info personeli ekle/ata |
+| PATCH | `/api/studios/{id}/info-staff/{user}` | Güncelle |
+| DELETE | `/api/studios/{id}/info-staff/{user}` | Pasife al |
 | GET | `/api/studios/{id}/drivers` | Şoförleri listele |
-| POST | `/api/studios/{id}/drivers` | Şoför ekle |
+| POST | `/api/studios/{id}/drivers` | Şoför ekle/ata |
+| PATCH | `/api/studios/{id}/drivers/{user}` | Güncelle |
+| DELETE | `/api/studios/{id}/drivers/{user}` | Pasife al |
 
 **Personel Ekleme İstek Gövdesi:**
 
 ```json
 {
   "name": "Mehmet",
+  "surname": "Kaya",
+  "phone": "5551234567",
   "email": "mehmet@example.com",
   "password": "password123",
   "password_confirmation": "password123"
 }
 ```
 
-> E-posta sistemde varsa kullanıcı stüdyoya bağlanır. Yoksa yeni kullanıcı oluşturulur.
+> - `password` **opsiyoneldir.** E-posta sistemde kayıtlıysa mevcut kullanıcı stüdyoya bağlanır; şifre girilmişse güncellenir.  
+> - E-posta sistemde yoksa yeni kullanıcı oluşturulur — bu durumda `password` zorunludur.
+
+### 4.5 Genel Kullanıcı Oluştur / Ata
+
+**POST** `/api/users`
+
+> Yetki: `admin`, `yonetici`, `studio_admin`  
+> Rol ve stüdyo belirterek personel oluşturur veya mevcut kullanıcıyı stüdyoya atar.  
+> 4.4'teki rol bazlı endpoint'lere alternatif tek endpoint.
+
+```json
+{
+  "name": "Ali",
+  "surname": "Demir",
+  "phone": "5559998877",
+  "email": "ali@example.com",
+  "role": "designer",
+  "studio_id": 1,
+  "password": "password123",
+  "password_confirmation": "password123"
+}
+```
+
+> `role`: `supervisor` | `designer` | `artist` | `info` | `sofor` | `calisan`  
+> `studio_admin` rolü yalnızca `admin` ve `yonetici` atayabilir.
 
 ---
 
@@ -840,6 +887,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 | DELETE | `/api/studios/{id}` | Admin, Yönetici | Stüdyo sil |
 | GET | `/api/studios/{id}/users` | Admin, Yönetici, Stüdyo Yöneticisi | Personeli listele |
 | PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici, Stüdyo Yöneticisi | Personel güncelle/banla |
+| POST | `/api/users` | Admin, Yönetici, **Stüdyo Yöneticisi** | Kullanıcı oluştur/ata |
 | GET/POST/PATCH/DELETE | `/api/studios/{id}/supervisors` | Admin, Yönetici, Stüdyo Yöneticisi | Süpervizör yönetimi |
 | GET/POST/PATCH/DELETE | `/api/studios/{id}/artists` | Admin, Yönetici, Stüdyo Yöneticisi | Artist yönetimi |
 | GET/POST/PATCH/DELETE | `/api/studios/{id}/designers` | Admin, Yönetici, Stüdyo Yöneticisi | Tasarımcı yönetimi |
@@ -875,3 +923,14 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 | driver@example.com | 123456 | Şoför |
 | user-rol@example.com | 123456 | Kullanıcı (Rol) |
 | user@example.com | 123456 | Kullanıcı |
+
+---
+
+## Değişiklik Geçmişi
+
+### 2026-05-08
+- **4.3** `role` alanı genişletildi: `designer`, `artist`, `info`, `studio_admin` artık geçerli değerler. Stüdyo Yöneticisi kendi seviyesinde veya üstünde rol atayamaz.
+- **4.4** Personel ekleme body'sine `surname` ve `phone` alanları eklendi. `password` artık **opsiyonel** — mevcut e-posta varsa kullanıcı atanır, yoksa yeni kullanıcı oluşturulur.
+- **4.4** `designers` ve `info-staff` için eksik PATCH/DELETE endpoint'leri tabloya eklendi.
+- **4.5** `POST /api/users` endpoint'i eklendi: `studio_admin` da bu endpoint ile kullanıcı oluşturabilir/atayabilir.
+- **Yetki** `studio_admin` rolü artık `POST /api/users` yapabilir (önceki kısıtlama: yalnızca `admin` ve `yonetici`).

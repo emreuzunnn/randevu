@@ -14,7 +14,15 @@ class AdminPanelAccessMiddleware
         $user = $request->user();
 
         abort_if($user === null, Response::HTTP_UNAUTHORIZED);
-        abort_unless($user->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), Response::HTTP_FORBIDDEN);
+        abort_unless($user->hasAnyRole([
+            UserRole::Admin,
+            UserRole::Yonetici,
+            UserRole::StudioAdmin,
+            UserRole::Supervisor,
+            UserRole::Info,
+            UserRole::Designer,
+            UserRole::Sofor,
+        ]), Response::HTTP_FORBIDDEN);
 
         return $next($request);
     }

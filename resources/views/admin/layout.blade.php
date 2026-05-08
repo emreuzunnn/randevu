@@ -10,23 +10,37 @@
             $adminApiToken = auth()->user()->issueApiToken();
             session(['admin_api_token' => $adminApiToken]);
         }
+        $u         = auth()->user();
+        $userRole  = $u?->role?->value ?? '';
         $roleLabels = [
-            'admin'      => 'Admin',
-            'yonetici'   => 'Yönetici',
-            'supervisor' => 'Süpervizör',
-            'sofor'      => 'Şoför',
-            'calisan'    => 'Çalışan',
+            'admin'       => 'Admin',
+            'yonetici'    => 'Yönetici',
+            'studio_admin'=> 'Stüdyo Yöneticisi',
+            'supervisor'  => 'Süpervizör',
+            'designer'    => 'Tasarımcı',
+            'artist'      => 'Artist',
+            'info'        => 'Info',
+            'sofor'       => 'Şoför',
+            'calisan'     => 'Çalışan',
         ];
-        $userRole   = auth()->user()?->role?->value;
-        $roleLabel  = $roleLabels[$userRole] ?? ucfirst((string) $userRole);
-        $userName   = auth()->user()?->fullName() ?: auth()->user()?->name;
+        $roleLabel   = $roleLabels[$userRole] ?? ucfirst($userRole);
+        $userName    = $u?->fullName() ?: $u?->name;
         $userInitial = strtoupper(mb_substr($userName ?? 'A', 0, 1));
+
+        $isAdmin        = $u?->hasRole(\App\Enums\UserRole::Admin);
+        $isYonetici     = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]);
+        $isStudioAdmin  = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::StudioAdmin]);
+        $canManageUsers = $isStudioAdmin;
+        $isSupervisor   = $u?->hasRole(\App\Enums\UserRole::Supervisor);
     @endphp
     <meta name="admin-api-base"             content="/api">
     <meta name="admin-api-token"            content="{{ $adminApiToken }}">
     <meta name="admin-user-role"            content="{{ $userRole }}">
-    <meta name="admin-can-manage-structure" content="{{ auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]) ? '1' : '0' }}">
-    <meta name="admin-is-admin"             content="{{ auth()->user()?->hasRole(\App\Enums\UserRole::Admin) ? '1' : '0' }}">
+    <meta name="admin-can-manage-structure" content="{{ $isYonetici ? '1' : '0' }}">
+    <meta name="admin-is-admin"             content="{{ $isAdmin ? '1' : '0' }}">
+    <meta name="admin-is-studio-admin"      content="{{ $u?->hasRole(\App\Enums\UserRole::StudioAdmin) ? '1' : '0' }}">
+    <meta name="admin-is-supervisor"        content="{{ $isSupervisor ? '1' : '0' }}">
+    <meta name="admin-can-manage-users"     content="{{ $canManageUsers ? '1' : '0' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -41,9 +55,19 @@
         {{-- ── Sidebar ── --}}
         <aside class="admin-sidebar hidden text-stone-100 lg:flex">
             <div class="admin-sidebar__brand">
-                <div class="section-eyebrow">Operasyon Merkezi</div>
+                <div class="section-eyebrow">
+                    @if($isAdmin) Platform Admin
+                    @elseif($isYonetici) Operasyon Merkezi
+                    @elseif($isStudioAdmin) Stüdyo Yönetim
+                    @else Personel Paneli
+                    @endif
+                </div>
                 <div class="mt-2 text-lg font-bold tracking-tight" style="color:var(--text-main)">Randevu Panel</div>
-                <p class="mt-1.5 text-xs leading-5" style="color:var(--text-muted)">Dükkanlarınızı, stüdyolarınızı ve randevu operasyonunuzu güvenle yönetin.</p>
+                <p class="mt-1.5 text-xs leading-5" style="color:var(--text-muted)">
+                    @if($isStudioAdmin) Stüdyonuzu, ekibinizi ve randevularınızı yönetin.
+                    @else Randevu operasyonunuzu buradan yönetin.
+                    @endif
+                </p>
             </div>
 
             <nav class="admin-sidebar__nav">
@@ -58,7 +82,8 @@
                     Dashboard
                 </a>
 
-                @if (auth()->user()?->hasRole(\App\Enums\UserRole::Admin))
+                {{-- Admin-only: Şirketler --}}
+                @if ($isAdmin)
                     <a href="{{ route('admin.companies.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.companies.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -70,7 +95,8 @@
                     </a>
                 @endif
 
-                @if (auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]))
+                {{-- Admin + Yönetici: Yönetim bölümü --}}
+                @if ($isYonetici)
                     <div class="admin-nav-section">Yönetim</div>
 
                     <a href="{{ route('admin.shops.index') }}"
@@ -80,6 +106,22 @@
                             <polyline points="9 22 9 12 15 12 15 22"/>
                         </svg>
                         Dükkanlar
+                    </a>
+                @endif
+
+                {{-- Admin + Yönetici + Stüdyo Admin: Stüdyolar & Kullanıcılar --}}
+                @if ($isStudioAdmin)
+                    @if (! $isYonetici)
+                        <div class="admin-nav-section">Stüdyom</div>
+                    @endif
+
+                    <a href="{{ route('admin.studios.index') }}"
+                       class="admin-nav-link {{ request()->routeIs('admin.studios.*') ? 'is-active' : '' }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                        Stüdyolar
                     </a>
 
                     <a href="{{ route('admin.users.index') }}"
@@ -106,18 +148,15 @@
                     </svg>
                     Randevular
                 </a>
-
-                @if (auth()->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]))
-                    <a href="{{ route('admin.studios.index') }}"
-                       class="admin-nav-link {{ request()->routeIs('admin.studios.*') ? 'is-active' : '' }}">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="23 7 16 12 23 17 23 7"/>
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                        </svg>
-                        Stüdyolar
-                    </a>
-                @endif
             </nav>
+
+            {{-- Sidebar footer --}}
+            <div style="padding: 0 1.1rem 1.1rem;">
+                <div style="border-radius:1rem;border:1px solid rgba(255,255,255,0.07);padding:0.75rem 0.9rem;background:rgba(255,255,255,0.025)">
+                    <div class="text-xs font-semibold" style="color:var(--text-main)">{{ $userName }}</div>
+                    <div class="mt-0.5 text-xs" style="color:var(--text-subtle)">{{ $roleLabel }}</div>
+                </div>
+            </div>
         </aside>
 
         {{-- ── Main ── --}}
@@ -126,7 +165,11 @@
                 <div>
                     <div class="section-eyebrow">{{ $title ?? 'Admin Panel' }}</div>
                     <div class="mt-1 text-sm font-medium" style="color:var(--text-muted)">
-                        Tüm ekip, randevu ve lokasyon hareketleri bu ekranda anlık olarak takip edilir.
+                        @if($isAdmin) Tüm şirket, dükkan, stüdyo ve randevu hareketleri.
+                        @elseif($isYonetici) Stüdyolar, personel ve randevu operasyonu.
+                        @elseif($isStudioAdmin) Stüdyonuzun ekibi ve randevu akışı.
+                        @else Randevu ve operasyon hareketleri.
+                        @endif
                     </div>
                 </div>
                 <div class="action-row">
@@ -135,13 +178,29 @@
                         <div>
                             <div class="topbar-user-name">{{ $userName }}</div>
                             <div class="topbar-user-role">
-                                <span class="badge-pill badge-pill--info" style="font-size:0.6rem;padding:0.18rem 0.5rem">{{ $roleLabel }}</span>
+                                <span class="badge-pill {{ match($userRole) {
+                                    'admin'        => 'badge-pill--danger',
+                                    'yonetici'     => 'badge-pill--warning',
+                                    'studio_admin' => 'badge-pill--purple',
+                                    'supervisor'   => 'badge-pill--info',
+                                    'designer'     => 'badge-pill--teal',
+                                    'artist'       => 'badge-pill--success',
+                                    'sofor'        => 'badge-pill--warning',
+                                    default        => '',
+                                } }}" style="font-size:0.6rem;padding:0.18rem 0.5rem">{{ $roleLabel }}</span>
                             </div>
                         </div>
                     </div>
                     <form action="{{ route('admin.logout') }}" method="POST">
                         @csrf
-                        <button class="button-secondary" style="font-size:0.78rem;padding:0.48rem 0.9rem">Çıkış</button>
+                        <button class="button-ghost" style="font-size:0.78rem;padding:0.48rem 0.9rem">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                <polyline points="16 17 21 12 16 7"/>
+                                <line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
+                            Çıkış
+                        </button>
                     </form>
                 </div>
             </header>

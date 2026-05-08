@@ -20,6 +20,9 @@ const adminConfig = {
     role:               meta('admin-user-role'),
     canManageStructure: meta('admin-can-manage-structure') === '1',
     isAdmin:            meta('admin-is-admin') === '1',
+    isStudioAdmin:      meta('admin-is-studio-admin') === '1',
+    isSupervisor:       meta('admin-is-supervisor') === '1',
+    canManageUsers:     meta('admin-can-manage-users') === '1',
 };
 
 /* ── Durum & rol çevirileri ────────────────────────────────── */
@@ -355,8 +358,10 @@ const renderDashboard = async (root) => {
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
-        ? ['admin', 'yonetici', 'supervisor', 'sofor', 'calisan']
-        : ['supervisor', 'sofor', 'calisan'];
+        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        : adminConfig.canManageStructure
+        ? ['studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        : ['supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan'];
 
     root.innerHTML = `
         <section class="hero-card">
@@ -365,10 +370,10 @@ const renderUsersPage = async (root) => {
                 <div class="max-w-2xl">
                     <h1 class="text-4xl font-bold tracking-tight">Doğru ekibi doğru stüdyoya hızla yerleştir.</h1>
                     <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Personel listesi, roller ve durum bilgileri tek panelde görünür. Ekip düzenini bozmadan hızlı güncelleme yapabilirsiniz.
+                        Personel listesi, roller ve durum bilgileri tek panelde görünür. Ban yönetimi ve rol ataması tek yerden yapılır.
                     </p>
                 </div>
-                <div class="badge-pill badge-pill--success">Ekip Yönetimi</div>
+                <span class="badge-pill badge-pill--purple">Ekip Yönetimi</span>
             </div>
         </section>
         <section class="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
@@ -382,9 +387,11 @@ const renderUsersPage = async (root) => {
                 </div>
                 <div class="mt-5 list-stack" data-users-list>${skeletonGrid(4)}</div>
             </div>
+            ${adminConfig.canManageUsers ? `
             <div class="form-shell">
-                <div class="section-eyebrow">Yeni Personel</div>
-                <h2 class="mt-2 section-title">Kullanıcı Ekle</h2>
+                <div class="section-eyebrow">Personel Ekle / Ata</div>
+                <h2 class="mt-2 section-title">Kullanıcı Oluştur</h2>
+                <p class="mt-1 text-xs" style="color:var(--text-muted)">Kayıtlı e-posta girilirse mevcut kullanıcı stüdyoya atanır.</p>
                 <form class="mt-5 form-grid" data-users-create-form>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">İsim</label><input class="field-input" name="name" required></div>
@@ -405,12 +412,21 @@ const renderUsersPage = async (root) => {
                         </div>
                     </div>
                     <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Şifre</label><input class="field-input" name="password" type="password" required></div>
-                        <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password" required></div>
+                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(mevcut kullanıcıda opsiyonel)</span></label><input class="field-input" name="password" type="password"></div>
+                        <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password"></div>
                     </div>
-                    <button class="button-primary mt-1" type="submit">Kullanıcı Oluştur</button>
+                    <button class="button-primary mt-1" type="submit">Kullanıcı Oluştur / Ata</button>
                 </form>
             </div>
+            ` : `
+            <div class="form-shell" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-subtle);margin-bottom:1rem">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                </svg>
+                <div class="section-title">Personel Listesi</div>
+                <p class="mt-2 text-sm" style="color:var(--text-muted)">Stüdyo yöneticisi veya üstü rol gerekli.</p>
+            </div>
+            `}
         </section>
     `;
 
@@ -420,9 +436,11 @@ const renderUsersPage = async (root) => {
     const form               = qs('[data-users-create-form]', root);
     const roleSelect         = qs('[data-users-role-select]', root);
 
-    roleSelect.innerHTML = roles.map((role) =>
-        `<option value="${role}">${roleLabel(role)}</option>`
-    ).join('');
+    if (roleSelect) {
+        roleSelect.innerHTML = roles.map((role) =>
+            `<option value="${role}">${roleLabel(role)}</option>`
+        ).join('');
+    }
 
     const loadStudios = async () => {
         const payload = await apiFetch('/studios/options');
@@ -445,41 +463,58 @@ const renderUsersPage = async (root) => {
         const payload = await apiFetch(`/studios/${studioSelect.value}/users`);
         const users   = payload.data || [];
 
+        const roleBadge = (role) => {
+            const map = {
+                admin: 'badge-pill--danger', yonetici: 'badge-pill--warning',
+                studio_admin: 'badge-pill--purple', supervisor: 'badge-pill--info',
+                designer: 'badge-pill--teal', artist: 'badge-pill--success',
+                info: 'badge-pill--info', sofor: 'badge-pill--warning', calisan: '',
+            };
+            return `<span class="badge-pill ${map[role] || ''}" style="font-size:0.62rem">${roleLabel(role)}</span>`;
+        };
+
         listNode.innerHTML = users.length
             ? users.map((user, index) => `
-                <article class="data-card animate-stagger-${(index % 3) + 1}" data-user-card data-user-id="${user.id}">
-                    <div class="flex items-start justify-between gap-4">
-                        <div>
-                            <div class="text-base font-semibold">${escapeHtml(user.name)}</div>
-                            <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(user.email)}</div>
+                <article class="data-card animate-stagger-${(index % 3) + 1}" data-user-card data-user-id="${user.id}" style="${! user.is_active ? 'opacity:0.6' : ''}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div style="width:2rem;height:2rem;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-strong));display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#0c1324;flex-shrink:0">
+                                ${escapeHtml((user.name || '?').charAt(0).toUpperCase())}
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold">${escapeHtml(user.name)}</div>
+                                <div class="text-xs" style="color:var(--text-muted)">${escapeHtml(user.email)}</div>
+                                ${user.phone ? `<div class="text-xs" style="color:var(--text-subtle)">${escapeHtml(user.phone)}</div>` : ''}
+                            </div>
                         </div>
-                        <span class="${statusClass(user.status)}">${statusLabel(user.status)}</span>
+                        <div class="flex flex-col items-end gap-1">
+                            ${roleBadge(user.role)}
+                            ${! user.is_active ? '<span class="badge-pill badge-pill--danger" style="font-size:0.58rem">Banlı</span>' : ''}
+                        </div>
                     </div>
+                    ${adminConfig.canManageUsers ? `
                     <div class="mt-4 form-grid form-grid--split">
                         <div class="field-wrap">
                             <label class="field-label">Rol</label>
                             <select class="field-select" data-user-role>
-                                ${roles.map((role) =>
-                                    `<option value="${role}" ${user.role === role ? 'selected' : ''}>${roleLabel(role)}</option>`
-                                ).join('')}
+                                ${roles.map((r) => `<option value="${r}" ${user.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="field-wrap">
-                            <label class="field-label">Durum</label>
+                            <label class="field-label">Çalışma Durumu</label>
                             <select class="field-select" data-user-status>
-                                ${['working', 'break', 'transfer'].map((s) =>
-                                    `<option value="${s}" ${user.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`
-                                ).join('')}
+                                ${['working', 'break', 'transfer'].map((s) => `<option value="${s}" ${user.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
                             </select>
                         </div>
                     </div>
-                    <div class="mt-4 action-row">
-                        <label class="inline-flex items-center gap-2 text-xs" style="color:var(--text-muted)">
+                    <div class="mt-3 action-row">
+                        <label class="inline-flex items-center gap-2 text-xs cursor-pointer" style="color:var(--text-muted)">
                             <input type="checkbox" data-user-active ${user.is_active ? 'checked' : ''}>
-                            Aktif
+                            <span>${user.is_active ? 'Aktif' : 'Banlı / Pasif'}</span>
                         </label>
-                        <button class="button-secondary" data-user-save>Güncelle</button>
+                        <button class="button-primary" data-user-save style="padding:0.42rem 0.9rem;font-size:0.76rem">Kaydet</button>
                     </div>
+                    ` : ''}
                 </article>
             `).join('')
             : '<div class="empty-state">Bu stüdyoda kullanıcı bulunmuyor.</div>';
@@ -510,20 +545,22 @@ const renderUsersPage = async (root) => {
     studioSelect.addEventListener('change', () => handleAsync(renderUsers));
     qs('[data-users-refresh]', root)?.addEventListener('click', () => handleAsync(renderUsers));
 
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        handleAsync(async () => {
-            const formData = new FormData(form);
-            await apiFetch('/users', {
-                method: 'POST',
-                body: Object.fromEntries(formData.entries()),
+    if (form) {
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            handleAsync(async () => {
+                const formData = new FormData(form);
+                await apiFetch('/users', {
+                    method: 'POST',
+                    body: Object.fromEntries(formData.entries()),
+                });
+                form.reset();
+                if (createStudioSelect) createStudioSelect.value = studioSelect.value;
+                showToast('Kullanıcı oluşturuldu / atandı.', 'success');
+                await renderUsers();
             });
-            form.reset();
-            createStudioSelect.value = studioSelect.value;
-            showToast('Yeni kullanıcı eklendi.', 'success');
-            await renderUsers();
         });
-    });
+    }
 };
 
 /* ── Randevular ────────────────────────────────────────────── */
@@ -741,20 +778,24 @@ const renderAppointmentsPage = async (root) => {
 /* ── Stüdyolar ─────────────────────────────────────────────── */
 
 const renderStudiosPage = async (root) => {
+    const isStudioAdminOnly = adminConfig.isStudioAdmin && !adminConfig.canManageStructure;
+
     root.innerHTML = `
         <section class="hero-card">
             <div class="section-eyebrow">Stüdyo Yönetimi</div>
             <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
                 <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Her stüdyoyu net hedeflerle ve güçlü bir görünümle yönet.</h1>
+                    <h1 class="text-4xl font-bold tracking-tight">
+                        ${isStudioAdminOnly ? 'Stüdyonuzu yönetin ve ekibinizi organize edin.' : 'Her stüdyoyu net hedeflerle ve güçlü bir görünümle yönet.'}
+                    </h1>
                     <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Lokasyon, ekip yoğunluğu ve ayar bilgileri tek kartta toplanır. Her stüdyonun durumu ilk bakışta anlaşılır.
+                        ${isStudioAdminOnly ? 'Logo, isim, konum ve bildirim ayarlarını bu ekrandan yapılandırabilirsiniz.' : 'Lokasyon, ekip yoğunluğu ve ayar bilgileri tek kartta toplanır.'}
                     </p>
                 </div>
-                <div class="badge-pill">Lokasyon Kontrolü</div>
+                <span class="badge-pill badge-pill--purple">Stüdyo Ayarları</span>
             </div>
         </section>
-        <section class="data-grid" data-studios-grid>${skeletonGrid(3)}</section>
+        <section class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</section>
     `;
 
     const grid    = qs('[data-studios-grid]', root);
@@ -782,11 +823,17 @@ const renderStudiosPage = async (root) => {
                     </div>
                 </div>
                 <form class="mt-5 form-grid" data-studio-form data-studio-id="${studio.id}">
-                    <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" value="${escapeHtml(studio.name)}"></div>
-                    <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
-                    <div class="field-wrap"><label class="field-label">Logo Yolu</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}"></div>
-                    <div class="field-wrap"><label class="field-label">Bildirim Süresi (dk)</label><input class="field-input" type="number" min="0" name="notification_lead_minutes" value="${studio.notification_lead_minutes}"></div>
-                    <button class="button-primary mt-1" type="submit">Stüdyo Ayarlarını Kaydet</button>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" value="${escapeHtml(studio.name)}"></div>
+                        <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
+                    </div>
+                    <div class="field-wrap"><label class="field-label">Logo URL</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}" placeholder="https://..."></div>
+                    <div class="field-wrap">
+                        <label class="field-label">Bildirim Süresi <span style="color:var(--text-subtle)">(dk önce)</span></label>
+                        <input class="field-input" type="number" min="0" max="1440" name="notification_lead_minutes" value="${studio.notification_lead_minutes ?? 30}">
+                        <span class="text-xs" style="color:var(--text-subtle)">Çalışanlara randevu başlamadan kaç dakika önce bildirim gidecek.</span>
+                    </div>
+                    <button class="button-primary mt-1" type="submit">Ayarları Kaydet</button>
                 </form>
             </article>
         `).join('')

@@ -11,7 +11,7 @@
 </head>
 <body class="login-page text-white">
     <div class="mx-auto flex min-h-screen max-w-7xl items-center px-6 py-12">
-        <div class="grid w-full gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div class="grid w-full gap-8 grid-cols-[1.2fr_0.8fr]">
 
             {{-- Sol panel: tanıtım --}}
             <section class="login-shell p-10 lg:p-14">
