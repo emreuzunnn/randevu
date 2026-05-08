@@ -32,6 +32,17 @@
         $isStudioAdmin  = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::StudioAdmin]);
         $canManageUsers = $isStudioAdmin;
         $isSupervisor   = $u?->hasRole(\App\Enums\UserRole::Supervisor);
+
+        $roleBadgeClass = match($userRole) {
+            'admin'        => 'badge-pill--danger',
+            'yonetici'     => 'badge-pill--warning',
+            'studio_admin' => 'badge-pill--purple',
+            'supervisor'   => 'badge-pill--info',
+            'designer'     => 'badge-pill--teal',
+            'artist'       => 'badge-pill--success',
+            'sofor'        => 'badge-pill--warning',
+            default        => '',
+        };
     @endphp
     <meta name="admin-api-base"             content="/api">
     <meta name="admin-api-token"            content="{{ $adminApiToken }}">
@@ -53,7 +64,7 @@
 
     <div class="admin-shell">
         {{-- ── Sidebar ── --}}
-        <aside class="admin-sidebar hidden text-stone-100 lg:flex">
+        <aside class="admin-sidebar">
             <div class="admin-sidebar__brand">
                 <div class="section-eyebrow">
                     @if($isAdmin) Platform Admin
@@ -178,16 +189,7 @@
                         <div>
                             <div class="topbar-user-name">{{ $userName }}</div>
                             <div class="topbar-user-role">
-                                <span class="badge-pill {{ match($userRole) {
-                                    'admin'        => 'badge-pill--danger',
-                                    'yonetici'     => 'badge-pill--warning',
-                                    'studio_admin' => 'badge-pill--purple',
-                                    'supervisor'   => 'badge-pill--info',
-                                    'designer'     => 'badge-pill--teal',
-                                    'artist'       => 'badge-pill--success',
-                                    'sofor'        => 'badge-pill--warning',
-                                    default        => '',
-                                } }}" style="font-size:0.6rem;padding:0.18rem 0.5rem">{{ $roleLabel }}</span>
+                                <span class="badge-pill {{ $roleBadgeClass }}" style="font-size:0.6rem;padding:0.18rem 0.5rem">{{ $roleLabel }}</span>
                             </div>
                         </div>
                     </div>

@@ -115,8 +115,9 @@
         border-radius: 1.75rem;
         backdrop-filter: blur(30px);
         box-shadow: 0 32px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.035);
-        display: flex;
+        display: flex;          /* always flex — no Tailwind dependency */
         flex-direction: column;
+        color: #f1f5f9;
         overflow: hidden;
     }
 
@@ -614,7 +615,23 @@
         backdrop-filter: blur(28px);
     }
 
+    /* ── JS content containers: sections içinde boşluk ── */
+
+    [data-admin-dashboard],
+    [data-admin-companies],
+    [data-admin-users],
+    [data-admin-appointments],
+    [data-admin-studios],
+    [data-admin-shops] {
+        display: grid;
+        gap: 1.25rem;
+    }
+
     /* ── Responsive ───────────────────────────────────── */
+
+    @media (max-width: 1023px) {
+        .admin-sidebar { display: none; }   /* sidebar sadece desktop'ta görünür */
+    }
 
     @media (max-width: 768px) {
         .admin-shell { min-height: auto; }
@@ -653,8 +670,6 @@
 }
 
 @media (max-width: 1024px) {
-    .admin-shell { display: block; }
-    .admin-sidebar { width: auto; min-width: auto; margin: 1rem; }
     .admin-main { padding: 0 1rem 1rem; }
     .form-grid--split { grid-template-columns: 1fr; }
 }
