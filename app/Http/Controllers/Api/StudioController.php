@@ -76,6 +76,7 @@ class StudioController extends Controller
 
         $studio = Studio::query()->create([
             'shop_id'                   => $shop->id,
+            'owner_user_id'             => $request->user()->id,
             'name'                      => $validated['name'],
             'location'                  => $validated['location'] ?? null,
             'slug'                      => Str::slug($validated['name']) . '-' . Str::random(5),
