@@ -21,7 +21,6 @@ class StudioApiTest extends TestCase
         $studio = Studio::factory()->create([
             'owner_user_id' => $admin->id,
             'name' => 'Old Studio',
-            'notification_lead_minutes' => 30,
         ]);
 
         $studio->users()->attach($admin->id, [
@@ -34,11 +33,9 @@ class StudioApiTest extends TestCase
         $response = $this->actingAs($admin)->patchJson("/api/studios/{$studio->id}", [
             'name' => 'New Studio',
             'logo_path' => 'logos/studio.png',
-            'notification_lead_minutes' => 45,
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.name', 'New Studio')
-            ->assertJsonPath('data.notification_lead_minutes', 45);
+            ->assertJsonPath('data.name', 'New Studio');
     }
 }

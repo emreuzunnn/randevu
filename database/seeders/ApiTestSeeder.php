@@ -75,7 +75,6 @@ class ApiTestSeeder extends Seeder
             'slug' => Str::slug('Merkez Studio'),
             'owner_user_id' => $admin->id,
             'shop_id' => $shop->id,
-            'notification_lead_minutes' => 30,
         ]);
 
         $studio->users()->attach($admin->id, [

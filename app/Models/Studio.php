@@ -19,19 +19,11 @@ class Studio extends Model
         'location',
         'slug',
         'logo_path',
-        'notification_lead_minutes',
         'owner_user_id',
         'shop_id',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'notification_lead_minutes' => 'integer',
-        ];
-    }
-
-    public function owner(): BelongsTo
+public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
     }

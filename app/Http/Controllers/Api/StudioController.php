@@ -36,7 +36,6 @@ class StudioController extends Controller
                 'location' => $studio->location,
                 'slug' => $studio->slug,
                 'logo_path' => $studio->logo_path,
-                'notification_lead_minutes' => $studio->notification_lead_minutes,
                 'shop' => $studio->shop ? [
                     'id' => $studio->shop->id,
                     'name' => $studio->shop->name,
@@ -56,7 +55,6 @@ class StudioController extends Controller
             'shop_id'                    => ['required', 'integer', 'exists:shops,id'],
             'name'                       => ['required', 'string', 'max:255'],
             'location'                   => ['nullable', 'string', 'max:255'],
-            'notification_lead_minutes'  => ['sometimes', 'integer', 'min:0', 'max:1440'],
         ]);
 
         $shop = Shop::query()->with('company')->findOrFail($validated['shop_id']);
@@ -81,7 +79,6 @@ class StudioController extends Controller
             'name'                      => $validated['name'],
             'location'                  => $validated['location'] ?? null,
             'slug'                      => Str::slug($validated['name']) . '-' . Str::random(5),
-            'notification_lead_minutes' => $validated['notification_lead_minutes'] ?? 30,
         ]);
 
         return response()->json([
@@ -115,7 +112,6 @@ class StudioController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'logo_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'notification_lead_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
         ]);
 
         $studio->fill($validated)->save();
@@ -128,7 +124,6 @@ class StudioController extends Controller
                 'location',
                 'slug',
                 'logo_path',
-                'notification_lead_minutes',
                 'shop_id',
             ]),
         ]);

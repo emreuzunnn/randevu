@@ -381,8 +381,7 @@ admin
 {
   "name": "Merkez Stüdyo (Yeni)",
   "location": "Kemer",
-  "logo_path": "logos/merkez_yeni.png",
-  "notification_lead_minutes": 45
+  "logo_path": "logos/merkez_yeni.png"
 }
 ```
 

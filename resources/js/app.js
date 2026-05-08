@@ -828,11 +828,6 @@ const renderStudiosPage = async (root) => {
                         <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
                     </div>
                     <div class="field-wrap"><label class="field-label">Logo URL</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}" placeholder="https://..."></div>
-                    <div class="field-wrap">
-                        <label class="field-label">Bildirim Süresi <span style="color:var(--text-subtle)">(dk önce)</span></label>
-                        <input class="field-input" type="number" min="0" max="1440" name="notification_lead_minutes" value="${studio.notification_lead_minutes ?? 30}">
-                        <span class="text-xs" style="color:var(--text-subtle)">Çalışanlara randevu başlamadan kaç dakika önce bildirim gidecek.</span>
-                    </div>
                     <button class="button-primary mt-1" type="submit">Ayarları Kaydet</button>
                 </form>
             </article>

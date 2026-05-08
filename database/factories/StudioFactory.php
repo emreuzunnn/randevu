@@ -27,7 +27,6 @@ class StudioFactory extends Factory
             'location' => fake()->city(),
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(100, 999),
             'logo_path' => null,
-            'notification_lead_minutes' => 30,
             'owner_user_id' => User::factory(),
             'shop_id' => Shop::factory(),
         ];

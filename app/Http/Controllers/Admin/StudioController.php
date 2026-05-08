@@ -39,7 +39,6 @@ class StudioController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'logo_path' => ['nullable', 'string', 'max:2048'],
-            'notification_lead_minutes' => ['required', 'integer', 'min:0', 'max:1440'],
         ]);
 
         $studio->fill($validated)->save();
