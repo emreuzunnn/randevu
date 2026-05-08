@@ -355,8 +355,8 @@ const renderDashboard = async (root) => {
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
-        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
-        : ['studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan'];
+        ? ['admin', 'yonetici', 'supervisor', 'sofor', 'calisan']
+        : ['supervisor', 'sofor', 'calisan'];
 
     root.innerHTML = `
         <section class="hero-card">
@@ -661,12 +661,6 @@ const renderAppointmentsPage = async (root) => {
                             </select>
                         </div>
                     </div>
-                    ${appointment.artist || appointment.artist_status ? `
-                    <div class="mt-2 flex items-center gap-2 text-xs" style="color:var(--text-muted)">
-                        <span>Artist:</span>
-                        <span class="font-semibold">${escapeHtml(appointment.artist?.name || '—')}</span>
-                        ${appointment.artist_status ? `<span class="${appointment.artist_status === 'accepted' ? 'badge-pill badge-pill--success' : appointment.artist_status === 'rejected' ? 'badge-pill badge-pill--danger' : 'badge-pill badge-pill--warning'}" style="font-size:0.68rem">${appointment.artist_status === 'accepted' ? 'Kabul' : appointment.artist_status === 'rejected' ? 'Red' : 'Bekliyor'}</span>` : ''}
-                    </div>` : ''}
                     <div class="mt-4 action-row">
                         <a href="/admin/appointments/${appointment.id}" class="button-ghost">Detay</a>
                         <button class="button-secondary" data-appointment-save>Kaydet</button>
