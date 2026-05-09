@@ -227,7 +227,7 @@ class AppointmentController extends Controller
     public function driverAction(Request $request, Studio $studio, Appointment $appointment): JsonResponse
     {
         abort_if((int)$appointment->studio_id !== (int)$studio->id, 404);
-        abort_unless($appointment->assigned_driver_user_id === $request->user()?->id, 403);
+        abort_unless((int)$appointment->assigned_driver_user_id === (int)$request->user()?->id, 403);
 
         $validated = $request->validate([
             'driver_status' => ['required', 'string', 'in:picked_up,dropped_off,cancelled'],
