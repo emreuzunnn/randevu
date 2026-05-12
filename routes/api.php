@@ -68,15 +68,15 @@ Route::middleware(['api.auth'])->group(function (): void {
     // Portfolio görsel yükleme — URL döndürür, portfolyoya kaydetmez
     Route::post('/me/portfolio/upload', [MediaController::class, 'uploadPortfolioImage']);
 
+    // Dropdown kaynakları — {user}/{studio} parametreli route'lardan ÖNCE tanımlanmalı
+    Route::get('/studios/options', [UserDirectoryController::class, 'studioOptions']);
+    Route::get('/users/options', [UserDirectoryController::class, 'userOptions']);
+
     // Herhangi bir kullanıcının profilini görüntüle (giriş yapılmış kullanıcılar)
     Route::get('/users/{user}', [UserProfileController::class, 'show']);
 
     // Çıkış
     Route::post('/logout', [AuthController::class, 'logout']);
-
-    // Dropdown kaynakları
-    Route::get('/studios/options', [UserDirectoryController::class, 'studioOptions']);
-    Route::get('/users/options', [UserDirectoryController::class, 'userOptions']);
 
     // Dükkan listesi
     Route::get('/shops', [ShopController::class, 'index']);
