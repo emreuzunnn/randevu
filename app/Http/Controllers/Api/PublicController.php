@@ -4,14 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
 use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class PublicController extends Controller
 {
-    /** Stüdyo herkese açık detay + portfolio */
+    /** Stüdyo herkese açık detay + portfolio + istatistikler */
     public function studio(Studio $studio): JsonResponse
     {
         $studio->load(['shop.company']);
@@ -20,6 +22,12 @@ class PublicController extends Controller
             ->wherePivotIn('role', [UserRole::Artist->value, UserRole::Dovmeci->value, UserRole::Designer->value])
             ->wherePivot('is_active', true)
             ->get(['users.id', 'users.name', 'users.surname', 'users.profile_image', 'users.bio', 'users.rating', 'users.portfolio', 'studio_user.role']);
+
+        $stats = Appointment::query()
+            ->where('studio_id', $studio->id)
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status');
 
         return response()->json([
             'status' => 'success',
@@ -48,14 +56,24 @@ class PublicController extends Controller
                         'website'   => $studio->shop->company->website,
                     ] : null,
                 ] : null,
+                'appointment_stats' => [
+                    'total'     => $stats->sum(),
+                    'completed' => (int) ($stats['completed'] ?? 0),
+                    'accepted'  => (int) ($stats['confirmed'] ?? 0),
+                    'cancelled' => (int) ($stats['cancelled'] ?? 0),
+                    'pending'   => (int) ($stats['pending'] ?? 0),
+                ],
                 'staff' => $artists->map(fn ($a): array => [
-                    'id'            => $a->id,
-                    'name'          => $a->fullName(),
-                    'role'          => $a->pivot->role,
-                    'profile_image' => $a->profile_image,
-                    'bio'           => $a->bio,
-                    'rating'        => $a->rating,
-                    'portfolio'     => $a->portfolio ?? [],
+                    'id'                 => $a->id,
+                    'name'               => $a->fullName(),
+                    'role'               => $a->pivot->role,
+                    'profile_image'      => $a->profile_image,
+                    'bio'                => $a->bio,
+                    'location'           => $a->location,
+                    'availability_start' => $a->availability_start,
+                    'availability_end'   => $a->availability_end,
+                    'rating'             => $a->rating,
+                    'portfolio'          => $a->portfolio ?? [],
                 ])->values(),
             ],
         ]);

@@ -6,25 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('can_open_multiple_studios')
-                ->default(false)
-                ->after('role');
-        });
-
         Schema::create('studios', function (Blueprint $table) {
             $table->id();
             $table->foreignId('owner_user_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
+            $table->foreignId('shop_id')
+                ->nullable()
+                ->constrained('shops')
+                ->nullOnDelete();
             $table->string('name');
             $table->string('slug')->unique();
+            $table->string('location')->nullable();
             $table->string('logo_path')->nullable();
+            $table->text('about')->nullable();
+            $table->time('opening_time')->nullable();
+            $table->time('closing_time')->nullable();
+            $table->json('gallery_images')->nullable();
             $table->timestamps();
         });
 
@@ -37,6 +37,7 @@ return new class extends Migration
                 ->constrained('users')
                 ->cascadeOnDelete();
             $table->string('role');
+            $table->string('work_status')->default('working');
             $table->boolean('is_active')->default(true);
             $table->timestamp('joined_at')->nullable();
             $table->timestamp('left_at')->nullable();
@@ -47,16 +48,9 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('studio_user');
         Schema::dropIfExists('studios');
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('can_open_multiple_studios');
-        });
     }
 };

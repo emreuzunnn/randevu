@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('appointments', function (Blueprint $table) {
@@ -23,17 +20,25 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
+            $table->foreignId('assigned_artist_user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            $table->string('appointment_type')->default('standard');
             $table->string('first_name');
             $table->string('last_name');
             $table->string('phone_country_code', 10)->nullable();
             $table->string('phone_number', 30)->nullable();
             $table->string('hotel_name')->nullable();
             $table->string('room_number')->nullable();
+            $table->string('place')->nullable();
             $table->string('photo_path')->nullable();
             $table->text('customer_notes')->nullable();
             $table->unsignedSmallInteger('pax')->default(1);
             $table->timestamp('appointment_at');
             $table->string('status')->default('pending');
+            $table->string('driver_status')->nullable();
+            $table->string('artist_status')->nullable();
             $table->boolean('is_old_customer')->default(false);
             $table->text('notes')->nullable();
             $table->string('source_image_path')->nullable();
@@ -46,9 +51,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('appointments');

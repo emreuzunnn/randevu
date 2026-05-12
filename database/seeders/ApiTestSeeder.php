@@ -116,7 +116,7 @@ class ApiTestSeeder extends Seeder
             'studio_id' => $studio->id,
             'created_by_user_id' => $employee->id,
             'assigned_driver_user_id' => $driver->id,
-            'appointment_type' => 'vip',
+            'appointment_type' => 'tattoo',
             'first_name' => 'Fabian',
             'last_name' => 'Uzun',
             'phone_country_code' => '+90',

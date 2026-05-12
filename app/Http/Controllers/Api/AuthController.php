@@ -109,20 +109,22 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'data'   => [
-                'id'             => $user?->id,
-                'name'           => $user?->fullName(),
-                'email'          => $user?->email,
-                'phone'          => $user?->phone,
-                'bio'            => $user?->bio,
-                'portfolio'      => $hasPortfolio ? ($user?->portfolio ?? []) : null,
-                'has_portfolio'  => $hasPortfolio,
-                'role'           => $membership?->role ?? $user?->role?->value,
-                'profile_image'  => $user?->profile_image,
-                'rating'         => $user?->rating,
-                'status'         => $membership?->work_status ?? 'working',
-                'location'       => $primaryStudio?->location ?? $user?->managedShops->first()?->location,
-                'is_active'      => (bool) ($membership?->is_active ?? true),
-                'current_studio' => $primaryStudio ? [
+                'id'                 => $user?->id,
+                'name'               => $user?->fullName(),
+                'email'              => $user?->email,
+                'phone'              => $user?->phone,
+                'bio'                => $user?->bio,
+                'location'           => $user?->location,
+                'availability_start' => $user?->availability_start,
+                'availability_end'   => $user?->availability_end,
+                'portfolio'          => $hasPortfolio ? ($user?->portfolio ?? []) : null,
+                'has_portfolio'      => $hasPortfolio,
+                'role'               => $membership?->role ?? $user?->role?->value,
+                'profile_image'      => $user?->profile_image,
+                'rating'             => $user?->rating,
+                'status'             => $membership?->work_status ?? 'working',
+                'is_active'          => (bool) ($membership?->is_active ?? true),
+                'current_studio'     => $primaryStudio ? [
                     'id'       => $primaryStudio->id,
                     'name'     => $primaryStudio->name,
                     'location' => $primaryStudio->location,
@@ -145,14 +147,17 @@ class AuthController extends Controller
         abort_if($user === null, 401);
 
         $validated = $request->validate([
-            'name'           => ['sometimes', 'string', 'max:255'],
-            'surname'        => ['sometimes', 'nullable', 'string', 'max:255'],
-            'email'          => ['sometimes', 'string', 'email', 'max:255'],
-            'phone'          => ['sometimes', 'nullable', 'string', 'max:30'],
-            'bio'            => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'profile_image'  => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'status'         => ['sometimes', 'string', 'in:working,break,transfer'],
-            'password'       => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
+            'name'               => ['sometimes', 'string', 'max:255'],
+            'surname'            => ['sometimes', 'nullable', 'string', 'max:255'],
+            'email'              => ['sometimes', 'string', 'email', 'max:255'],
+            'phone'              => ['sometimes', 'nullable', 'string', 'max:30'],
+            'bio'                => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'location'           => ['sometimes', 'nullable', 'string', 'max:255'],
+            'availability_start' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'availability_end'   => ['sometimes', 'nullable', 'date_format:H:i'],
+            'profile_image'      => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'status'             => ['sometimes', 'string', 'in:working,break,transfer'],
+            'password'           => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
         ]);
 
         if (array_key_exists('email', $validated)) {
@@ -169,7 +174,10 @@ class AuthController extends Controller
             }
         }
 
-        $user->fill(collect($validated)->only(['name', 'surname', 'email', 'phone', 'bio', 'profile_image'])->all());
+        $user->fill(collect($validated)->only([
+            'name', 'surname', 'email', 'phone', 'bio',
+            'location', 'availability_start', 'availability_end', 'profile_image',
+        ])->all());
 
         if (! empty($validated['password'] ?? null)) {
             $user->password = $validated['password'];
@@ -186,22 +194,32 @@ class AuthController extends Controller
         $primaryStudio = $refreshedUser ? $this->resolvePrimaryStudio($refreshedUser) : null;
         $membership = $primaryStudio?->users()->where('users.id', $refreshedUser?->id)->first()?->pivot;
 
+        $hasPortfolio = ! in_array(
+            $refreshedUser?->role?->value,
+            [UserRole::Sofor->value, UserRole::Kullanici->value],
+            true
+        );
+
         return response()->json([
+            'status'  => 'success',
             'message' => 'Profil güncellendi.',
             'data'    => [
-                'id'            => $refreshedUser?->id,
-                'name'          => $refreshedUser?->fullName(),
-                'email'         => $refreshedUser?->email,
-                'phone'         => $refreshedUser?->phone,
-                'bio'           => $refreshedUser?->bio,
-                'portfolio'     => $refreshedUser?->portfolio ?? [],
-                'role'          => $membership?->role ?? $refreshedUser?->role?->value,
-                'profile_image' => $refreshedUser?->profile_image,
-                'rating'        => $refreshedUser?->rating,
-                'status'        => $membership?->work_status ?? 'working',
-                'location'      => $primaryStudio?->location ?? $refreshedUser?->managedShops->first()?->location,
-                'is_active'     => (bool) ($membership?->is_active ?? true),
-                'created_at'    => $refreshedUser?->created_at?->toIso8601String(),
+                'id'                 => $refreshedUser?->id,
+                'name'               => $refreshedUser?->fullName(),
+                'email'              => $refreshedUser?->email,
+                'phone'              => $refreshedUser?->phone,
+                'bio'                => $refreshedUser?->bio,
+                'location'           => $refreshedUser?->location,
+                'availability_start' => $refreshedUser?->availability_start,
+                'availability_end'   => $refreshedUser?->availability_end,
+                'portfolio'          => $hasPortfolio ? ($refreshedUser?->portfolio ?? []) : null,
+                'has_portfolio'      => $hasPortfolio,
+                'role'               => $membership?->role ?? $refreshedUser?->role?->value,
+                'profile_image'      => $refreshedUser?->profile_image,
+                'rating'             => $refreshedUser?->rating,
+                'status'             => $membership?->work_status ?? 'working',
+                'is_active'          => (bool) ($membership?->is_active ?? true),
+                'created_at'         => $refreshedUser?->created_at?->toIso8601String(),
             ],
         ]);
     }

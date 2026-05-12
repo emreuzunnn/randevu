@@ -15,28 +15,18 @@ return new class extends Migration
             $table->string('address')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
+            $table->text('about')->nullable();
+            $table->string('website', 255)->nullable();
+            $table->json('gallery_images')->nullable();
             $table->boolean('is_active')->default(true);
-            // 0 = sınırsız
             $table->unsignedSmallInteger('max_shop_count')->default(0);
             $table->unsignedSmallInteger('max_studio_count')->default(0);
             $table->timestamps();
-        });
-
-        Schema::table('shops', function (Blueprint $table) {
-            $table->foreignId('company_id')
-                ->nullable()
-                ->after('id')
-                ->constrained('companies')
-                ->nullOnDelete();
         });
     }
 
     public function down(): void
     {
-        Schema::table('shops', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('company_id');
-        });
-
         Schema::dropIfExists('companies');
     }
 };
