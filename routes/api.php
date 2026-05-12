@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\AppointmentSlipOcrController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ShopController;
@@ -12,6 +14,7 @@ use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\StudioManagerController;
 use App\Http\Controllers\Api\StudioStaffController;
 use App\Http\Controllers\Api\UserDirectoryController;
+use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,9 +56,20 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::get('/profile', [AuthController::class, 'me']);
     Route::patch('/profile', [AuthController::class, 'updateProfile']);
 
-    // Portfolyo (kullanici_rol ve artist için)
+    // Portfolyo — tüm roller erişebilir; şoför/kullanıcı rollerinde has_portfolio: false döner
     Route::get('/me/portfolio', [AuthController::class, 'getPortfolio']);
     Route::patch('/me/portfolio', [AuthController::class, 'updatePortfolio']);
+    Route::post('/me/portfolio/items', [AuthController::class, 'addPortfolioItem']);
+    Route::delete('/me/portfolio/items/{index}', [AuthController::class, 'removePortfolioItem']);
+
+    // Avatar (profil fotoğrafı) yükleme — multipart/form-data, alan adı: avatar
+    Route::post('/me/avatar', [MediaController::class, 'uploadAvatar']);
+
+    // Portfolio görsel yükleme — URL döndürür, portfolyoya kaydetmez
+    Route::post('/me/portfolio/upload', [MediaController::class, 'uploadPortfolioImage']);
+
+    // Herhangi bir kullanıcının profilini görüntüle (giriş yapılmış kullanıcılar)
+    Route::get('/users/{user}', [UserProfileController::class, 'show']);
 
     // Çıkış
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -208,24 +222,23 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(funct
 |--------------------------------------------------------------------------
 */
 
-// Randevu oluşturma/güncelleme/silme: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,info,sofor,calisan'])->group(function (): void {
-    // Randevu oluşturma/güncelleme ekranları için sürücü, artist ve durum kaynaklarını döndürür.
+// Randevu oluşturma/güncelleme/silme: stüdyo yönetimi + bilgi ekranları + tasarımcı + dövmeci + şoför
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,dovmeci,info,sofor,calisan'])->group(function (): void {
+    // Randevu oluşturma/güncelleme ekranları için artist listesi ve sabitleri döndürür.
     Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Müşterinin önceki randevusuna bakarak eski mi yeni mi olduğunu kontrol eder.
     Route::post('/studios/{studio}/appointments/check-customer', [AppointmentController::class, 'checkCustomerStatus']);
     // Yeni randevu oluşturur.
     Route::post('/studios/{studio}/appointments', [AppointmentController::class, 'store']);
-    // Var olan randevunun durum, sürücü veya müşteri bilgilerini günceller.
+    // Var olan randevunun durum veya müşteri bilgilerini günceller.
     Route::patch('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'update']);
     // Randevuyu sistemden siler.
     Route::delete('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 });
 
-// Randevu listesi ve detay: tüm stüdyo çalışanları (artist dahil)
-// Artist yalnızca kendine atanmış randevuları görür.
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'])->group(function (): void {
-    // Seçili stüdyodaki randevuları listeler.
+// Randevu listesi ve detay: tüm stüdyo çalışanları tüm randevuları görür
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,artist,dovmeci,info,sofor,calisan'])->group(function (): void {
+    // Seçili stüdyodaki tüm randevuları listeler.
     Route::get('/studios/{studio}/appointments', [AppointmentController::class, 'index']);
     // Tek bir randevunun detayını getirir.
     Route::get('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'show']);
@@ -233,14 +246,14 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,desi
 
 // Artist atama: supervisor ve üstü
 Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor'])->group(function (): void {
-    // Tamamlanan randevuya artist veya freelancer atar.
+    // Randevuya artist veya freelancer atar.
     // assigned_artist_user_id: stüdyo artisti ya da kullanici_rol kullanıcısı
     Route::patch('/studios/{studio}/appointments/{appointment}/assign-artist', [AppointmentController::class, 'assignArtist']);
 });
 
-// Şoför kendi randevusundaki sürücü durumunu günceller.
+// Şoför şubesindeki TÜM randevuları görür ve durum güncelleyebilir.
 Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
-    // Stüdyodan bağımsız, şoföre atanmış tüm randevuları listeler.
+    // Şoförün bağlı olduğu şubedeki tüm randevuları listeler.
     Route::get('/my-appointments', [AppointmentController::class, 'myAppointments']);
     // driver_status: picked_up (aldım) | dropped_off (bıraktım) | cancelled (iptal ettim)
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
@@ -252,4 +265,52 @@ Route::middleware(['api.auth', 'role:artist,kullanici_rol'])->group(function ():
     Route::get('/my-artist-appointments', [AppointmentController::class, 'myArtistAppointments']);
     // artist_status: accepted (kabul) | rejected (red)
     Route::patch('/studios/{studio}/appointments/{appointment}/artist-response', [AppointmentController::class, 'artistResponse']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Profil & Portfolio Endpoint'leri
+|--------------------------------------------------------------------------
+*/
+
+// Stüdyo profili: randevu istatistikleri, galeri, çalışma saatleri
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor'])->group(function (): void {
+    Route::get('/studios/{studio}/profile', [ProfileController::class, 'studioProfile']);
+});
+
+// Şube profili: bağlı stüdyolar, toplu istatistikler, galeri
+Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+    Route::get('/shops/{shop}/profile', [ProfileController::class, 'shopProfile']);
+});
+
+// Şirket profili: tüm şubeler, stüdyolar, toplu portfolio
+Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    Route::get('/companies/{company}/profile', [ProfileController::class, 'companyProfile']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Medya Yükleme: Logo & Galeri Görselleri
+|--------------------------------------------------------------------------
+*/
+
+// Stüdyo medya yönetimi (admin, yönetici, studio_admin)
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(function (): void {
+    Route::post('/studios/{studio}/logo', [MediaController::class, 'uploadStudioLogo']);
+    Route::post('/studios/{studio}/gallery', [MediaController::class, 'addStudioGalleryImage']);
+    Route::delete('/studios/{studio}/gallery', [MediaController::class, 'removeStudioGalleryImage']);
+});
+
+// Şube medya yönetimi (admin, yönetici)
+Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+    Route::post('/shops/{shop}/logo', [MediaController::class, 'uploadShopLogo']);
+    Route::post('/shops/{shop}/gallery', [MediaController::class, 'addShopGalleryImage']);
+    Route::delete('/shops/{shop}/gallery', [MediaController::class, 'removeShopGalleryImage']);
+});
+
+// Şirket medya yönetimi (yalnızca admin)
+Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    Route::post('/companies/{company}/logo', [MediaController::class, 'uploadCompanyLogo']);
+    Route::post('/companies/{company}/gallery', [MediaController::class, 'addCompanyGalleryImage']);
+    Route::delete('/companies/{company}/gallery', [MediaController::class, 'removeCompanyGalleryImage']);
 });

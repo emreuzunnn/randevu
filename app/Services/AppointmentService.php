@@ -33,33 +33,23 @@ class AppointmentService
         return DB::transaction(function () use ($studio, $user, $attributes): Appointment {
             $this->ensureStudioTimeslotIsAvailable($studio, $attributes['appointment_at']);
 
-            if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
-                $driver = User::query()->find($attributes['assigned_driver_user_id']);
-                if ($driver === null || ! $driver->hasStudioRole($studio, [UserRole::Sofor])) {
-                    throw ValidationException::withMessages([
-                        'assigned_driver_user_id' => ['Seçilen kullanıcı bu stüdyoda şoför değil.'],
-                    ]);
-                }
-            }
-
             $status = $this->checkCustomerStatus($studio, $attributes['customer']);
 
             return Appointment::query()->create([
                 'studio_id'               => $studio->id,
                 'created_by_user_id'      => $user->id,
-                'assigned_driver_user_id' => $attributes['assigned_driver_user_id'] ?? null,
                 'assigned_artist_user_id' => null,
                 'artist_status'           => null,
                 'appointment_type'        => $attributes['appointment_type'] ?? 'standard',
                 ...$attributes['customer'],
-                'pax'             => $attributes['pax'],
-                'appointment_at'  => $attributes['appointment_at'],
-                'status'          => 'pending',
-                'is_old_customer' => $status['is_old_customer'],
-                'notes'           => $attributes['notes'] ?? null,
+                'pax'               => $attributes['pax'],
+                'appointment_at'    => $attributes['appointment_at'],
+                'status'            => 'pending',
+                'is_old_customer'   => $status['is_old_customer'],
+                'notes'             => $attributes['notes'] ?? null,
                 'source_image_path' => $attributes['source_image_path'] ?? null,
             ]);
-        })->load(['createdBy', 'assignedDriver']);
+        })->load(['createdBy']);
     }
 
     /**
@@ -78,15 +68,6 @@ class AppointmentService
 
             $this->ensureStudioTimeslotIsAvailable($studio, $appointmentAt, $appointment);
 
-            if (isset($attributes['assigned_driver_user_id']) && $attributes['assigned_driver_user_id'] !== null) {
-                $driver = User::query()->find($attributes['assigned_driver_user_id']);
-                if ($driver === null || ! $driver->hasStudioRole($studio, [UserRole::Sofor])) {
-                    throw ValidationException::withMessages([
-                        'assigned_driver_user_id' => ['Seçilen kullanıcı bu stüdyoda şoför değil.'],
-                    ]);
-                }
-            }
-
             $customerData = array_key_exists('customer', $attributes)
                 ? array_merge($this->extractCustomerSnapshot($appointment), $attributes['customer'])
                 : $this->extractCustomerSnapshot($appointment);
@@ -98,17 +79,16 @@ class AppointmentService
 
             $appointment->fill([
                 ...$customerData,
-                'assigned_driver_user_id' => $attributes['assigned_driver_user_id'] ?? $appointment->assigned_driver_user_id,
-                'appointment_type' => $attributes['appointment_type'] ?? $appointment->appointment_type,
-                'pax'              => $attributes['pax'] ?? $appointment->pax,
-                'appointment_at'   => $attributes['appointment_at'] ?? $appointment->appointment_at,
-                'status'           => $attributes['status'] ?? $appointment->status,
-                'is_old_customer'  => $status['is_old_customer'],
-                'notes'            => array_key_exists('notes', $attributes) ? $attributes['notes'] : $appointment->notes,
+                'appointment_type'  => $attributes['appointment_type'] ?? $appointment->appointment_type,
+                'pax'               => $attributes['pax'] ?? $appointment->pax,
+                'appointment_at'    => $attributes['appointment_at'] ?? $appointment->appointment_at,
+                'status'            => $attributes['status'] ?? $appointment->status,
+                'is_old_customer'   => $status['is_old_customer'],
+                'notes'             => array_key_exists('notes', $attributes) ? $attributes['notes'] : $appointment->notes,
                 'source_image_path' => $attributes['source_image_path'] ?? $appointment->source_image_path,
             ])->save();
 
-            return $appointment->fresh(['createdBy', 'assignedDriver', 'assignedArtist']);
+            return $appointment->fresh(['createdBy', 'assignedArtist']);
         });
     }
 

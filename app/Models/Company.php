@@ -14,6 +14,9 @@ class Company extends Model
         'address',
         'phone',
         'email',
+        'about',
+        'website',
+        'gallery_images',
         'is_active',
         'max_shop_count',
         'max_studio_count',
@@ -25,6 +28,7 @@ class Company extends Model
             'is_active'        => 'boolean',
             'max_shop_count'   => 'integer',
             'max_studio_count' => 'integer',
+            'gallery_images'   => 'array',
         ];
     }
 

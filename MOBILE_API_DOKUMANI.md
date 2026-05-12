@@ -933,3 +933,304 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 - **4.4** `designers` ve `info-staff` için eksik PATCH/DELETE endpoint'leri tabloya eklendi.
 - **4.5** `POST /api/users` endpoint'i eklendi: `studio_admin` da bu endpoint ile kullanıcı oluşturabilir/atayabilir.
 - **Yetki** `studio_admin` rolü artık `POST /api/users` yapabilir (önceki kısıtlama: yalnızca `admin` ve `yonetici`).
+
+### 2026-05-11 (Güncelleme 1)
+- **Portfolio & Profil sistemi** — Şirket, şube ve stüdyo için portfolio/profil endpoint'leri eklendi.
+- **Çalışma saatleri** — `shops` ve `studios` tablosuna `opening_time` / `closing_time` alanları eklendi (format: `HH:mm`).
+- **Galeri görselleri** — `companies`, `shops`, `studios` tablosuna `gallery_images` (JSON dizi) ve `about` alanları eklendi.
+- **Logo yükleme** — Şirket, şube ve stüdyo için `multipart/form-data` ile gerçek dosya yükleme desteği.
+- **Şube logosu** — `shops` tablosuna `logo_path` eklendi.
+- **Şirket** `about` ve `website` alanları eklendi.
+
+### 2026-05-11 (Güncelleme 2)
+- **Yeni rol: `dovmeci`** — Dövme sanatçısı rolü eklendi. `studioRoles()` listesine dahil edildi. Stüdyo randevularını görüntüleyebilir, randevu oluşturabilir/güncelleyebilir.
+- **Randevu türleri** — `appointment_type` artık serbest metin değil, sabit enum: `standard` (Standart), `designer` (Tasarımcı Randevusu), `tattoo` (Dövme Randevusu).
+- **Şoför ataması kaldırıldı** — `assigned_driver_user_id` alanı randevu oluşturma ve güncellemeden çıkarıldı. Mevcut sütun tarihsel veri için tabloda kalır.
+- **Şoför görünüm genişletildi** — `GET /api/my-appointments` artık yalnızca atanmış randevular değil, şoförün bağlı olduğu şubedeki TÜM stüdyoların randevularını döndürür.
+- **Tüm stüdyo çalışanları tüm randevuları görür** — `GET /api/studios/{studio}/appointments` artık rol bazlı filtreleme yapmaz; tüm stüdyo üyeleri tüm randevuları listeler.
+- **Sürücü aksiyon yetkisi güncellendi** — `PATCH /driver-action` artık sadece atanmış şoför değil, aynı şubedeki herhangi bir aktif şoför tarafından kullanılabilir.
+
+#### Randevu Türleri (appointment_type)
+| Değer | Açıklama |
+|-------|----------|
+| `standard` | Standart randevu (varsayılan) |
+| `designer` | Tasarımcı randevusu |
+| `tattoo` | Dövme randevusu |
+
+#### Yeni Rol: dovmeci
+| Alan | Değer |
+|------|-------|
+| `role` | `dovmeci` |
+| Stüdyoya atanabilir | ✓ |
+| Randevu oluşturabilir | ✓ |
+| Stüdyo randevularını görür | ✓ |
+| Randevu yönetimi (silme) | ✗ |
+
+---
+
+## Profil & Portfolio API'leri
+
+### Stüdyo Profili
+`GET /api/studios/{studio}/profile` — `admin`, `yonetici`, `studio_admin`, `supervisor`
+
+Dönen alanlar: `id`, `name`, `slug`, `location`, `about`, `logo_path`, `opening_time`, `closing_time`, `gallery_images`, bağlı şube bilgisi, randevu istatistikleri.
+
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Stüdyo A",
+    "about": "Açıklama...",
+    "logo_path": "http://domain/storage/logos/studios/uuid.jpg",
+    "opening_time": "09:00",
+    "closing_time": "21:00",
+    "gallery_images": ["http://...", "http://..."],
+    "shop": {
+      "id": 1, "name": "1. Şube",
+      "logo_path": "...", "opening_time": "09:00", "closing_time": "22:00",
+      "company": { "id": 1, "name": "Şirket A", "logo_path": "..." }
+    },
+    "appointment_stats": {
+      "open": 12, "cancelled": 3, "completed": 87, "total": 102
+    }
+  }
+}
+```
+
+### Şube Profili
+`GET /api/shops/{shop}/profile` — `admin`, `yonetici`
+
+Dönen alanlar: şube bilgisi, bağlı stüdyolar (her birinin portfolyosu dahil), toplu galeri (`aggregated_gallery`), toplu randevu istatistikleri.
+
+### Şirket Profili
+`GET /api/companies/{company}/profile` — yalnızca `admin`
+
+Dönen alanlar: şirket bilgisi, tüm şubeler → stüdyolar, toplu galeri (şirket + şube + stüdyo görselleri), toplu randevu istatistikleri.
+
+---
+
+## Logo Yükleme API'leri
+
+> Tüm yüklemeler `multipart/form-data` ile yapılır. Desteklenen formatlar: `jpeg`, `png`, `jpg`, `webp`. Maks. boyut: 5 MB.
+
+| Method | Endpoint | Yetki | Alan |
+|--------|----------|-------|------|
+| POST | `/api/companies/{company}/logo` | admin | `logo` |
+| POST | `/api/shops/{shop}/logo` | admin, yonetici | `logo` |
+| POST | `/api/studios/{studio}/logo` | admin, yonetici, studio_admin | `logo` |
+
+Yanıt: `{ "logo_path": "http://..." }`
+
+---
+
+## Galeri Görseli API'leri
+
+> `multipart/form-data`. Maks. boyut: 10 MB.
+
+| Method | Endpoint | Yetki | Alan |
+|--------|----------|-------|------|
+| POST | `/api/companies/{company}/gallery` | admin | `image` |
+| DELETE | `/api/companies/{company}/gallery` | admin | `url` (string) |
+| POST | `/api/shops/{shop}/gallery` | admin, yonetici | `image` |
+| DELETE | `/api/shops/{shop}/gallery` | admin, yonetici | `url` (string) |
+| POST | `/api/studios/{studio}/gallery` | admin, yonetici, studio_admin | `image` |
+| DELETE | `/api/studios/{studio}/gallery` | admin, yonetici, studio_admin | `url` (string) |
+
+Yanıt (POST): `{ "gallery_images": ["http://...", "http://..."] }`
+
+---
+
+## Çalışma Saati & Portfolio Güncelleme
+
+Mevcut `PATCH` endpoint'lerine yeni alanlar eklendi:
+
+**`PATCH /api/shops/{shop}`** — yeni alanlar:
+- `about` (string, nullable)
+- `opening_time` (string `HH:mm`, nullable)
+- `closing_time` (string `HH:mm`, nullable)
+
+**`PATCH /api/studios/{studio}`** — yeni alanlar:
+- `about` (string, nullable)
+- `opening_time` (string `HH:mm`, nullable)
+- `closing_time` (string `HH:mm`, nullable)
+
+**`PATCH /api/companies/{company}`** — yeni alanlar:
+- `about` (string, nullable)
+- `website` (url string, nullable)
+
+### 2026-05-11 (Güncelleme 3)
+- **Kayıt** — `phone` artık **zorunlu** alan. `name` opsiyonel hale getirildi. Kayıt yalnızca `kullanici` rolü oluşturur.
+- **Portfolio tüm rollerde** — Portfolio API'leri artık tüm authenticated kullanıcılara açık. `has_portfolio: false` dönenler (şoför, normal kullanıcı) için UI göstermez.
+- **Portfolio öğe yönetimi** — Tek öğe ekle/sil endpoint'leri eklendi.
+- **Avatar yükleme** — `POST /api/me/avatar` ile profil fotoğrafı yüklenebilir.
+- **Portfolio görsel yükleme** — `POST /api/me/portfolio/upload` ile görsel yükle, URL döner.
+- **Kullanıcı profil görüntüleme** — `GET /api/users/{user}` ile herhangi bir kullanıcının profili görüntülenebilir.
+
+---
+
+## Kullanıcı Kayıt (Güncel)
+
+`POST /api/register` — kimlik doğrulaması gerekmez
+
+| Alan | Zorunlu | Açıklama |
+|------|---------|----------|
+| `phone` | ✓ | Telefon numarası |
+| `email` | ✓ | E-posta (unique) |
+| `password` | ✓ | Min 6 karakter |
+| `password_confirmation` | ✓ | Şifre tekrarı |
+| `name` | — | Ad (opsiyonel) |
+| `surname` | — | Soyad (opsiyonel) |
+| `bio` | — | Kısa biyografi |
+
+Yanıt: token + kullanıcı bilgileri. Oluşturulan hesap `kullanici` rolüyle açılır.
+
+---
+
+## Portfolio API'leri (Tüm Roller)
+
+> Tüm endpoint'ler `Bearer token` gerektirir. Şoför ve normal kullanıcı rolleri teknik olarak erişebilir ancak `has_portfolio: false` döner — UI bu durumda portfolio bölümünü göstermez.
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| GET | `/api/me/portfolio` | Kendi portfolyosu |
+| PATCH | `/api/me/portfolio` | Tüm portfolyoyu değiştir |
+| POST | `/api/me/portfolio/items` | Tek öğe ekle |
+| DELETE | `/api/me/portfolio/items/{index}` | İndex'e göre öğe sil (0-tabanlı) |
+| POST | `/api/me/portfolio/upload` | Görsel yükle → URL döner |
+
+### Portfolio Öğesi Formatı
+```json
+{
+  "title": "İş adı",
+  "image_path": "http://domain/storage/portfolio/1/uuid.jpg",
+  "description": "Açıklama (opsiyonel)",
+  "category": "tattoo | design | photo | ... (opsiyonel)"
+}
+```
+
+### PATCH /me/portfolio
+```json
+{ "portfolio": [ { "title": "...", "image_path": "...", "description": "..." }, ... ] }
+```
+
+### POST /me/portfolio/items
+```json
+{ "title": "Yeni İş", "image_path": "...", "category": "tattoo" }
+```
+
+---
+
+## Avatar Yükleme
+
+`POST /api/me/avatar` — `multipart/form-data`
+
+| Alan | Zorunlu | Açıklama |
+|------|---------|----------|
+| `avatar` | ✓ | Görsel dosyası (jpeg/png/jpg/webp, max 5 MB) |
+
+Yanıt: `{ "profile_image": "http://..." }`
+
+---
+
+## Kullanıcı Profili Görüntüleme
+
+`GET /api/users/{user}` — giriş yapılmış kullanıcılar
+
+Dönen alanlar: `id`, `name`, `bio`, `profile_image`, `rating`, `role`, `has_portfolio`, `portfolio` (null eğer şoför/normal kullanıcı), `current_studios`, `past_studios`, `member_since`.
+
+```json
+{
+  "data": {
+    "id": 5,
+    "name": "Ali Yılmaz",
+    "bio": "10 yıllık tattoo sanatçısı",
+    "profile_image": "http://...",
+    "rating": 4.8,
+    "role": "artist",
+    "has_portfolio": true,
+    "portfolio": [
+      { "title": "Dragon Tattoo", "image_path": "http://...", "category": "tattoo" }
+    ],
+    "current_studios": [
+      { "id": 1, "name": "Studio A", "role": "artist" }
+    ],
+    "past_studios": [
+      { "id": 2, "name": "Studio B", "joined_at": "2023-01-15", "left_at": "2024-06-01" }
+    ],
+    "member_since": "2022-08-20T10:00:00Z"
+  }
+}
+```
+
+> Not: Kullanıcı bir stüdyodan ayrılsa bile portfolyosu `past_studios` geçmişiyle birlikte görüntülenebilir.
+
+### 2026-05-11 (Güncelleme 4)
+- **Normal kullanıcı ana sayfası** — `GET /api/home` artık `kullanici` rolü için stüdyo keşif listesi döndürür (`type: "discovery"`).
+- **Stüdyo listesi zenginleştirildi** — `GET /api/public/studios` artık `opening_time`, `closing_time`, `about`, şube ve şirket bilgilerini içeriyor.
+- **Stüdyo detayı zenginleştirildi** — `GET /api/public/studios/{studio}` artık `gallery_images` (portfolio), açılış/kapanış saati, şirket bilgisi ve tüm aktif çalışanları (artist + dövmeci + tasarımcı) döndürüyor.
+
+---
+
+## Normal Kullanıcı Ana Sayfası
+
+`GET /api/home` — `kullanici` rolü için otomatik olarak stüdyo listesi döner
+
+```json
+{
+  "status": "success",
+  "type": "discovery",
+  "data": {
+    "studios": [
+      {
+        "id": 1,
+        "name": "Studio A",
+        "slug": "studio-a-xyz",
+        "location": "Kadıköy, İstanbul",
+        "about": "10 yıldır hizmet veriyoruz...",
+        "logo_path": "http://.../storage/logos/studios/uuid.jpg",
+        "opening_time": "09:00",
+        "closing_time": "21:00",
+        "gallery_images": ["http://...", "http://..."],
+        "shop": {
+          "id": 2,
+          "name": "1. Şube",
+          "location": "Kadıköy",
+          "logo_path": "http://...",
+          "opening_time": "09:00",
+          "closing_time": "22:00",
+          "company": {
+            "id": 1,
+            "name": "ABC Şirketi",
+            "logo_path": "http://..."
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+> Not: `opening_time` / `closing_time` önce stüdyo'dan, yoksa bağlı şubeden alınır.
+
+---
+
+## Stüdyo Detay (Public)
+
+`GET /api/public/studios/{studio}` — kimlik doğrulaması gerekmez
+
+Yeni alanlar: `about`, `opening_time`, `closing_time`, `gallery_images`, `shop.company`, `staff` (artist + dövmeci + tasarımcı rolleri, portfolyolarıyla birlikte).
+
+```json
+{
+  "data": {
+    "gallery_images": ["http://...", "http://..."],
+    "staff": [
+      {
+        "id": 5, "name": "Ali Yılmaz", "role": "artist",
+        "profile_image": "http://...", "bio": "...", "rating": 4.8,
+        "portfolio": [{ "title": "Dragon Tattoo", "image_path": "http://..." }]
+      }
+    ]
+  }
+}
+```

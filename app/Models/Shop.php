@@ -17,6 +17,11 @@ class Shop extends Model
         'company_id',
         'name',
         'location',
+        'logo_path',
+        'about',
+        'opening_time',
+        'closing_time',
+        'gallery_images',
         'manager_user_id',
         'is_active',
     ];
@@ -24,7 +29,8 @@ class Shop extends Model
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
+            'is_active'      => 'boolean',
+            'gallery_images' => 'array',
         ];
     }
 

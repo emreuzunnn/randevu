@@ -56,7 +56,14 @@
             <div class="mt-5 detail-grid">
                 <div class="detail-row">
                     <span class="detail-label">Randevu Tipi</span>
-                    <span class="detail-value">{{ $appointment->appointment_type }}</span>
+                    @php
+                        $typeLabels = [
+                            'standard' => 'Standart',
+                            'designer' => 'Tasarımcı Randevusu',
+                            'tattoo'   => 'Dövme Randevusu',
+                        ];
+                    @endphp
+                    <span class="detail-value">{{ $typeLabels[$appointment->appointment_type] ?? $appointment->appointment_type }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Tarih</span>
@@ -74,6 +81,7 @@
                     <span class="detail-label">Durum</span>
                     <span class="detail-value">{{ $statusInfo['label'] }}</span>
                 </div>
+                @if($appointment->driver_status)
                 @php
                     $driverStatusMap = [
                         'picked_up'   => 'Aldım',
@@ -83,8 +91,9 @@
                 @endphp
                 <div class="detail-row">
                     <span class="detail-label">Sürücü Durumu</span>
-                    <span class="detail-value">{{ $driverStatusMap[$appointment->driver_status] ?? ($appointment->driver_status ?: '—') }}</span>
+                    <span class="detail-value">{{ $driverStatusMap[$appointment->driver_status] ?? $appointment->driver_status }}</span>
                 </div>
+                @endif
                 <div class="detail-row">
                     <span class="detail-label">Stüdyo</span>
                     <span class="detail-value">{{ $appointment->studio?->name ?: '—' }}</span>
@@ -124,12 +133,6 @@
                     <span class="detail-label">Randevuyu Alan</span>
                     <span class="detail-value">
                         {{ trim(($appointment->createdBy?->name ?? '') . ' ' . ($appointment->createdBy?->surname ?? '')) ?: '—' }}
-                    </span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Sürücü</span>
-                    <span class="detail-value">
-                        {{ trim(($appointment->assignedDriver?->name ?? '') . ' ' . ($appointment->assignedDriver?->surname ?? '')) ?: '—' }}
                     </span>
                 </div>
                 @if($appointment->assignedArtist)

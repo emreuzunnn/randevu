@@ -73,6 +73,8 @@ class CompanyController extends Controller
             'address'          => ['nullable', 'string', 'max:500'],
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
+            'about'            => ['nullable', 'string', 'max:5000'],
+            'website'          => ['nullable', 'string', 'url', 'max:255'],
             'is_active'        => ['sometimes', 'boolean'],
             'max_shop_count'   => ['sometimes', 'integer', 'min:0'],
             'max_studio_count' => ['sometimes', 'integer', 'min:0'],

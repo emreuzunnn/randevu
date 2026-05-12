@@ -27,12 +27,16 @@ class ShopController extends Controller
 
         return response()->json([
             'data' => $shops->map(fn (Shop $shop): array => [
-                'id'         => $shop->id,
-                'company_id' => $shop->company_id,
-                'name'       => $shop->name,
-                'location'   => $shop->location,
-                'is_active'  => (bool) $shop->is_active,
-                'manager'    => $shop->manager ? [
+                'id'           => $shop->id,
+                'company_id'   => $shop->company_id,
+                'name'         => $shop->name,
+                'location'     => $shop->location,
+                'about'        => $shop->about,
+                'logo_path'    => $shop->logo_path,
+                'opening_time' => $shop->opening_time,
+                'closing_time' => $shop->closing_time,
+                'is_active'    => (bool) $shop->is_active,
+                'manager'      => $shop->manager ? [
                     'id'    => $shop->manager->id,
                     'name'  => $shop->manager->fullName(),
                     'email' => $shop->manager->email,
@@ -105,10 +109,13 @@ class ShopController extends Controller
         abort_unless($user?->canManageShop($shop), 403);
 
         $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'location' => ['nullable', 'string', 'max:255'],
+            'name'            => ['sometimes', 'string', 'max:255'],
+            'location'        => ['nullable', 'string', 'max:255'],
+            'about'           => ['nullable', 'string', 'max:5000'],
+            'opening_time'    => ['nullable', 'date_format:H:i'],
+            'closing_time'    => ['nullable', 'date_format:H:i'],
             'manager_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'is_active' => ['sometimes', 'boolean'],
+            'is_active'       => ['sometimes', 'boolean'],
         ]);
 
         if (isset($validated['manager_user_id'])) {

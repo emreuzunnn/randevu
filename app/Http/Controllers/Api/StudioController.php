@@ -110,21 +110,28 @@ class StudioController extends Controller
         abort_unless($request->user()?->canManageStudio($studio), 403);
 
         $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'logo_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'name'         => ['sometimes', 'string', 'max:255'],
+            'location'     => ['sometimes', 'nullable', 'string', 'max:255'],
+            'about'        => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'opening_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'closing_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'logo_path'    => ['sometimes', 'nullable', 'string', 'max:2048'],
         ]);
 
         $studio->fill($validated)->save();
 
         return response()->json([
-            'message' => 'Studyo guncellendi.',
+            'message' => 'Stüdyo güncellendi.',
             'data' => $studio->only([
                 'id',
                 'name',
                 'location',
                 'slug',
+                'about',
                 'logo_path',
+                'opening_time',
+                'closing_time',
+                'gallery_images',
                 'shop_id',
             ]),
         ]);

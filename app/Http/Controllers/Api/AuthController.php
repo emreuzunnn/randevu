@@ -12,42 +12,41 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    /** Kayıt: kullanici veya kullanici_rol olarak hesap oluştur */
+    /** Kayıt: telefon, email ve şifre ile hesap oluştur */
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'                  => ['required', 'string', 'max:255'],
-            'surname'               => ['nullable', 'string', 'max:255'],
-            'email'                 => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone'                 => ['nullable', 'string', 'max:30'],
-            'password'              => ['required', 'string', 'min:6', 'confirmed'],
-            'role'                  => ['nullable', 'string', 'in:kullanici,kullanici_rol'],
-            'bio'                   => ['nullable', 'string', 'max:1000'],
+            'name'     => ['nullable', 'string', 'max:255'],
+            'surname'  => ['nullable', 'string', 'max:255'],
+            'email'    => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone'    => ['required', 'string', 'max:30'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'bio'      => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $role = UserRole::fromValue($validated['role'] ?? 'kullanici');
-
         $user = User::query()->create([
-            'name'     => $validated['name'],
+            'name'     => $validated['name'] ?? '',
             'surname'  => $validated['surname'] ?? null,
             'email'    => $validated['email'],
-            'phone'    => $validated['phone'] ?? null,
+            'phone'    => $validated['phone'],
             'password' => $validated['password'],
-            'role'     => $role,
+            'role'     => UserRole::Kullanici,
             'bio'      => $validated['bio'] ?? null,
         ]);
 
         $token = $user->issueApiToken();
 
         return response()->json([
+            'status'  => 'success',
             'message' => 'Kayıt başarılı.',
-            'data' => [
+            'data'    => [
                 'token'      => $token,
                 'token_type' => 'Bearer',
                 'user'       => [
                     'id'    => $user->id,
                     'name'  => $user->fullName(),
                     'email' => $user->email,
+                    'phone' => $user->phone,
                     'role'  => $user->role?->value,
                 ],
             ],
@@ -101,14 +100,22 @@ class AuthController extends Controller
             ->wherePivot('is_active', false)
             ->get(['studios.id', 'studios.name', 'studios.location', 'studio_user.joined_at', 'studio_user.left_at']);
 
+        $hasPortfolio = ! in_array(
+            $user?->role?->value,
+            [\App\Enums\UserRole::Sofor->value, \App\Enums\UserRole::Kullanici->value],
+            true
+        );
+
         return response()->json([
-            'data' => [
+            'status' => 'success',
+            'data'   => [
                 'id'             => $user?->id,
                 'name'           => $user?->fullName(),
                 'email'          => $user?->email,
                 'phone'          => $user?->phone,
                 'bio'            => $user?->bio,
-                'portfolio'      => $user?->portfolio ?? [],
+                'portfolio'      => $hasPortfolio ? ($user?->portfolio ?? []) : null,
+                'has_portfolio'  => $hasPortfolio,
                 'role'           => $membership?->role ?? $user?->role?->value,
                 'profile_image'  => $user?->profile_image,
                 'rating'         => $user?->rating,
@@ -199,24 +206,69 @@ class AuthController extends Controller
         ]);
     }
 
-    /** Portfolyo güncelle (kullanici_rol ve artist için) */
+    /** Portfolyo tüm içeriğini güncelle/değiştir */
     public function updatePortfolio(Request $request): JsonResponse
     {
         $user = $request->user();
         abort_if($user === null, 401);
 
         $validated = $request->validate([
-            'portfolio'             => ['required', 'array'],
-            'portfolio.*.title'     => ['required', 'string', 'max:255'],
-            'portfolio.*.image_path' => ['required', 'string', 'max:2048'],
+            'portfolio'               => ['required', 'array'],
+            'portfolio.*.title'       => ['required', 'string', 'max:255'],
+            'portfolio.*.image_path'  => ['nullable', 'string', 'max:2048'],
             'portfolio.*.description' => ['nullable', 'string', 'max:1000'],
+            'portfolio.*.category'    => ['nullable', 'string', 'max:50'],
         ]);
 
         $user->update(['portfolio' => $validated['portfolio']]);
 
         return response()->json([
-            'message'   => 'Portfolyo güncellendi.',
-            'data'      => ['portfolio' => $user->portfolio],
+            'status'  => 'success',
+            'message' => 'Portfolyo güncellendi.',
+            'data'    => ['portfolio' => $user->fresh()->portfolio ?? []],
+        ]);
+    }
+
+    /** Portfolyoya tek öğe ekle */
+    public function addPortfolioItem(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $validated = $request->validate([
+            'title'       => ['required', 'string', 'max:255'],
+            'image_path'  => ['nullable', 'string', 'max:2048'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'category'    => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $portfolio = $user->portfolio ?? [];
+        $portfolio[] = array_filter($validated, fn ($v) => $v !== null);
+        $user->update(['portfolio' => $portfolio]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Portfolyo öğesi eklendi.',
+            'data'    => ['portfolio' => $user->fresh()->portfolio ?? []],
+        ]);
+    }
+
+    /** Portfolyodan öğe sil (index ile) */
+    public function removePortfolioItem(Request $request, int $index): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $portfolio = array_values($user->portfolio ?? []);
+        abort_if(! isset($portfolio[$index]), 404, 'Portfolyo öğesi bulunamadı.');
+
+        array_splice($portfolio, $index, 1);
+        $user->update(['portfolio' => $portfolio]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Portfolyo öğesi silindi.',
+            'data'    => ['portfolio' => $user->fresh()->portfolio ?? []],
         ]);
     }
 
@@ -227,7 +279,8 @@ class AuthController extends Controller
         abort_if($user === null, 401);
 
         return response()->json([
-            'data' => ['portfolio' => $user->portfolio ?? []],
+            'status' => 'success',
+            'data'   => ['portfolio' => $user->portfolio ?? []],
         ]);
     }
 

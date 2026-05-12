@@ -45,7 +45,7 @@ class RoleMiddleware
             }
 
             // Randevu yönetimi gerektiren çalışan rolleri
-            $staffRoles = [UserRole::Designer, UserRole::Info, UserRole::Sofor, UserRole::Calisan];
+            $staffRoles = [UserRole::Designer, UserRole::Dovmeci, UserRole::Info, UserRole::Sofor, UserRole::Calisan];
             if (! $canPass && array_intersect($allowedRoles, $staffRoles) !== []) {
                 if ($user->canManageStudioAppointments($studio)) {
                     $canPass = true;

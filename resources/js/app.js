@@ -46,11 +46,18 @@ const ROLE_LABELS = {
     supervisor:     'Süpervizör',
     designer:       'Tasarımcı',
     artist:         'Artist',
+    dovmeci:        'Dövmeci',
     info:           'Info',
     sofor:          'Şoför',
     calisan:        'Çalışan',
     kullanici_rol:  'Kullanıcı (Rol)',
     kullanici:      'Kullanıcı',
+};
+
+const APPOINTMENT_TYPE_LABELS = {
+    standard: 'Standart',
+    designer: 'Tasarımcı Randevusu',
+    tattoo:   'Dövme Randevusu',
 };
 
 const statusLabel = (status) => STATUS_LABELS[status] ?? status;
@@ -358,10 +365,10 @@ const renderDashboard = async (root) => {
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
-        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan']
         : adminConfig.canManageStructure
-        ? ['studio_admin', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
-        : ['supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan'];
+        ? ['studio_admin', 'supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan']
+        : ['supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan'];
 
     root.innerHTML = `
         <section class="hero-card">
@@ -468,6 +475,7 @@ const renderUsersPage = async (root) => {
                 admin: 'badge-pill--danger', yonetici: 'badge-pill--warning',
                 studio_admin: 'badge-pill--purple', supervisor: 'badge-pill--info',
                 designer: 'badge-pill--teal', artist: 'badge-pill--success',
+                dovmeci: 'badge-pill--purple',
                 info: 'badge-pill--info', sofor: 'badge-pill--warning', calisan: '',
             };
             return `<span class="badge-pill ${map[role] || ''}" style="font-size:0.62rem">${roleLabel(role)}</span>`;
@@ -610,19 +618,20 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Kişi Sayısı</label><input class="field-input" type="number" min="1" name="pax" required></div>
-                        <div class="field-wrap"><label class="field-label">Randevu Tipi</label><input class="field-input" name="appointment_type" value="standard"></div>
+                        <div class="field-wrap">
+                            <label class="field-label">Randevu Tipi</label>
+                            <select class="field-select" name="appointment_type">
+                                <option value="standard">Standart</option>
+                                <option value="designer">Tasarımcı Randevusu</option>
+                                <option value="tattoo">Dövme Randevusu</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Tarih</label><input class="field-input" type="date" name="date" required></div>
                         <div class="field-wrap"><label class="field-label">Saat</label><input class="field-input" type="time" name="time" required></div>
                     </div>
                     <div class="field-wrap"><label class="field-label">Yer</label><input class="field-input" name="place"></div>
-                    <div class="field-wrap">
-                        <label class="field-label">Sürücü</label>
-                        <select class="field-select" name="assigned_driver_user_id" data-driver-select>
-                            <option value="">Sürücü seçin</option>
-                        </select>
-                    </div>
                     <div class="field-wrap"><label class="field-label">Notlar</label><textarea class="field-textarea" rows="3" name="notes"></textarea></div>
                     <button class="button-primary mt-1" type="submit">Randevuyu Kaydet</button>
                 </form>
@@ -634,7 +643,6 @@ const renderAppointmentsPage = async (root) => {
     const createStudioSelect = qs('[data-appointment-studio]', root);
     const listNode           = qs('[data-appointments-list]', root);
     const form               = qs('[data-appointment-form]', root);
-    const driverSelect       = qs('[data-driver-select]', root);
 
     const loadStudios = async () => {
         const payload = await apiFetch('/studios/options');
@@ -651,11 +659,7 @@ const renderAppointmentsPage = async (root) => {
     const loadSupport = async (studioId) => {
         if (!studioId) return;
         const payload = await apiFetch(`/studios/${studioId}/appointment-support`);
-        const drivers = payload.data?.drivers || [];
         supportArtists = payload.data?.artists || [];
-        driverSelect.innerHTML = `<option value="">Sürücü seçin</option>${drivers.map((driver) => `
-            <option value="${driver.id}">${escapeHtml(driver.name)}${driver.phone ? ` — ${escapeHtml(driver.phone)}` : ''}</option>
-        `).join('')}`;
     };
 
     const renderAppointments = async () => {
@@ -677,7 +681,12 @@ const renderAppointmentsPage = async (root) => {
                             <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(appointment.customer.hotel_name || appointment.studio || '—')}</div>
                             <div class="mt-1.5 text-xs" style="color:var(--text-subtle)">${formatDateTime(appointment.appointment_at)}</div>
                         </div>
-                        <span class="${statusClass(appointment.status)}">${statusLabel(appointment.status)}</span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="${statusClass(appointment.status)}">${statusLabel(appointment.status)}</span>
+                            ${appointment.appointment_type && appointment.appointment_type !== 'standard'
+                                ? `<span class="badge-pill badge-pill--teal" style="font-size:0.62rem">${APPOINTMENT_TYPE_LABELS[appointment.appointment_type] ?? appointment.appointment_type}</span>`
+                                : ''}
+                        </div>
                     </div>
                     <div class="mt-4 grid gap-3 md:grid-cols-2">
                         <div class="field-wrap">
@@ -689,11 +698,10 @@ const renderAppointmentsPage = async (root) => {
                             </select>
                         </div>
                         <div class="field-wrap">
-                            <label class="field-label">Sürücü</label>
-                            <select class="field-select" data-appointment-driver>
-                                <option value="">Sürücü seçin</option>
-                                ${Array.from(driverSelect.options).map((option) => `
-                                    <option value="${option.value}" ${String(appointment.assigned_driver_user_id || '') === option.value ? 'selected' : ''}>${escapeHtml(option.textContent || '')}</option>
+                            <label class="field-label">Randevu Tipi</label>
+                            <select class="field-select" data-appointment-type>
+                                ${['standard', 'designer', 'tattoo'].map((t) => `
+                                    <option value="${t}" ${appointment.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>
                                 `).join('')}
                             </select>
                         </div>
@@ -713,8 +721,8 @@ const renderAppointmentsPage = async (root) => {
                 await apiFetch(`/studios/${studioSelect.value}/appointments/${appointmentId}`, {
                     method: 'PATCH',
                     body: {
-                        status:                    qs('[data-appointment-status]', card)?.value,
-                        assigned_driver_user_id:   qs('[data-appointment-driver]', card)?.value || null,
+                        status:           qs('[data-appointment-status]', card)?.value,
+                        appointment_type: qs('[data-appointment-type]', card)?.value || 'standard',
                     },
                 });
                 showToast('Randevu güncellendi.', 'success');
@@ -754,12 +762,11 @@ const renderAppointmentsPage = async (root) => {
                     hotel_name:         formData.get('hotel_name') || null,
                     room_number:        formData.get('room_number') || null,
                 },
-                pax:                       Number(formData.get('pax')),
-                appointment_at:            `${formData.get('date')} ${formData.get('time')}:00`,
-                appointment_type:          formData.get('appointment_type') || 'standard',
-                notes:                     formData.get('notes') || null,
-                source_image_path:         formData.get('source_image_path') || null,
-                assigned_driver_user_id:   formData.get('assigned_driver_user_id') || null,
+                pax:               Number(formData.get('pax')),
+                appointment_at:    `${formData.get('date')} ${formData.get('time')}:00`,
+                appointment_type:  formData.get('appointment_type') || 'standard',
+                notes:             formData.get('notes') || null,
+                source_image_path: formData.get('source_image_path') || null,
             };
 
             await apiFetch(`/studios/${formData.get('studio_id')}/appointments`, {
@@ -769,7 +776,6 @@ const renderAppointmentsPage = async (root) => {
 
             showToast('Randevu oluşturuldu.', 'success');
             form.reset();
-            await loadSupport(createStudioSelect.value);
             await renderAppointments();
         });
     });

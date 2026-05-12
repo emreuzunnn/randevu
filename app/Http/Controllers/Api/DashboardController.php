@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Shop;
 use App\Models\Studio;
 use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,11 @@ class DashboardController extends Controller
     public function index(Request $request, AppointmentReportService $appointmentReportService): JsonResponse
     {
         $user = $request->user();
+
+        // Normal kullanıcı için stüdyo keşif sayfası döndür
+        if ($user?->hasRole(UserRole::Kullanici)) {
+            return $this->discoveryResponse();
+        }
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $studioId = $request->integer('studio_id');
@@ -111,6 +118,49 @@ class DashboardController extends Controller
                     'driver' => $appointment->assignedDriver ? [
                         'id' => $appointment->assignedDriver->id,
                         'name' => $appointment->assignedDriver->fullName(),
+                    ] : null,
+                ])->values(),
+            ],
+        ]);
+    }
+
+    private function discoveryResponse(): JsonResponse
+    {
+        $studios = Studio::query()
+            ->with(['shop.company'])
+            ->where(function ($q) {
+                $q->whereHas('shop', fn ($sq) => $sq->where('is_active', true))
+                  ->orWhereNull('shop_id');
+            })
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'type'   => 'discovery',
+            'data'   => [
+                'studios' => $studios->map(fn (Studio $studio): array => [
+                    'id'             => $studio->id,
+                    'name'           => $studio->name,
+                    'slug'           => $studio->slug,
+                    'location'       => $studio->location,
+                    'about'          => $studio->about,
+                    'logo_path'      => $studio->logo_path,
+                    'opening_time'   => $studio->opening_time ?? $studio->shop?->opening_time,
+                    'closing_time'   => $studio->closing_time ?? $studio->shop?->closing_time,
+                    'gallery_images' => $studio->gallery_images ?? [],
+                    'shop'           => $studio->shop ? [
+                        'id'           => $studio->shop->id,
+                        'name'         => $studio->shop->name,
+                        'location'     => $studio->shop->location,
+                        'logo_path'    => $studio->shop->logo_path,
+                        'opening_time' => $studio->shop->opening_time,
+                        'closing_time' => $studio->shop->closing_time,
+                        'company'      => $studio->shop->company ? [
+                            'id'        => $studio->shop->company->id,
+                            'name'      => $studio->shop->company->name,
+                            'logo_path' => $studio->shop->company->logo_path,
+                        ] : null,
                     ] : null,
                 ])->values(),
             ],

@@ -19,9 +19,20 @@ class Studio extends Model
         'location',
         'slug',
         'logo_path',
+        'about',
+        'opening_time',
+        'closing_time',
+        'gallery_images',
         'owner_user_id',
         'shop_id',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'gallery_images' => 'array',
+        ];
+    }
 
 public function owner(): BelongsTo
     {
