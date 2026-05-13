@@ -54,6 +54,10 @@ class ShopController extends Controller
     {
         abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
 
+        $request->merge([
+            'manager_user_id' => $request->input('manager_user_id') ?: null,
+        ]);
+
         $validated = $request->validate([
             'company_id'      => ['required', 'integer', 'exists:companies,id'],
             'name'            => ['required', 'string', 'max:255'],
@@ -107,6 +111,10 @@ class ShopController extends Controller
     {
         $user = $request->user();
         abort_unless($user?->canManageShop($shop), 403);
+
+        $request->merge([
+            'manager_user_id' => $request->input('manager_user_id') ?: null,
+        ]);
 
         $validated = $request->validate([
             'name'            => ['sometimes', 'string', 'max:255'],

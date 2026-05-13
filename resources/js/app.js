@@ -881,27 +881,40 @@ const renderShopsPage = async (root) => {
     const listNode   = qs('[data-shops-list]', root);
     const createNode = qs('[data-shops-create]', root);
 
-    const [shopsPayload, managersPayload, companiesPayload] = await Promise.all([
+    const [shopsPayload, companiesPayload] = await Promise.all([
         apiFetch('/shops'),
-        adminConfig.isAdmin ? apiFetch('/users/options?roles=yonetici,supervisor') : Promise.resolve({ data: [] }),
         adminConfig.isAdmin ? apiFetch('/companies') : Promise.resolve({ data: [] }),
     ]);
 
     const shops     = shopsPayload.data || [];
-    const managers  = managersPayload.data || [];
     const companies = companiesPayload.data || [];
     const companyMap = Object.fromEntries(companies.map((c) => [String(c.id), c.name]));
 
-    const buildManagerOptions = (selectedId = null) =>
-        `<option value="">Yönetici seçin</option>${managers.map((manager) => `
-            <option value="${manager.id}" ${String(manager.id) === String(selectedId) ? 'selected' : ''}>
-                ${escapeHtml(manager.name)} — ${roleLabel(manager.role)}
-            </option>
-        `).join('')}`;
+    // Mevcut şubelerin şirket ID'lerine göre yöneticileri paralel olarak yükle
+    const uniqueCompanyIds = [...new Set(shops.map((s) => s.company_id).filter(Boolean))];
+    const managersByCompany = {};
+    if (adminConfig.isAdmin && uniqueCompanyIds.length) {
+        const results = await Promise.all(
+            uniqueCompanyIds.map((cid) =>
+                apiFetch(`/users/options?roles=yonetici,supervisor&company_id=${cid}`)
+                    .then((p) => [String(cid), p.data || []])
+            )
+        );
+        results.forEach(([cid, users]) => { managersByCompany[cid] = users; });
+    }
 
-    const buildCompanyOptions = () =>
-        `<option value="">Şirket seçin</option>${companies.map((company) =>
-            `<option value="${company.id}">${escapeHtml(company.name)}</option>`
+    const buildManagerOptions = (companyId, selectedId = null) => {
+        const list = managersByCompany[String(companyId)] || [];
+        return `<option value="">Yönetici seçin (opsiyonel)</option>${list.map((m) =>
+            `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>
+                ${escapeHtml(m.name)} — ${roleLabel(m.role)}
+            </option>`
+        ).join('')}`;
+    };
+
+    const buildCompanyOptions = (selectedId = null) =>
+        `<option value="">Şirket seçin</option>${companies.map((c) =>
+            `<option value="${c.id}" ${String(c.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
         ).join('')}`;
 
     listNode.innerHTML = `
@@ -939,9 +952,9 @@ const renderShopsPage = async (root) => {
                         <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(shop.location || '')}"></div>
                         ${adminConfig.isAdmin ? `
                             <div class="field-wrap">
-                                <label class="field-label">Yönetici</label>
+                                <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(şirket çalışanları)</span></label>
                                 <select class="field-select" name="manager_user_id">
-                                    ${buildManagerOptions(shop.manager?.id ?? null)}
+                                    ${buildManagerOptions(shop.company_id, shop.manager?.id ?? null)}
                                 </select>
                             </div>
                         ` : ''}
@@ -959,13 +972,15 @@ const renderShopsPage = async (root) => {
             <form class="mt-5 form-grid" data-shop-create-form>
                 <div class="field-wrap">
                     <label class="field-label">Şirket</label>
-                    <select class="field-select" name="company_id" required>${buildCompanyOptions()}</select>
+                    <select class="field-select" name="company_id" required data-company-select>${buildCompanyOptions()}</select>
                 </div>
                 <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" required></div>
                 <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
                 <div class="field-wrap">
-                    <label class="field-label">Yönetici</label>
-                    <select class="field-select" name="manager_user_id">${buildManagerOptions()}</select>
+                    <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(şirket çalışanları · opsiyonel)</span></label>
+                    <select class="field-select" name="manager_user_id" data-manager-select>
+                        <option value="">Önce şirket seçin</option>
+                    </select>
                 </div>
                 <button class="button-primary mt-1" type="submit">Dükkan Oluştur</button>
             </form>
@@ -977,30 +992,53 @@ const renderShopsPage = async (root) => {
             </div>
         `;
 
-    listNode.querySelectorAll('[data-shop-form]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-            handleAsync(async () => {
-                const body = Object.fromEntries(new FormData(form).entries());
-                await apiFetch(`/shops/${form.getAttribute('data-shop-id')}`, { method: 'PATCH', body });
-                showToast('Dükkan güncellendi.', 'success');
-                await renderShopsPage(root);
-            });
-        });
-    });
-
+    // Yeni dükkan formunda şirket seçilince yöneticileri yükle
     const createForm = qs('[data-shop-create-form]', root);
     if (createForm) {
+        const companySelect = qs('[data-company-select]', createForm);
+        const managerSelect = qs('[data-manager-select]', createForm);
+
+        companySelect?.addEventListener('change', async () => {
+            const cid = companySelect.value;
+            if (!cid) {
+                managerSelect.innerHTML = '<option value="">Önce şirket seçin</option>';
+                return;
+            }
+            managerSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+            managerSelect.disabled = true;
+            try {
+                const { data } = await apiFetch(`/users/options?roles=yonetici,supervisor&company_id=${cid}`);
+                managersByCompany[String(cid)] = data || [];
+                managerSelect.innerHTML = buildManagerOptions(cid);
+            } finally {
+                managerSelect.disabled = false;
+            }
+        });
+
         createForm.addEventListener('submit', (event) => {
             event.preventDefault();
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(createForm).entries());
+                if (!body.manager_user_id) delete body.manager_user_id;
                 await apiFetch('/shops', { method: 'POST', body });
                 showToast('Yeni dükkan eklendi.', 'success');
                 await renderShopsPage(root);
             });
         });
     }
+
+    listNode.querySelectorAll('[data-shop-form]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            handleAsync(async () => {
+                const body = Object.fromEntries(new FormData(form).entries());
+                if (!body.manager_user_id) delete body.manager_user_id;
+                await apiFetch(`/shops/${form.getAttribute('data-shop-id')}`, { method: 'PATCH', body });
+                showToast('Dükkan güncellendi.', 'success');
+                await renderShopsPage(root);
+            });
+        });
+    });
 };
 
 /* ── Şirketler ─────────────────────────────────────────────── */

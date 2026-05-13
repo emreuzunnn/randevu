@@ -400,7 +400,7 @@
     }
 
     .field-input::placeholder { color: var(--text-subtle); }
-    .field-select option { color: #111; background: #1a2840; }
+    .field-select option { color: #eef2fc; background: #0f1e35; }
 
     /* ── Buttons ──────────────────────────────────────── */
 

@@ -21,11 +21,17 @@ class UserDirectoryController extends Controller
             ->map(fn (string $role): string => UserRole::fromValue($role)->value)
             ->values();
 
+        $companyId = $request->query('company_id');
+
         $users = User::query()
-            ->when(
-                $roles->isNotEmpty(),
-                fn ($query) => $query->whereIn('role', $roles->all())
-            )
+            ->when($roles->isNotEmpty(), fn ($q) => $q->whereIn('role', $roles->all()))
+            ->when($companyId, fn ($q) => $q->whereHas(
+                'studios',
+                fn ($sq) => $sq->whereHas(
+                    'shop',
+                    fn ($shq) => $shq->where('company_id', (int) $companyId)
+                )
+            ))
             ->orderBy('name')
             ->get();
 
