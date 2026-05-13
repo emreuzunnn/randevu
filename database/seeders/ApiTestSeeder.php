@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\Company;
 use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
@@ -12,140 +13,647 @@ use Illuminate\Support\Str;
 
 class ApiTestSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
+        // ── 1. PLATFORM YÖNETİCİLERİ ──────────────────────────────────────
         $admin = User::factory()->create([
-            'name' => 'Admin',
-            'surname' => 'Boss',
-            'phone' => '5550000001',
-            'email' => 'admin@example.com',
+            'name'     => 'Platform',
+            'surname'  => 'Admin',
+            'phone'    => '5550000001',
+            'email'    => 'admin@example.com',
             'password' => '123456',
-            'role' => UserRole::Admin,
+            'role'     => UserRole::Admin,
+            'bio'      => 'Tüm sistemi yöneten platform admini.',
         ]);
 
-        $manager = User::factory()->create([
-            'name' => 'Yonetici',
-            'surname' => 'Bir',
-            'phone' => '5550000002',
-            'email' => 'manager@example.com',
+        $yonetici = User::factory()->create([
+            'name'     => 'Genel',
+            'surname'  => 'Yönetici',
+            'phone'    => '5550000002',
+            'email'    => 'yonetici@example.com',
             'password' => '123456',
-            'role' => UserRole::Yonetici,
+            'role'     => UserRole::Yonetici,
+            'bio'      => 'Şirket bazında dükkan ve stüdyo yöneticisi.',
         ]);
 
-        $supervisor = User::factory()->create([
-            'name' => 'Supervisor',
-            'surname' => 'Bir',
-            'phone' => '5550000003',
-            'email' => 'supervisor@example.com',
+        // ── 2. STÜDYO ÇALIŞANLARI (Studio 1 için) ─────────────────────────
+        $studioAdmin1 = User::factory()->create([
+            'name'     => 'Stüdyo',
+            'surname'  => 'Admin Bir',
+            'phone'    => '5550000003',
+            'email'    => 'studioadmin1@example.com',
             'password' => '123456',
-            'role' => UserRole::Supervisor,
+            'role'     => UserRole::StudioAdmin,
         ]);
 
-        $driver = User::factory()->create([
-            'name' => 'Sofor',
-            'surname' => 'Bir',
-            'phone' => '5550000004',
-            'email' => 'driver@example.com',
+        $supervisor1 = User::factory()->create([
+            'name'     => 'Süpervizör',
+            'surname'  => 'Bir',
+            'phone'    => '5550000004',
+            'email'    => 'supervisor1@example.com',
             'password' => '123456',
-            'role' => UserRole::Sofor,
+            'role'     => UserRole::Supervisor,
         ]);
 
-        $employee = User::factory()->create([
-            'name' => 'Calisan',
-            'surname' => 'Bir',
-            'phone' => '5550000005',
-            'email' => 'employee@example.com',
+        $designer1 = User::factory()->create([
+            'name'     => 'Tasarımcı',
+            'surname'  => 'Bir',
+            'phone'    => '5550000005',
+            'email'    => 'designer1@example.com',
             'password' => '123456',
-            'role' => UserRole::Calisan,
+            'role'     => UserRole::Designer,
+            'bio'      => 'Geometrik ve minimalist dövme tasarımları.',
+            'rating'   => 4.8,
         ]);
 
-        $shop = Shop::factory()->create([
-            'name' => 'Merkez Dukkan',
-            'location' => 'Istanbul',
-            'manager_user_id' => $manager->id,
-            'is_active' => true,
+        $artist1 = User::factory()->create([
+            'name'     => 'Artist',
+            'surname'  => 'Bir',
+            'phone'    => '5550000006',
+            'email'    => 'artist1@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Artist,
+            'bio'      => 'Realistik portre uzmanı.',
+            'rating'   => 4.9,
         ]);
 
-        $studio = Studio::factory()->create([
-            'name' => 'Merkez Studio',
-            'location' => 'Istanbul',
-            'slug' => Str::slug('Merkez Studio'),
+        $dovmeci1 = User::factory()->create([
+            'name'     => 'Dövmeci',
+            'surname'  => 'Bir',
+            'phone'    => '5550000007',
+            'email'    => 'dovmeci1@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Dovmeci,
+            'bio'      => 'Traditional ve Neo-traditional stil.',
+            'rating'   => 4.7,
+        ]);
+
+        $info1 = User::factory()->create([
+            'name'     => 'Info',
+            'surname'  => 'Bir',
+            'phone'    => '5550000008',
+            'email'    => 'info1@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Info,
+        ]);
+
+        $sofor1 = User::factory()->create([
+            'name'     => 'Şoför',
+            'surname'  => 'Bir',
+            'phone'    => '5550000009',
+            'email'    => 'sofor1@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Sofor,
+        ]);
+
+        // ── 3. STÜDYO ÇALIŞANLARI (Studio 2 için) ─────────────────────────
+        $studioAdmin2 = User::factory()->create([
+            'name'     => 'Stüdyo',
+            'surname'  => 'Admin İki',
+            'phone'    => '5550000010',
+            'email'    => 'studioadmin2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::StudioAdmin,
+        ]);
+
+        $supervisor2 = User::factory()->create([
+            'name'     => 'Süpervizör',
+            'surname'  => 'İki',
+            'phone'    => '5550000011',
+            'email'    => 'supervisor2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Supervisor,
+        ]);
+
+        $designer2 = User::factory()->create([
+            'name'     => 'Tasarımcı',
+            'surname'  => 'İki',
+            'phone'    => '5550000012',
+            'email'    => 'designer2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Designer,
+            'bio'      => 'Watercolor ve abstract dövme tasarımları.',
+            'rating'   => 4.6,
+        ]);
+
+        $artist2 = User::factory()->create([
+            'name'     => 'Artist',
+            'surname'  => 'İki',
+            'phone'    => '5550000013',
+            'email'    => 'artist2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Artist,
+            'bio'      => 'Fine line ve blackwork uzmanı.',
+            'rating'   => 4.5,
+        ]);
+
+        $dovmeci2 = User::factory()->create([
+            'name'     => 'Dövmeci',
+            'surname'  => 'İki',
+            'phone'    => '5550000014',
+            'email'    => 'dovmeci2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Dovmeci,
+            'bio'      => 'Japanese ve Irezumi stil.',
+            'rating'   => 4.8,
+        ]);
+
+        $info2 = User::factory()->create([
+            'name'     => 'Info',
+            'surname'  => 'İki',
+            'phone'    => '5550000015',
+            'email'    => 'info2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Info,
+        ]);
+
+        $sofor2 = User::factory()->create([
+            'name'     => 'Şoför',
+            'surname'  => 'İki',
+            'phone'    => '5550000016',
+            'email'    => 'sofor2@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Sofor,
+        ]);
+
+        // ── 4. DİĞER ROLLER ───────────────────────────────────────────────
+        $calisan = User::factory()->create([
+            'name'     => 'Çalışan',
+            'surname'  => 'Bir',
+            'phone'    => '5550000017',
+            'email'    => 'calisan@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Calisan,
+        ]);
+
+        $kullaniciRol = User::factory()->create([
+            'name'     => 'Kullanıcı',
+            'surname'  => 'Rol',
+            'phone'    => '5550000018',
+            'email'    => 'kullanici.rol@example.com',
+            'password' => '123456',
+            'role'     => UserRole::KullaniciRol,
+        ]);
+
+        $kullanici = User::factory()->create([
+            'name'     => 'Kullanıcı',
+            'surname'  => 'Bir',
+            'phone'    => '5550000019',
+            'email'    => 'kullanici@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Kullanici,
+        ]);
+
+        // ── 5. ŞİRKET ─────────────────────────────────────────────────────
+        $company = Company::create([
+            'name'              => 'Ink Empire Group',
+            'address'           => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
+            'phone'             => '02125550000',
+            'email'             => 'info@inkempire.com',
+            'about'             => 'İstanbul\'un önde gelen dövme ve sanat stüdyoları zinciri.',
+            'website'           => 'https://inkempire.com',
+            'is_active'         => true,
+            'max_shop_count'    => 5,
+            'max_studio_count'  => 10,
+        ]);
+
+        // ── 6. DÜKKANLAR ──────────────────────────────────────────────────
+        $shop1 = Shop::create([
+            'company_id'      => $company->id,
+            'name'            => 'Ink Empire Kadıköy',
+            'location'        => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
+            'about'           => 'Kadıköy\'ün merkezi konumundaki ana dükkanımız.',
+            'opening_time'    => '10:00',
+            'closing_time'    => '22:00',
+            'manager_user_id' => $yonetici->id,
+            'is_active'       => true,
+        ]);
+
+        $shop2 = Shop::create([
+            'company_id'      => $company->id,
+            'name'            => 'Ink Empire Beşiktaş',
+            'location'        => 'Çırağan Caddesi No:17, Beşiktaş, İstanbul',
+            'about'           => 'Beşiktaş\'taki ikinci şubemiz.',
+            'opening_time'    => '11:00',
+            'closing_time'    => '21:00',
+            'manager_user_id' => $yonetici->id,
+            'is_active'       => true,
+        ]);
+
+        // ── 7. STÜDYOLAR ──────────────────────────────────────────────────
+        $studio1 = Studio::create([
+            'name'          => 'Ink Empire Kadıköy Tattoo',
+            'slug'          => 'ink-empire-kadikoy-tattoo',
+            'location'      => 'Bağdat Caddesi No:42/A, Kadıköy, İstanbul',
+            'about'         => 'Realistik, traditional ve fine line dövme uzmanlığımızla hizmetinizdeyiz.',
+            'opening_time'  => '10:00',
+            'closing_time'  => '22:00',
             'owner_user_id' => $admin->id,
-            'shop_id' => $shop->id,
+            'shop_id'       => $shop1->id,
         ]);
 
-        $studio->users()->attach($admin->id, [
-            'role' => UserRole::Admin->value,
+        $studio2 = Studio::create([
+            'name'          => 'Ink Empire Beşiktaş Tattoo',
+            'slug'          => 'ink-empire-besiktas-tattoo',
+            'location'      => 'Çırağan Caddesi No:17/B, Beşiktaş, İstanbul',
+            'about'         => 'Watercolor, blackwork ve Japanese stil dövmelerimizle yanınızdayız.',
+            'opening_time'  => '11:00',
+            'closing_time'  => '21:00',
+            'owner_user_id' => $admin->id,
+            'shop_id'       => $shop2->id,
+        ]);
+
+        $studio3 = Studio::create([
+            'name'          => 'Bağımsız Piercing Studio',
+            'slug'          => 'bagimsiz-piercing-studio',
+            'location'      => 'Nişantaşı, İstanbul',
+            'about'         => 'Dükkan bağlantısız bağımsız piercing stüdyosu.',
+            'opening_time'  => '12:00',
+            'closing_time'  => '20:00',
+            'owner_user_id' => $studioAdmin1->id,
+            'shop_id'       => null,
+        ]);
+
+        // ── 8. STÜDYO - KULLANICI ATAMALARI ───────────────────────────────
+        // Studio 1 ekibi
+        foreach ([
+            [$admin->id,        UserRole::Admin,        'working'],
+            [$yonetici->id,     UserRole::Yonetici,     'working'],
+            [$studioAdmin1->id, UserRole::StudioAdmin,  'working'],
+            [$supervisor1->id,  UserRole::Supervisor,   'working'],
+            [$designer1->id,    UserRole::Designer,     'working'],
+            [$artist1->id,      UserRole::Artist,       'working'],
+            [$dovmeci1->id,     UserRole::Dovmeci,      'working'],
+            [$info1->id,        UserRole::Info,         'working'],
+            [$sofor1->id,       UserRole::Sofor,        'transfer'],
+            [$calisan->id,      UserRole::Calisan,      'break'],
+        ] as [$userId, $role, $workStatus]) {
+            $studio1->users()->attach($userId, [
+                'role'        => $role->value,
+                'work_status' => $workStatus,
+                'is_active'   => true,
+                'joined_at'   => now()->subMonths(rand(1, 12)),
+            ]);
+        }
+
+        // Studio 2 ekibi
+        foreach ([
+            [$admin->id,        UserRole::Admin,        'working'],
+            [$yonetici->id,     UserRole::Yonetici,     'working'],
+            [$studioAdmin2->id, UserRole::StudioAdmin,  'working'],
+            [$supervisor2->id,  UserRole::Supervisor,   'working'],
+            [$designer2->id,    UserRole::Designer,     'working'],
+            [$artist2->id,      UserRole::Artist,       'working'],
+            [$dovmeci2->id,     UserRole::Dovmeci,      'working'],
+            [$info2->id,        UserRole::Info,         'working'],
+            [$sofor2->id,       UserRole::Sofor,        'working'],
+        ] as [$userId, $role, $workStatus]) {
+            $studio2->users()->attach($userId, [
+                'role'        => $role->value,
+                'work_status' => $workStatus,
+                'is_active'   => true,
+                'joined_at'   => now()->subMonths(rand(1, 8)),
+            ]);
+        }
+
+        // Studio 3 (bağımsız)
+        $studio3->users()->attach($studioAdmin1->id, [
+            'role'        => UserRole::StudioAdmin->value,
             'work_status' => 'working',
-            'is_active' => true,
-            'joined_at' => now(),
+            'is_active'   => true,
+            'joined_at'   => now()->subMonths(3),
         ]);
-
-        $studio->users()->attach($manager->id, [
-            'role' => UserRole::Yonetici->value,
+        $studio3->users()->attach($artist1->id, [
+            'role'        => UserRole::Artist->value,
             'work_status' => 'working',
-            'is_active' => true,
-            'joined_at' => now(),
+            'is_active'   => true,
+            'joined_at'   => now()->subMonths(2),
         ]);
 
-        $studio->users()->attach($supervisor->id, [
-            'role' => UserRole::Supervisor->value,
-            'work_status' => 'working',
-            'is_active' => true,
-            'joined_at' => now(),
-        ]);
+        // ── 9. RANDEVULAR - STÜdyo 1 ──────────────────────────────────────
+        $appointments1 = [
+            // Onaylı - gelecek
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Ahmet',
+                'last_name'               => 'Yılmaz',
+                'phone_country_code'      => '+90',
+                'phone_number'            => '5551112233',
+                'hotel_name'              => 'Hilton İstanbul',
+                'room_number'             => '412',
+                'place'                   => 'Hilton Lobby',
+                'pax'                     => 1,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'waiting',
+                'artist_status'           => 'assigned',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info1->id,
+                'assigned_driver_user_id' => $sofor1->id,
+                'assigned_artist_user_id' => $artist1->id,
+                'appointment_at'          => now()->addDays(1)->setTime(14, 0),
+                'customer_notes'          => 'Sol kola küçük gül motifi istiyor.',
+                'notes'                   => 'İlk randevu, dikkatli olunmalı.',
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Maria',
+                'last_name'               => 'Rossi',
+                'phone_country_code'      => '+39',
+                'phone_number'            => '3401234567',
+                'hotel_name'              => 'Four Seasons Bosphorus',
+                'room_number'             => '815',
+                'place'                   => 'Hotel Entrance',
+                'pax'                     => 2,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'on_way',
+                'artist_status'           => 'assigned',
+                'is_old_customer'         => true,
+                'created_by_user_id'      => $supervisor1->id,
+                'assigned_driver_user_id' => $sofor1->id,
+                'assigned_artist_user_id' => $dovmeci1->id,
+                'appointment_at'          => now()->addDays(2)->setTime(11, 30),
+                'customer_notes'          => 'Sırt için büyük çiçek kompozisyonu.',
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'James',
+                'last_name'               => 'Wilson',
+                'phone_country_code'      => '+44',
+                'phone_number'            => '7911123456',
+                'hotel_name'              => 'Swissôtel The Bosphorus',
+                'room_number'             => '307',
+                'place'                   => 'Swissôtel Lobby',
+                'pax'                     => 1,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'waiting',
+                'artist_status'           => 'pending',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info1->id,
+                'assigned_driver_user_id' => $sofor1->id,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(3)->setTime(16, 0),
+                'customer_notes'          => 'Kol boyunca tribal dövme.',
+            ],
+            // Beklemede
+            [
+                'appointment_type'        => 'standard',
+                'first_name'              => 'Sophie',
+                'last_name'               => 'Dubois',
+                'phone_country_code'      => '+33',
+                'phone_number'            => '612345678',
+                'hotel_name'              => 'Çırağan Palace Kempinski',
+                'room_number'             => '201',
+                'place'                   => 'Palace Gate',
+                'pax'                     => 3,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $calisan->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(4)->setTime(13, 0),
+                'customer_notes'          => 'Bilek dövmesi ve kulak piercing.',
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Hans',
+                'last_name'               => 'Müller',
+                'phone_country_code'      => '+49',
+                'phone_number'            => '15123456789',
+                'hotel_name'              => 'Radisson Blu Bosphorus',
+                'room_number'             => '512',
+                'place'                   => 'Radisson Lobby',
+                'pax'                     => 1,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $designer1->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(5)->setTime(15, 30),
+                'customer_notes'          => 'Geometrik omuz dövmesi tasarımı.',
+            ],
+            // Tamamlanmış (geçmiş)
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Lena',
+                'last_name'               => 'Schmidt',
+                'phone_country_code'      => '+49',
+                'phone_number'            => '17698765432',
+                'hotel_name'              => 'Hilton İstanbul',
+                'room_number'             => '225',
+                'place'                   => 'Hilton Lobby',
+                'pax'                     => 1,
+                'status'                  => 'completed',
+                'driver_status'           => 'completed',
+                'artist_status'           => 'completed',
+                'is_old_customer'         => true,
+                'created_by_user_id'      => $info1->id,
+                'assigned_driver_user_id' => $sofor1->id,
+                'assigned_artist_user_id' => $artist1->id,
+                'appointment_at'          => now()->subDays(2)->setTime(10, 0),
+                'notes'                   => 'Müşteri çok memnun kaldı.',
+            ],
+            [
+                'appointment_type'        => 'standard',
+                'first_name'              => 'Carlos',
+                'last_name'               => 'García',
+                'phone_country_code'      => '+34',
+                'phone_number'            => '612987654',
+                'hotel_name'              => 'InterContinental Istanbul',
+                'room_number'             => '718',
+                'place'                   => 'IC Lobby',
+                'pax'                     => 2,
+                'status'                  => 'completed',
+                'driver_status'           => 'completed',
+                'artist_status'           => 'completed',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $supervisor1->id,
+                'assigned_driver_user_id' => $sofor1->id,
+                'assigned_artist_user_id' => $dovmeci1->id,
+                'appointment_at'          => now()->subDays(5)->setTime(14, 30),
+            ],
+            // İptal edilmiş
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Anna',
+                'last_name'               => 'Kowalski',
+                'phone_country_code'      => '+48',
+                'phone_number'            => '501234567',
+                'hotel_name'              => 'Wyndham Grand Istanbul',
+                'room_number'             => '334',
+                'place'                   => 'Wyndham Lobby',
+                'pax'                     => 1,
+                'status'                  => 'cancelled',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info1->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->subDay()->setTime(12, 0),
+                'notes'                   => 'Müşteri uçuşunu kaçırdı, iptal etti.',
+            ],
+        ];
 
-        $studio->users()->attach($driver->id, [
-            'role' => UserRole::Sofor->value,
-            'work_status' => 'transfer',
-            'is_active' => true,
-            'joined_at' => now(),
-        ]);
+        foreach ($appointments1 as $data) {
+            Appointment::create(array_merge($data, ['studio_id' => $studio1->id]));
+        }
 
-        $studio->users()->attach($employee->id, [
-            'role' => UserRole::Calisan->value,
-            'work_status' => 'break',
-            'is_active' => true,
-            'joined_at' => now(),
-        ]);
+        // ── 10. RANDEVULAR - STÜDYO 2 ─────────────────────────────────────
+        $appointments2 = [
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Emily',
+                'last_name'               => 'Johnson',
+                'phone_country_code'      => '+1',
+                'phone_number'            => '2125551234',
+                'hotel_name'              => 'The Ritz-Carlton Istanbul',
+                'room_number'             => '615',
+                'place'                   => 'Ritz Lobby',
+                'pax'                     => 1,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'waiting',
+                'artist_status'           => 'assigned',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info2->id,
+                'assigned_driver_user_id' => $sofor2->id,
+                'assigned_artist_user_id' => $artist2->id,
+                'appointment_at'          => now()->addDays(1)->setTime(13, 0),
+                'customer_notes'          => 'Boyun arkasına küçük kelebek.',
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Yuki',
+                'last_name'               => 'Tanaka',
+                'phone_country_code'      => '+81',
+                'phone_number'            => '9012345678',
+                'hotel_name'              => 'Conrad Istanbul Bosphorus',
+                'room_number'             => '422',
+                'place'                   => 'Conrad Lobby',
+                'pax'                     => 2,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'on_way',
+                'artist_status'           => 'assigned',
+                'is_old_customer'         => true,
+                'created_by_user_id'      => $supervisor2->id,
+                'assigned_driver_user_id' => $sofor2->id,
+                'assigned_artist_user_id' => $dovmeci2->id,
+                'appointment_at'          => now()->addDays(2)->setTime(10, 0),
+                'customer_notes'          => 'Koi balığı Japanese stil, tam kol.',
+            ],
+            [
+                'appointment_type'        => 'standard',
+                'first_name'              => 'Lucas',
+                'last_name'               => 'Oliveira',
+                'phone_country_code'      => '+55',
+                'phone_number'            => '11987654321',
+                'hotel_name'              => 'Marriott İstanbul',
+                'room_number'             => '309',
+                'place'                   => 'Marriott Entrance',
+                'pax'                     => 1,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info2->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(3)->setTime(17, 0),
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Emma',
+                'last_name'               => 'Larsson',
+                'phone_country_code'      => '+46',
+                'phone_number'            => '701234567',
+                'hotel_name'              => 'Shangri-La Istanbul',
+                'room_number'             => '511',
+                'place'                   => 'Shangri-La Lobby',
+                'pax'                     => 1,
+                'status'                  => 'completed',
+                'driver_status'           => 'completed',
+                'artist_status'           => 'completed',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $studioAdmin2->id,
+                'assigned_driver_user_id' => $sofor2->id,
+                'assigned_artist_user_id' => $artist2->id,
+                'appointment_at'          => now()->subDays(3)->setTime(11, 0),
+                'notes'                   => 'Fine line çiçek, çok detaylı çalışma.',
+            ],
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Mohammed',
+                'last_name'               => 'Al-Rashid',
+                'phone_country_code'      => '+971',
+                'phone_number'            => '501234567',
+                'hotel_name'              => 'Waldorf Astoria Istanbul',
+                'room_number'             => '722',
+                'place'                   => 'Waldorf Lobby',
+                'pax'                     => 3,
+                'status'                  => 'cancelled',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $supervisor2->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->subDays(1)->setTime(15, 0),
+                'notes'                   => 'Müşteri planını değiştirdi, başka zaman gelecek.',
+            ],
+        ];
 
-        Appointment::factory()->create([
-            'studio_id' => $studio->id,
-            'created_by_user_id' => $employee->id,
-            'assigned_driver_user_id' => $driver->id,
-            'appointment_type' => 'tattoo',
-            'first_name' => 'Fabian',
-            'last_name' => 'Uzun',
-            'phone_country_code' => '+90',
-            'phone_number' => '5551112233',
-            'hotel_name' => $studio->name,
-            'room_number' => '3211',
-            'place' => 'Ramada',
-            'pax' => 3,
-            'status' => 'confirmed',
-            'is_old_customer' => false,
-            'appointment_at' => now()->addDay(),
-        ]);
+        foreach ($appointments2 as $data) {
+            Appointment::create(array_merge($data, ['studio_id' => $studio2->id]));
+        }
 
-        Appointment::factory()->create([
-            'studio_id' => $studio->id,
-            'created_by_user_id' => $employee->id,
-            'assigned_driver_user_id' => $driver->id,
-            'appointment_type' => 'standard',
-            'first_name' => 'Eski',
-            'last_name' => 'Musteri',
-            'phone_country_code' => '+90',
-            'phone_number' => '5559998877',
-            'hotel_name' => $studio->name,
-            'room_number' => '101',
-            'place' => 'Airport Transfer',
-            'pax' => 2,
-            'status' => 'cancelled',
-            'is_old_customer' => true,
-            'appointment_at' => now()->subDay(),
-        ]);
+        // ── 11. RANDEVULAR - STÜDYO 3 (Bağımsız) ─────────────────────────
+        $appointments3 = [
+            [
+                'appointment_type'        => 'standard',
+                'first_name'              => 'Isabella',
+                'last_name'               => 'Ferrari',
+                'phone_country_code'      => '+39',
+                'phone_number'            => '3351234567',
+                'hotel_name'              => 'Park Hyatt Istanbul',
+                'room_number'             => '118',
+                'place'                   => 'Park Hyatt Lobby',
+                'pax'                     => 1,
+                'status'                  => 'confirmed',
+                'driver_status'           => 'waiting',
+                'artist_status'           => 'assigned',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $studioAdmin1->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => $artist1->id,
+                'appointment_at'          => now()->addDays(2)->setTime(14, 0),
+                'customer_notes'          => 'Kulak piercing kombinasyonu.',
+            ],
+            [
+                'appointment_type'        => 'standard',
+                'first_name'              => 'Oliver',
+                'last_name'               => 'Brown',
+                'phone_country_code'      => '+44',
+                'phone_number'            => '7700900123',
+                'hotel_name'              => 'Soho House Istanbul',
+                'room_number'             => '205',
+                'place'                   => 'Soho House Entrance',
+                'pax'                     => 2,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => true,
+                'created_by_user_id'      => $studioAdmin1->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(6)->setTime(16, 30),
+            ],
+        ];
+
+        foreach ($appointments3 as $data) {
+            Appointment::create(array_merge($data, ['studio_id' => $studio3->id]));
+        }
     }
 }
