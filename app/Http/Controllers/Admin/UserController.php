@@ -39,7 +39,6 @@ class UserController extends Controller
             'users' => $users,
             'roles' => [
                 ...($user?->hasRole(UserRole::Admin) ? [UserRole::Admin, UserRole::Yonetici] : []),
-                UserRole::StudioAdmin,
                 UserRole::Supervisor,
                 UserRole::Designer,
                 UserRole::Artist,
@@ -59,7 +58,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'surname' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:30'],
-            'role' => ['required', 'in:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'],
+            'role' => ['required', 'in:admin,yonetici,supervisor,designer,artist,info,sofor,calisan'],
             'email' => ['required', 'email'],
             'password' => ['required', 'digits:6', 'confirmed'],
         ]);

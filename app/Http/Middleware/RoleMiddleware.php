@@ -37,7 +37,7 @@ class RoleMiddleware
             }
 
             // Yönetim rolleri için canManageStudioAppointments kontrolü
-            $managementRoles = [UserRole::Yonetici, UserRole::StudioAdmin, UserRole::Supervisor];
+            $managementRoles = [UserRole::Yonetici, UserRole::Supervisor];
             if (! $canPass && array_intersect($allowedRoles, $managementRoles) !== []) {
                 if ($user->canManageStudioAppointments($studio)) {
                     $canPass = true;
@@ -50,6 +50,12 @@ class RoleMiddleware
                 if ($user->canManageStudioAppointments($studio)) {
                     $canPass = true;
                 }
+            }
+
+            // Stüdyo üyesi olmayan platform rolleri (kullanici_rol, artist) —
+            // controller kendi assignment kontrolünü yapar, middleware geçişe izin verir.
+            if (! $canPass) {
+                $canPass = $user->hasAnyRole($allowedRoles);
             }
 
             abort_if(! $canPass, Response::HTTP_FORBIDDEN);

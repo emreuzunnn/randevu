@@ -27,8 +27,7 @@ Bu doküman mobil uygulamanın beklediği endpoint'leri, istek alanlarını ve d
 ### Stüdyo Rolleri (studio_user.role — pivot)
 | Rol | Değer | Açıklama |
 |---|---|---|
-| Stüdyo Yöneticisi | `studio_admin` | Stüdyoyu tam yönetir (logo, personel, bildirim) |
-| Süpervizör | `supervisor` | Tüm randevuları yönetir, artiste atar |
+| Süpervizör | `supervisor` | Stüdyoyu tam yönetir (logo, personel, bildirim, randevu, artist atama) |
 | Tasarımcı | `designer` | Tasarım randevusu oluşturur/düzenler/görür |
 | Artist | `artist` | Atanan dövme randevularını görür, kabul/red verir |
 | Info | `info` | Randevu oluşturur/düzenler, stüdyoyu görür |
@@ -39,15 +38,14 @@ Bu doküman mobil uygulamanın beklediği endpoint'leri, istek alanlarını ve d
 ```
 admin
  └─ yonetici (dükkan seviyesi)
-     └─ studio_admin (stüdyo seviyesi)
-         └─ supervisor (randevu yönetimi + artist atama)
-             ├─ designer  (randevu oluşturma/düzenleme)
-             ├─ info      (randevu oluşturma/düzenleme)
-             └─ sofor     (randevu oluşturma/düzenleme + alım/bırakım)
-         └─ artist        (atanan randevuları görür + kabul/red)
+     └─ supervisor (stüdyo yöneticisi — randevu, personel, artist atama, logo)
+         ├─ designer  (randevu oluşturma/düzenleme)
+         ├─ info      (randevu oluşturma/düzenleme)
+         └─ sofor     (randevu oluşturma/düzenleme + alım/bırakım)
+     └─ artist        (atanan randevuları görür + kabul/red)
 ```
 
-**Not:** Kayıt sırasında kullanıcı `kullanici` veya `kullanici_rol` olarak belirler. Stüdyo rolleri admin/stüdyo yöneticisi tarafından atanır.
+**Not:** Kayıt sırasında kullanıcı `kullanici` veya `kullanici_rol` olarak belirler. Stüdyo rolleri admin/yönetici/süpervizör tarafından atanır.
 
 ---
 
@@ -64,8 +62,7 @@ admin
 ### Stüdyo 1 — Ink Empire Kadıköy Tattoo (ID: 1)
 | Email | Rol |
 |---|---|
-| `studioadmin1@example.com` | `studio_admin` |
-| `supervisor1@example.com` | `supervisor` |
+| `supervisor1@example.com` | `supervisor` (stüdyo yöneticisi) |
 | `designer1@example.com` | `designer` |
 | `artist1@example.com` | `artist` |
 | `artist1b@example.com` | `artist` |
@@ -76,8 +73,7 @@ admin
 ### Stüdyo 2 — Ink Empire Beşiktaş Tattoo (ID: 2)
 | Email | Rol |
 |---|---|
-| `studioadmin2@example.com` | `studio_admin` |
-| `supervisor2@example.com` | `supervisor` |
+| `supervisor2@example.com` | `supervisor` (stüdyo yöneticisi) |
 | `designer2@example.com` | `designer` |
 | `artist2@example.com` | `artist` |
 | `artist2b@example.com` | `artist` |
@@ -87,7 +83,7 @@ admin
 ### Stüdyo 3 — Bağımsız Piercing Studio (ID: 3)
 | Email | Rol |
 |---|---|
-| `studioadmin1@example.com` | `studio_admin` *(Studio 1 ile aynı kullanıcı)* |
+| `supervisor1@example.com` | `supervisor` *(Studio 1 ile aynı kullanıcı, studio sahibi)* |
 | `artist1@example.com` | `artist` *(Studio 1 ile aynı kullanıcı)* |
 
 ### Bağımsız Kullanıcılar
@@ -524,7 +520,7 @@ admin
 
 **PATCH** `/api/studios/{studio_id}/settings`
 
-> Yetki: `admin`, `yonetici`, `studio_admin`
+> Yetki: `admin`, `yonetici`, `supervisor`
 
 ```json
 {
@@ -540,7 +536,7 @@ admin
 
 **GET** `/api/studios/{studio_id}/users`
 
-> Yetki: `admin`, `yonetici`, `studio_admin`
+> Yetki: `admin`, `yonetici`, `supervisor`
 
 ---
 
@@ -548,7 +544,7 @@ admin
 
 **PATCH** `/api/studios/{studio_id}/users/{user_id}`
 
-> Yetki: `admin`, `yonetici`, `studio_admin`
+> Yetki: `admin`, `yonetici`, `supervisor`
 
 ```json
 {
@@ -564,21 +560,20 @@ admin
 
 | Değer | Açıklama | Atayabilir |
 |---|---|---|
-| `studio_admin` | Stüdyo yöneticisi | Admin, Yönetici |
-| `supervisor` | Süpervizör | Admin, Yönetici, Stüdyo Yöneticisi |
-| `designer` | Tasarımcı | Admin, Yönetici, Stüdyo Yöneticisi |
-| `artist` | Artist | Admin, Yönetici, Stüdyo Yöneticisi |
-| `info` | Info çalışanı | Admin, Yönetici, Stüdyo Yöneticisi |
-| `sofor` | Şoför | Admin, Yönetici, Stüdyo Yöneticisi |
-| `calisan` | Genel çalışan | Admin, Yönetici, Stüdyo Yöneticisi |
+| `supervisor` | Stüdyo yöneticisi | Admin, Yönetici |
+| `designer` | Tasarımcı | Admin, Yönetici, Supervisor |
+| `artist` | Artist | Admin, Yönetici, Supervisor |
+| `info` | Info çalışanı | Admin, Yönetici, Supervisor |
+| `sofor` | Şoför | Admin, Yönetici, Supervisor |
+| `calisan` | Genel çalışan | Admin, Yönetici, Supervisor |
 
-> Stüdyo yöneticisi kendi seviyesinde veya üstünde rol (`admin`, `yonetici`, `studio_admin`) atayamaz.
+> Supervisor kendi seviyesinde veya üstünde rol (`admin`, `yonetici`, `supervisor`) atayamaz.
 
 ---
 
 ### 4.4 Stüdyo Personel Yönetimi
 
-Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kullanılabilir.
+Tüm personel endpoint'leri `supervisor`, `yonetici`, `admin` tarafından kullanılabilir.
 
 | Yöntem | Endpoint | Açıklama |
 |---|---|---|
@@ -623,7 +618,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 **POST** `/api/users`
 
-> Yetki: `admin`, `yonetici`, `studio_admin`  
+> Yetki: `admin`, `yonetici`, `supervisor`  
 > Rol ve stüdyo belirterek personel oluşturur veya mevcut kullanıcıyı stüdyoya atar.  
 > 4.4'teki rol bazlı endpoint'lere alternatif tek endpoint.
 
@@ -641,7 +636,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 ```
 
 > `role`: `supervisor` | `designer` | `artist` | `info` | `sofor` | `calisan`  
-> `studio_admin` rolü yalnızca `admin` ve `yonetici` atayabilir.
+> `supervisor` rolü yalnızca `admin` ve `yonetici` atayabilir.
 
 ---
 
@@ -759,7 +754,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 **POST** `/api/studios/{studio_id}/appointments`
 
-> Yetki: `studio_admin`, `supervisor`, `designer`, `info`, `sofor`, `calisan`
+> Yetki: `supervisor`, `supervisor`, `designer`, `info`, `sofor`, `calisan`
 
 ```json
 {
@@ -787,7 +782,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 **PATCH** `/api/studios/{studio_id}/appointments/{appointment_id}`
 
-> Yetki: `studio_admin`, `supervisor`, `designer`, `info`, `sofor`, `calisan`
+> Yetki: `supervisor`, `supervisor`, `designer`, `info`, `sofor`, `calisan`
 
 ---
 
@@ -829,7 +824,7 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 **PATCH** `/api/studios/{studio_id}/appointments/{appointment_id}/assign-artist`
 
-> Yetki: `studio_admin`, `supervisor`, `yonetici`, `admin`  
+> Yetki: `supervisor`, `supervisor`, `yonetici`, `admin`  
 > Stüdyonun kendi artistini veya sistemdeki `kullanici_rol` kullanıcısını (freelancer) atayabilir.
 
 ```json
@@ -1031,22 +1026,22 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 | GET | `/api/reports` | Tümü | Dönemsel rapor |
 | GET | `/api/studios/overview` | Admin, Yönetici | Stüdyoları listele |
 | POST | `/api/studios` | Admin, Yönetici | Stüdyo oluştur |
-| PATCH | `/api/studios/{id}/settings` | Admin, Yönetici, Stüdyo Yöneticisi | Stüdyo ayarları |
+| PATCH | `/api/studios/{id}/settings` | Admin, Yönetici, **Supervisor** | Stüdyo ayarları |
 | DELETE | `/api/studios/{id}` | Admin, Yönetici | Stüdyo sil |
-| GET | `/api/studios/{id}/users` | Admin, Yönetici, Stüdyo Yöneticisi | Personeli listele |
-| PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici, Stüdyo Yöneticisi | Personel güncelle/banla |
-| POST | `/api/users` | Admin, Yönetici, **Stüdyo Yöneticisi** | Kullanıcı oluştur/ata |
-| GET/POST/PATCH/DELETE | `/api/studios/{id}/supervisors` | Admin, Yönetici, Stüdyo Yöneticisi | Süpervizör yönetimi |
-| GET/POST/PATCH/DELETE | `/api/studios/{id}/artists` | Admin, Yönetici, Stüdyo Yöneticisi | Artist yönetimi |
-| GET/POST/PATCH/DELETE | `/api/studios/{id}/designers` | Admin, Yönetici, Stüdyo Yöneticisi | Tasarımcı yönetimi |
-| GET/POST/PATCH/DELETE | `/api/studios/{id}/info-staff` | Admin, Yönetici, Stüdyo Yöneticisi | Info personeli |
-| GET/POST/PATCH/DELETE | `/api/studios/{id}/drivers` | Admin, Yönetici, Stüdyo Yöneticisi | Şoför yönetimi |
+| GET | `/api/studios/{id}/users` | Admin, Yönetici, **Supervisor** | Personeli listele |
+| PATCH | `/api/studios/{id}/users/{id}` | Admin, Yönetici, **Supervisor** | Personel güncelle/banla |
+| POST | `/api/users` | Admin, Yönetici, **Supervisor** | Kullanıcı oluştur/ata |
+| GET/POST/PATCH/DELETE | `/api/studios/{id}/supervisors` | Admin, Yönetici, Supervisor | Süpervizör yönetimi |
+| GET/POST/PATCH/DELETE | `/api/studios/{id}/artists` | Admin, Yönetici, Supervisor | Artist yönetimi |
+| GET/POST/PATCH/DELETE | `/api/studios/{id}/designers` | Admin, Yönetici, Supervisor | Tasarımcı yönetimi |
+| GET/POST/PATCH/DELETE | `/api/studios/{id}/info-staff` | Admin, Yönetici, Supervisor | Info personeli |
+| GET/POST/PATCH/DELETE | `/api/studios/{id}/drivers` | Admin, Yönetici, Supervisor | Şoför yönetimi |
 | GET | `/api/studios/{id}/appointments` | Tüm stüdyo rolleri | Randevu listesi |
-| POST | `/api/studios/{id}/appointments` | Studio Admin, Supervisor, Designer, Info, Şoför | Randevu oluştur |
+| POST | `/api/studios/{id}/appointments` | Supervisor, Designer, Info, Şoför, Calisan | Randevu oluştur |
 | GET | `/api/studios/{id}/appointments/{id}` | Tüm stüdyo rolleri | Randevu detayı |
-| PATCH | `/api/studios/{id}/appointments/{id}` | Studio Admin, Supervisor, Designer, Info, Şoför | Randevu güncelle |
-| DELETE | `/api/studios/{id}/appointments/{id}` | Studio Admin, Supervisor, Designer, Info, Şoför | Randevu sil |
-| PATCH | `/api/studios/{id}/appointments/{id}/assign-artist` | Studio Admin, Supervisor+ | Artist ata |
+| PATCH | `/api/studios/{id}/appointments/{id}` | Supervisor, Designer, Info, Şoför, Calisan | Randevu güncelle |
+| DELETE | `/api/studios/{id}/appointments/{id}` | Supervisor, Designer, Info, Şoför, Calisan | Randevu sil |
+| PATCH | `/api/studios/{id}/appointments/{id}/assign-artist` | Admin, Yönetici, **Supervisor** | Artist ata |
 | PATCH | `/api/studios/{id}/appointments/{id}/artist-response` | **Artist** | Kabul / Red |
 | GET | `/api/my-artist-appointments` | **Artist, Kullanıcı (Rol)** | Atanmış randevularım |
 | PATCH | `/api/studios/{id}/appointments/{id}/driver-action` | **Şoför** | Alım/bırakım/iptal |
@@ -1066,18 +1061,17 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 | E-posta | Şifre | Rol |
 |---|---|---|
-| admin@example.com | 123456 | Admin |
-| yonetici@example.com | 123456 | Yönetici |
+| admin@example.com | 123456 | admin |
+| yonetici@example.com | 123456 | yonetici |
 
 ### Stüdyo 1 — Ink Empire Kadıköy Tattoo (studio_id: 1)
 
 | E-posta | Şifre | Stüdyo Rolü |
 |---|---|---|
-| studioadmin1@example.com | 123456 | studio_admin |
 | supervisor1@example.com | 123456 | supervisor |
 | designer1@example.com | 123456 | designer |
 | artist1@example.com | 123456 | artist |
-| dovmeci1@example.com | 123456 | dovmeci |
+| artist1b@example.com | 123456 | artist |
 | info1@example.com | 123456 | info |
 | sofor1@example.com | 123456 | sofor |
 | calisan@example.com | 123456 | calisan |
@@ -1086,11 +1080,10 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 | E-posta | Şifre | Stüdyo Rolü |
 |---|---|---|
-| studioadmin2@example.com | 123456 | studio_admin |
 | supervisor2@example.com | 123456 | supervisor |
 | designer2@example.com | 123456 | designer |
 | artist2@example.com | 123456 | artist |
-| dovmeci2@example.com | 123456 | dovmeci |
+| artist2b@example.com | 123456 | artist |
 | info2@example.com | 123456 | info |
 | sofor2@example.com | 123456 | sofor |
 
@@ -1098,14 +1091,14 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 | E-posta | Şifre | Stüdyo Rolü |
 |---|---|---|
-| studioadmin1@example.com | 123456 | studio_admin |
-| artist1@example.com | 123456 | artist |
+| supervisor1@example.com | 123456 | supervisor (studio sahibi, Studio 1 ile aynı kullanıcı) |
+| artist1@example.com | 123456 | artist (Studio 1 ile aynı kullanıcı) |
 
-### Diğer Roller (Stüdyoya Atanmamış)
+### Bağımsız Kullanıcılar (Stüdyoya Atanmamış)
 
-| E-posta | Şifre | Rol |
+| E-posta | Şifre | Platform Rolü |
 |---|---|---|
-| kullanici.rol@example.com | 123456 | kullanici_rol |
+| freelancer@example.com | 123456 | kullanici_rol |
 | kullanici@example.com | 123456 | kullanici |
 
 ---
@@ -1113,11 +1106,11 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 ## Değişiklik Geçmişi
 
 ### 2026-05-08
-- **4.3** `role` alanı genişletildi: `designer`, `artist`, `info`, `studio_admin` artık geçerli değerler. Stüdyo Yöneticisi kendi seviyesinde veya üstünde rol atayamaz.
+- **4.3** `role` alanı genişletildi: `designer`, `artist`, `info`, `supervisor` artık geçerli değerler. Stüdyo Yöneticisi kendi seviyesinde veya üstünde rol atayamaz.
 - **4.4** Personel ekleme body'sine `surname` ve `phone` alanları eklendi. `password` artık **opsiyonel** — mevcut e-posta varsa kullanıcı atanır, yoksa yeni kullanıcı oluşturulur.
 - **4.4** `designers` ve `info-staff` için eksik PATCH/DELETE endpoint'leri tabloya eklendi.
-- **4.5** `POST /api/users` endpoint'i eklendi: `studio_admin` da bu endpoint ile kullanıcı oluşturabilir/atayabilir.
-- **Yetki** `studio_admin` rolü artık `POST /api/users` yapabilir (önceki kısıtlama: yalnızca `admin` ve `yonetici`).
+- **4.5** `POST /api/users` endpoint'i eklendi: `supervisor` da bu endpoint ile kullanıcı oluşturabilir/atayabilir.
+- **Yetki** `supervisor` rolü artık `POST /api/users` yapabilir (önceki kısıtlama: yalnızca `admin` ve `yonetici`).
 
 ### 2026-05-11 (Güncelleme 1)
 - **Portfolio & Profil sistemi** — Şirket, şube ve stüdyo için portfolio/profil endpoint'leri eklendi.
@@ -1128,12 +1121,8 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 - **Şirket** `about` ve `website` alanları eklendi.
 
 ### 2026-05-11 (Güncelleme 2)
-- **Yeni rol: `dovmeci`** — Dövme sanatçısı rolü eklendi. `studioRoles()` listesine dahil edildi. Stüdyo randevularını görüntüleyebilir, randevu oluşturabilir/güncelleyebilir.
 - **Randevu türleri** — `appointment_type` artık serbest metin değil, sabit enum: `standard` (Standart), `designer` (Tasarımcı Randevusu), `tattoo` (Dövme Randevusu).
-- **Şoför ataması kaldırıldı** — `assigned_driver_user_id` alanı randevu oluşturma ve güncellemeden çıkarıldı. Mevcut sütun tarihsel veri için tabloda kalır.
-- **Şoför görünüm genişletildi** — `GET /api/my-appointments` artık yalnızca atanmış randevular değil, şoförün bağlı olduğu şubedeki TÜM stüdyoların randevularını döndürür.
 - **Tüm stüdyo çalışanları tüm randevuları görür** — `GET /api/studios/{studio}/appointments` artık rol bazlı filtreleme yapmaz; tüm stüdyo üyeleri tüm randevuları listeler.
-- **Sürücü aksiyon yetkisi güncellendi** — `PATCH /driver-action` artık sadece atanmış şoför değil, aynı şubedeki herhangi bir aktif şoför tarafından kullanılabilir.
 
 #### Randevu Türleri (appointment_type)
 | Değer | Açıklama |
@@ -1142,21 +1131,12 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 | `designer` | Tasarımcı randevusu |
 | `tattoo` | Dövme randevusu |
 
-#### Yeni Rol: dovmeci
-| Alan | Değer |
-|------|-------|
-| `role` | `dovmeci` |
-| Stüdyoya atanabilir | ✓ |
-| Randevu oluşturabilir | ✓ |
-| Stüdyo randevularını görür | ✓ |
-| Randevu yönetimi (silme) | ✗ |
-
 ---
 
 ## Profil & Portfolio API'leri
 
 ### Stüdyo Profili
-`GET /api/studios/{studio}/profile` — `admin`, `yonetici`, `studio_admin`, `supervisor`
+`GET /api/studios/{studio}/profile` — `admin`, `yonetici`, `supervisor`
 
 Dönen alanlar: `id`, `name`, `slug`, `location`, `about`, `logo_path`, `opening_time`, `closing_time`, `gallery_images`, bağlı şube bilgisi, randevu istatistikleri.
 
@@ -1202,7 +1182,7 @@ Dönen alanlar: şirket bilgisi, tüm şubeler → stüdyolar, toplu galeri (şi
 |--------|----------|-------|------|
 | POST | `/api/companies/{company}/logo` | admin | `logo` |
 | POST | `/api/shops/{shop}/logo` | admin, yonetici | `logo` |
-| POST | `/api/studios/{studio}/logo` | admin, yonetici, studio_admin | `logo` |
+| POST | `/api/studios/{studio}/logo` | admin, yonetici, supervisor | `logo` |
 
 Yanıt: `{ "logo_path": "http://..." }`
 
@@ -1218,8 +1198,8 @@ Yanıt: `{ "logo_path": "http://..." }`
 | DELETE | `/api/companies/{company}/gallery` | admin | `url` (string) |
 | POST | `/api/shops/{shop}/gallery` | admin, yonetici | `image` |
 | DELETE | `/api/shops/{shop}/gallery` | admin, yonetici | `url` (string) |
-| POST | `/api/studios/{studio}/gallery` | admin, yonetici, studio_admin | `image` |
-| DELETE | `/api/studios/{studio}/gallery` | admin, yonetici, studio_admin | `url` (string) |
+| POST | `/api/studios/{studio}/gallery` | admin, yonetici, supervisor | `image` |
+| DELETE | `/api/studios/{studio}/gallery` | admin, yonetici, supervisor | `url` (string) |
 
 Yanıt (POST): `{ "gallery_images": ["http://...", "http://..."] }`
 

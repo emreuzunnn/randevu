@@ -17,7 +17,6 @@ class AdminPanelAccessMiddleware
         abort_unless($user->hasAnyRole([
             UserRole::Admin,
             UserRole::Yonetici,
-            UserRole::StudioAdmin,
             UserRole::Supervisor,
             UserRole::Info,
             UserRole::Designer,

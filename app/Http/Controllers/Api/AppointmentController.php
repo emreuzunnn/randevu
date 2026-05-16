@@ -196,7 +196,10 @@ class AppointmentController extends Controller
                     'profile_image' => $appointment->assignedArtist->profile_image,
                     'rating'        => $appointment->assignedArtist->rating,
                 ] : null,
-                'studio'     => $studio->name,
+                'studio' => [
+                    'id'   => $studio->id,
+                    'name' => $studio->name,
+                ],
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
             ])->values(),
         ]);
@@ -263,12 +266,20 @@ class AppointmentController extends Controller
             $validated['assigned_artist_user_id'] !== null ? (int) $validated['assigned_artist_user_id'] : null
         );
 
+        $appointment->load('assignedArtist');
+
         return response()->json([
             'message' => 'Artist atandı.',
             'data'    => [
                 'id'                      => $appointment->id,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist_status'           => $appointment->artist_status,
+                'artist'                  => $appointment->assignedArtist ? [
+                    'id'            => $appointment->assignedArtist->id,
+                    'name'          => $appointment->assignedArtist->fullName(),
+                    'profile_image' => $appointment->assignedArtist->profile_image,
+                    'rating'        => $appointment->assignedArtist->rating,
+                ] : null,
             ],
         ]);
     }

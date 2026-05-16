@@ -9,7 +9,6 @@ enum UserRole: string
     case Yonetici = 'yonetici';
 
     // Stüdyo yönetimi
-    case StudioAdmin = 'studio_admin';
     case Supervisor = 'supervisor';
 
     // Stüdyo çalışanları
@@ -28,7 +27,6 @@ enum UserRole: string
         return match ($this) {
             self::Admin        => 'Admin',
             self::Yonetici     => 'Yönetici',
-            self::StudioAdmin  => 'Stüdyo Yöneticisi',
             self::Supervisor   => 'Süpervizör',
             self::Designer     => 'Tasarımcı',
             self::Artist       => 'Artist',
@@ -44,7 +42,6 @@ enum UserRole: string
     public static function studioRoles(): array
     {
         return [
-            self::StudioAdmin,
             self::Supervisor,
             self::Designer,
             self::Artist,
@@ -57,7 +54,6 @@ enum UserRole: string
     public static function appointmentManagerRoles(): array
     {
         return [
-            self::StudioAdmin,
             self::Supervisor,
             self::Designer,
             self::Info,
@@ -84,9 +80,8 @@ enum UserRole: string
         }
 
         return self::from(match (mb_strtolower($role)) {
-            'yönetici'                          => 'yonetici',
-            'stüdyo yöneticisi', 'studio admin' => 'studio_admin',
-            'süpervizör'                        => 'supervisor',
+            'yönetici'   => 'yonetici',
+            'süpervizör' => 'supervisor',
             'tasarımcı'                         => 'designer',
             'sanatçı'                           => 'artist',
             'şoför'                             => 'sofor',

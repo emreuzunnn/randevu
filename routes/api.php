@@ -97,13 +97,6 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
     // Seçili stüdyoyu sistemden siler.
     Route::delete('/studios/{studio}', [StudioController::class, 'destroy']);
 
-    // Stüdyoya bağlı tüm kullanıcıları listeler.
-    Route::get('/studios/{studio}/users', [UserDirectoryController::class, 'indexByStudio']);
-    // Seçili stüdyodaki kullanıcının rol, durum veya profil bilgilerini günceller.
-    Route::patch('/studios/{studio}/users/{user}', [UserDirectoryController::class, 'update']);
-    // Yeni kullanıcı oluşturur.
-    Route::post('/users', [UserDirectoryController::class, 'store']);
-
     // Dükkan güncelleme.
     Route::patch('/shops/{shop}', [ShopController::class, 'update']);
 });
@@ -114,7 +107,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
 | Studio admin kendi stüdyosunu yönetir (logo, bildirim, personel)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     // Stüdyo ayarları (logo, isim, bildirim süresi)
     Route::patch('/studios/{studio}/settings', [StudioController::class, 'update']);
 
@@ -122,6 +115,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(funct
     Route::get('/studios/{studio}/users', [UserDirectoryController::class, 'indexByStudio']);
     // Kullanıcıya stüdyo rolü güncelle / ban / aktif-pasif yap.
     Route::patch('/studios/{studio}/users/{user}', [UserDirectoryController::class, 'update']);
+    // Yeni kullanıcı oluşturur ve stüdyoya atar.
+    Route::post('/users', [UserDirectoryController::class, 'store']);
 });
 
 /*
@@ -154,7 +149,7 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
 | Personel Yönetimi: Admin + Yönetici + Studio Admin
 |--------------------------------------------------------------------------
 */
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     // Supervisor
     Route::get('/studios/{studio}/supervisors', [StudioStaffController::class, 'index'])
         ->defaults('role', 'supervisor');
@@ -222,8 +217,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(funct
 |--------------------------------------------------------------------------
 */
 
-// Randevu oluşturma/güncelleme/silme: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,info,sofor,calisan'])->group(function (): void {
+// Randevu oluşturma/güncelleme: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,designer,info,sofor,calisan'])->group(function (): void {
     // Randevu oluşturma/güncelleme ekranları için artist listesi ve sabitleri döndürür.
     Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Müşterinin önceki randevusuna bakarak eski mi yeni mi olduğunu kontrol eder.
@@ -232,12 +227,15 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,desi
     Route::post('/studios/{studio}/appointments', [AppointmentController::class, 'store']);
     // Var olan randevunun durum veya müşteri bilgilerini günceller.
     Route::patch('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'update']);
-    // Randevuyu sistemden siler.
+});
+
+// Randevu silme: yalnızca supervisor ve üstü
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     Route::delete('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 });
 
 // Randevu listesi ve detay: tüm stüdyo çalışanları tüm randevuları görür
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,designer,artist,info,sofor,calisan'])->group(function (): void {
     // Seçili stüdyodaki tüm randevuları listeler.
     Route::get('/studios/{studio}/appointments', [AppointmentController::class, 'index']);
     // Tek bir randevunun detayını getirir.
@@ -245,7 +243,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,desi
 });
 
 // Artist atama: supervisor ve üstü
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     // Randevuya artist veya freelancer atar.
     // assigned_artist_user_id: stüdyo artisti ya da kullanici_rol kullanıcısı
     Route::patch('/studios/{studio}/appointments/{appointment}/assign-artist', [AppointmentController::class, 'assignArtist']);
@@ -274,7 +272,7 @@ Route::middleware(['api.auth', 'role:artist,kullanici_rol'])->group(function ():
 */
 
 // Stüdyo profili: randevu istatistikleri, galeri, çalışma saatleri
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     Route::get('/studios/{studio}/profile', [ProfileController::class, 'studioProfile']);
 });
 
@@ -294,8 +292,8 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
 |--------------------------------------------------------------------------
 */
 
-// Stüdyo medya yönetimi (admin, yönetici, studio_admin)
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(function (): void {
+// Stüdyo medya yönetimi (admin, yönetici, supervisor)
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     Route::post('/studios/{studio}/logo', [MediaController::class, 'uploadStudioLogo']);
     Route::post('/studios/{studio}/gallery', [MediaController::class, 'addStudioGalleryImage']);
     Route::delete('/studios/{studio}/gallery', [MediaController::class, 'removeStudioGalleryImage']);

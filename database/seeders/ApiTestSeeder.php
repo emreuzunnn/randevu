@@ -36,28 +36,20 @@ class ApiTestSeeder extends Seeder
         ]);
 
         // ── 2. STÜDYO 1 ÇALIŞANLARI ───────────────────────────────────────
-        $studioAdmin1 = User::factory()->create([
-            'name'     => 'Stüdyo',
-            'surname'  => 'Admin Bir',
-            'phone'    => '5550000003',
-            'email'    => 'studioadmin1@example.com',
-            'password' => '123456',
-            'role'     => UserRole::StudioAdmin,
-        ]);
-
         $supervisor1 = User::factory()->create([
             'name'     => 'Süpervizör',
             'surname'  => 'Bir',
-            'phone'    => '5550000004',
+            'phone'    => '5550000003',
             'email'    => 'supervisor1@example.com',
             'password' => '123456',
             'role'     => UserRole::Supervisor,
+            'bio'      => 'Stüdyo 1 yöneticisi ve süpervizörü.',
         ]);
 
         $designer1 = User::factory()->create([
             'name'      => 'Tasarımcı',
             'surname'   => 'Bir',
-            'phone'     => '5550000005',
+            'phone'     => '5550000004',
             'email'     => 'designer1@example.com',
             'password'  => '123456',
             'role'      => UserRole::Designer,
@@ -72,7 +64,7 @@ class ApiTestSeeder extends Seeder
         $artist1 = User::factory()->create([
             'name'      => 'Artist',
             'surname'   => 'Bir',
-            'phone'     => '5550000006',
+            'phone'     => '5550000005',
             'email'     => 'artist1@example.com',
             'password'  => '123456',
             'role'      => UserRole::Artist,
@@ -85,11 +77,10 @@ class ApiTestSeeder extends Seeder
             ],
         ]);
 
-        // Artist 1B — Studio 1'in ikinci artist'i (eski dovmeci1 yerine)
         $artist1b = User::factory()->create([
             'name'      => 'Artist',
             'surname'   => 'Bir-B',
-            'phone'     => '5550000007',
+            'phone'     => '5550000006',
             'email'     => 'artist1b@example.com',
             'password'  => '123456',
             'role'      => UserRole::Artist,
@@ -104,7 +95,7 @@ class ApiTestSeeder extends Seeder
         $info1 = User::factory()->create([
             'name'     => 'Info',
             'surname'  => 'Bir',
-            'phone'    => '5550000008',
+            'phone'    => '5550000007',
             'email'    => 'info1@example.com',
             'password' => '123456',
             'role'     => UserRole::Info,
@@ -113,35 +104,27 @@ class ApiTestSeeder extends Seeder
         $sofor1 = User::factory()->create([
             'name'     => 'Şoför',
             'surname'  => 'Bir',
-            'phone'    => '5550000009',
+            'phone'    => '5550000008',
             'email'    => 'sofor1@example.com',
             'password' => '123456',
             'role'     => UserRole::Sofor,
         ]);
 
         // ── 3. STÜDYO 2 ÇALIŞANLARI ───────────────────────────────────────
-        $studioAdmin2 = User::factory()->create([
-            'name'     => 'Stüdyo',
-            'surname'  => 'Admin İki',
-            'phone'    => '5550000010',
-            'email'    => 'studioadmin2@example.com',
-            'password' => '123456',
-            'role'     => UserRole::StudioAdmin,
-        ]);
-
         $supervisor2 = User::factory()->create([
             'name'     => 'Süpervizör',
             'surname'  => 'İki',
-            'phone'    => '5550000011',
+            'phone'    => '5550000009',
             'email'    => 'supervisor2@example.com',
             'password' => '123456',
             'role'     => UserRole::Supervisor,
+            'bio'      => 'Stüdyo 2 yöneticisi ve süpervizörü.',
         ]);
 
         $designer2 = User::factory()->create([
             'name'      => 'Tasarımcı',
             'surname'   => 'İki',
-            'phone'     => '5550000012',
+            'phone'     => '5550000010',
             'email'     => 'designer2@example.com',
             'password'  => '123456',
             'role'      => UserRole::Designer,
@@ -156,7 +139,7 @@ class ApiTestSeeder extends Seeder
         $artist2 = User::factory()->create([
             'name'      => 'Artist',
             'surname'   => 'İki',
-            'phone'     => '5550000013',
+            'phone'     => '5550000011',
             'email'     => 'artist2@example.com',
             'password'  => '123456',
             'role'      => UserRole::Artist,
@@ -168,11 +151,10 @@ class ApiTestSeeder extends Seeder
             ],
         ]);
 
-        // Artist 2B — Studio 2'nin ikinci artist'i (eski dovmeci2 yerine)
         $artist2b = User::factory()->create([
             'name'      => 'Artist',
             'surname'   => 'İki-B',
-            'phone'     => '5550000014',
+            'phone'     => '5550000012',
             'email'     => 'artist2b@example.com',
             'password'  => '123456',
             'role'      => UserRole::Artist,
@@ -187,7 +169,7 @@ class ApiTestSeeder extends Seeder
         $info2 = User::factory()->create([
             'name'     => 'Info',
             'surname'  => 'İki',
-            'phone'    => '5550000015',
+            'phone'    => '5550000013',
             'email'    => 'info2@example.com',
             'password' => '123456',
             'role'     => UserRole::Info,
@@ -196,7 +178,7 @@ class ApiTestSeeder extends Seeder
         $sofor2 = User::factory()->create([
             'name'     => 'Şoför',
             'surname'  => 'İki',
-            'phone'    => '5550000016',
+            'phone'    => '5550000014',
             'email'    => 'sofor2@example.com',
             'password' => '123456',
             'role'     => UserRole::Sofor,
@@ -206,7 +188,7 @@ class ApiTestSeeder extends Seeder
         $calisan = User::factory()->create([
             'name'     => 'Çalışan',
             'surname'  => 'Bir',
-            'phone'    => '5550000017',
+            'phone'    => '5550000015',
             'email'    => 'calisan@example.com',
             'password' => '123456',
             'role'     => UserRole::Calisan,
@@ -215,7 +197,7 @@ class ApiTestSeeder extends Seeder
         $kullaniciRol = User::factory()->create([
             'name'      => 'Freelancer',
             'surname'   => 'Artist',
-            'phone'     => '5550000018',
+            'phone'     => '5550000016',
             'email'     => 'freelancer@example.com',
             'password'  => '123456',
             'role'      => UserRole::KullaniciRol,
@@ -230,7 +212,7 @@ class ApiTestSeeder extends Seeder
         $kullanici = User::factory()->create([
             'name'     => 'Kullanıcı',
             'surname'  => 'Bir',
-            'phone'    => '5550000019',
+            'phone'    => '5550000017',
             'email'    => 'kullanici@example.com',
             'password' => '123456',
             'role'     => UserRole::Kullanici,
@@ -295,6 +277,7 @@ class ApiTestSeeder extends Seeder
             'shop_id'       => $shop2->id,
         ]);
 
+        // Bağımsız stüdyo — supervisor1 tarafından yönetilir
         $studio3 = Studio::create([
             'name'          => 'Bağımsız Piercing Studio',
             'slug'          => 'bagimsiz-piercing-studio',
@@ -302,22 +285,21 @@ class ApiTestSeeder extends Seeder
             'about'         => 'Dükkan bağlantısız bağımsız piercing stüdyosu.',
             'opening_time'  => '12:00',
             'closing_time'  => '20:00',
-            'owner_user_id' => $studioAdmin1->id,
+            'owner_user_id' => $supervisor1->id,
             'shop_id'       => null,
         ]);
 
         // ── 8. STÜDYO — KULLANICI ATAMALARI ───────────────────────────────
         foreach ([
-            [$admin->id,        UserRole::Admin,       'working'],
-            [$yonetici->id,     UserRole::Yonetici,    'working'],
-            [$studioAdmin1->id, UserRole::StudioAdmin, 'working'],
-            [$supervisor1->id,  UserRole::Supervisor,  'working'],
-            [$designer1->id,    UserRole::Designer,    'working'],
-            [$artist1->id,      UserRole::Artist,      'working'],
-            [$artist1b->id,     UserRole::Artist,      'working'],
-            [$info1->id,        UserRole::Info,        'working'],
-            [$sofor1->id,       UserRole::Sofor,       'transfer'],
-            [$calisan->id,      UserRole::Calisan,     'break'],
+            [$admin->id,       UserRole::Admin,      'working'],
+            [$yonetici->id,    UserRole::Yonetici,   'working'],
+            [$supervisor1->id, UserRole::Supervisor, 'working'],
+            [$designer1->id,   UserRole::Designer,   'working'],
+            [$artist1->id,     UserRole::Artist,     'working'],
+            [$artist1b->id,    UserRole::Artist,     'working'],
+            [$info1->id,       UserRole::Info,       'working'],
+            [$sofor1->id,      UserRole::Sofor,      'transfer'],
+            [$calisan->id,     UserRole::Calisan,    'break'],
         ] as [$userId, $role, $workStatus]) {
             $studio1->users()->attach($userId, [
                 'role'        => $role->value,
@@ -328,15 +310,14 @@ class ApiTestSeeder extends Seeder
         }
 
         foreach ([
-            [$admin->id,        UserRole::Admin,       'working'],
-            [$yonetici->id,     UserRole::Yonetici,    'working'],
-            [$studioAdmin2->id, UserRole::StudioAdmin, 'working'],
-            [$supervisor2->id,  UserRole::Supervisor,  'working'],
-            [$designer2->id,    UserRole::Designer,    'working'],
-            [$artist2->id,      UserRole::Artist,      'working'],
-            [$artist2b->id,     UserRole::Artist,      'working'],
-            [$info2->id,        UserRole::Info,        'working'],
-            [$sofor2->id,       UserRole::Sofor,       'working'],
+            [$admin->id,       UserRole::Admin,      'working'],
+            [$yonetici->id,    UserRole::Yonetici,   'working'],
+            [$supervisor2->id, UserRole::Supervisor, 'working'],
+            [$designer2->id,   UserRole::Designer,   'working'],
+            [$artist2->id,     UserRole::Artist,     'working'],
+            [$artist2b->id,    UserRole::Artist,     'working'],
+            [$info2->id,       UserRole::Info,       'working'],
+            [$sofor2->id,      UserRole::Sofor,      'working'],
         ] as [$userId, $role, $workStatus]) {
             $studio2->users()->attach($userId, [
                 'role'        => $role->value,
@@ -346,8 +327,8 @@ class ApiTestSeeder extends Seeder
             ]);
         }
 
-        $studio3->users()->attach($studioAdmin1->id, [
-            'role'        => UserRole::StudioAdmin->value,
+        $studio3->users()->attach($supervisor1->id, [
+            'role'        => UserRole::Supervisor->value,
             'work_status' => 'working',
             'is_active'   => true,
             'joined_at'   => now()->subMonths(3),
@@ -624,7 +605,7 @@ class ApiTestSeeder extends Seeder
                 'driver_status'           => 'dropped_off',
                 'artist_status'           => 'accepted',
                 'is_old_customer'         => false,
-                'created_by_user_id'      => $studioAdmin2->id,
+                'created_by_user_id'      => $supervisor2->id,
                 'assigned_driver_user_id' => $sofor2->id,
                 'assigned_artist_user_id' => $artist2->id,
                 'appointment_at'          => now()->subDays(3)->setTime(11, 0),
@@ -672,7 +653,7 @@ class ApiTestSeeder extends Seeder
                 'driver_status'           => null,
                 'artist_status'           => 'pending',
                 'is_old_customer'         => false,
-                'created_by_user_id'      => $studioAdmin1->id,
+                'created_by_user_id'      => $supervisor1->id,
                 'assigned_driver_user_id' => null,
                 'assigned_artist_user_id' => $artist1->id,
                 'appointment_at'          => now()->addDays(2)->setTime(14, 0),
@@ -692,7 +673,7 @@ class ApiTestSeeder extends Seeder
                 'driver_status'           => null,
                 'artist_status'           => null,
                 'is_old_customer'         => true,
-                'created_by_user_id'      => $studioAdmin1->id,
+                'created_by_user_id'      => $supervisor1->id,
                 'assigned_driver_user_id' => null,
                 'assigned_artist_user_id' => null,
                 'appointment_at'          => now()->addDays(6)->setTime(16, 30),

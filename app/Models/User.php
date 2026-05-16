@@ -187,8 +187,8 @@ class User extends Authenticatable
             return false;
         }
 
-        // Platform yöneticisi ve stüdyo yöneticisi
-        if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici, UserRole::StudioAdmin])) {
+        // Platform yöneticisi ve şube supervisor'ı
+        if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor])) {
             return true;
         }
 
