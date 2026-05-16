@@ -16,6 +16,7 @@ class MediaController extends Controller
 {
     // ── Yardımcı ─────────────────────────────────────────────────────────────
 
+    /** Dosyayı yükler, tam URL döner (logo ve galeri için kullanılır). */
     private function storeImage(Request $request, string $field, string $folder): string
     {
         $file = $request->file($field);
@@ -24,13 +25,30 @@ class MediaController extends Controller
         return Storage::disk('public')->url($path);
     }
 
+    /** Dosyayı yükler, görece path döner (avatar ve portfolio için kullanılır). */
+    private function storeFile(Request $request, string $field, string $folder): string
+    {
+        $file = $request->file($field);
+        $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        return $file->storeAs($folder, $name, 'public');
+    }
+
+    /**
+     * Tam URL veya görece path kabul eder.
+     * Tam URL: /storage/ kısmı soyularak disk üzerinden silinir.
+     * Görece path: doğrudan kullanılır.
+     */
     private function deleteOldImage(?string $url): void
     {
         if (! $url) {
             return;
         }
-        $relative = ltrim(parse_url($url, PHP_URL_PATH), '/');
-        $relative = preg_replace('#^storage/#', '', $relative);
+        if (str_starts_with($url, 'http')) {
+            $relative = ltrim(parse_url($url, PHP_URL_PATH), '/');
+            $relative = preg_replace('#^storage/#', '', $relative);
+        } else {
+            $relative = $url;
+        }
         if ($relative) {
             Storage::disk('public')->delete($relative);
         }
@@ -230,6 +248,11 @@ class MediaController extends Controller
 
     // ── Kullanıcı Avatar (Profil Fotoğrafı) ──────────────────────────────────
 
+    /**
+     * Profil fotoğrafını yükler.
+     * DB'de görece path saklanır; API yanıtında tam URL döner.
+     * User modeli profileImage accessor'ı ile okuma sırasında tam URL üretir.
+     */
     public function uploadAvatar(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -240,19 +263,23 @@ class MediaController extends Controller
         ]);
 
         $this->deleteOldImage($user->profile_image);
-        $url = $this->storeImage($request, 'avatar', 'avatars/' . $user->id);
-        $user->update(['profile_image' => $url]);
+        $relativePath = $this->storeFile($request, 'avatar', 'avatars/' . $user->id);
+        $user->update(['profile_image' => $relativePath]);
 
         return response()->json([
             'status'        => 'success',
             'message'       => 'Profil fotoğrafı güncellendi.',
-            'profile_image' => $url,
+            'profile_image' => url('storage/' . $relativePath),
         ]);
     }
 
     // ── Portfolio Görsel Yükleme ──────────────────────────────────────────────
 
-    /** Portfolyo için görsel yükler ve URL döndürür (portfolyoya kaydetmez) */
+    /**
+     * Portfolyo için görsel yükler; portfolyoya kaydetmez.
+     * image_path: DB'ye kaydedilecek görece yol.
+     * image_url:  Görseli hemen göstermek için tam URL.
+     */
     public function uploadPortfolioImage(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -262,12 +289,13 @@ class MediaController extends Controller
             'image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ]);
 
-        $url = $this->storeImage($request, 'image', 'portfolio/' . $user->id);
+        $relativePath = $this->storeFile($request, 'image', 'portfolio/' . $user->id);
 
         return response()->json([
             'status'     => 'success',
             'message'    => 'Görsel yüklendi.',
-            'image_path' => $url,
+            'image_path' => $relativePath,
+            'image_url'  => url('storage/' . $relativePath),
         ]);
     }
 }

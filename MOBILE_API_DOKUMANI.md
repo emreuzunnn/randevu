@@ -191,16 +191,41 @@ admin
   "email": "ahmet@example.com",
   "phone": "5551234567",
   "bio": "Güncellenmiş bio.",
-  "profile_image": "profiles/ahmet_yeni.png",
   "status": "break",
   "password": "654321",
   "password_confirmation": "654321"
 }
 ```
 
+> `profile_image` alanını bu endpoint ile ayarlama. Profil fotoğrafı için 1.5'i kullan.
+
 ---
 
-### 1.5 Portfolyo Getir
+### 1.5 Profil Fotoğrafı Yükle
+
+**POST** `/api/me/avatar`
+
+> `Content-Type: multipart/form-data`
+
+| Alan | Tip | Zorunlu |
+|---|---|---|
+| `avatar` | image (jpeg/png/jpg/webp, max 5 MB) | Evet |
+
+**Response `200`**
+
+```json
+{
+  "status": "success",
+  "message": "Profil fotoğrafı güncellendi.",
+  "profile_image": "http://server/storage/avatars/1/uuid.jpg"
+}
+```
+
+> Dönen `profile_image` URL'i, sonraki `/api/me` yanıtında da aynı şekilde gelir.
+
+---
+
+### 1.6 Portfolyo Getir
 
 **GET** `/api/me/portfolio`
 
@@ -212,7 +237,44 @@ admin
     "portfolio": [
       {
         "title": "Tribal Kol",
-        "image_path": "portfolio/tribal.jpg",
+        "image_path": "http://server/storage/portfolio/1/uuid.jpg",
+        "description": "Siyah-gri stil.",
+        "category": "tribal"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 1.7 Portfolyoya Öğe Ekle (Önerilen)
+
+**POST** `/api/me/portfolio/items`
+
+> Tek adımda görsel + bilgi gönder. `Content-Type: multipart/form-data`
+
+| Alan | Tip | Zorunlu |
+|---|---|---|
+| `title` | string | Evet |
+| `image` | image (jpeg/png/jpg/webp, max 10 MB) | Hayır |
+| `image_path` | string (görece path veya tam URL) | Hayır |
+| `description` | string | Hayır |
+| `category` | string | Hayır |
+
+> `image` (dosya) ve `image_path` birlikte gönderilirse `image` önceliklidir.
+
+**Response `200`**
+
+```json
+{
+  "status": "success",
+  "message": "Portfolyo öğesi eklendi.",
+  "data": {
+    "portfolio": [
+      {
+        "title": "Tribal Kol",
+        "image_path": "http://server/storage/portfolio/1/uuid.jpg",
         "description": "Siyah-gri stil."
       }
     ]
@@ -222,34 +284,74 @@ admin
 
 ---
 
-### 1.6 Portfolyo Güncelle
+### 1.8 Portfolyodan Öğe Sil
+
+**DELETE** `/api/me/portfolio/items/{index}`
+
+> `{index}`: portfolyo dizisindeki 0 tabanlı sıra numarası.
+
+**Response `200`**
+
+```json
+{
+  "status": "success",
+  "message": "Portfolyo öğesi silindi.",
+  "data": { "portfolio": [] }
+}
+```
+
+---
+
+### 1.9 Portfolyo Görsel Yükle (Ayrı adım)
+
+**POST** `/api/me/portfolio/upload`
+
+> Sadece görseli yükler, portfolyoya kaydetmez. Dönen `image_path`'i 1.7'deki öğe ekleme endpoint'ine gönder.
+
+> `Content-Type: multipart/form-data`
+
+| Alan | Tip | Zorunlu |
+|---|---|---|
+| `image` | image (jpeg/png/jpg/webp, max 10 MB) | Evet |
+
+**Response `200`**
+
+```json
+{
+  "status": "success",
+  "message": "Görsel yüklendi.",
+  "image_path": "portfolio/1/uuid.jpg",
+  "image_url": "http://server/storage/portfolio/1/uuid.jpg"
+}
+```
+
+> `image_path` → `POST /me/portfolio/items` isteğinde `image_path` alanına gönder.  
+> `image_url` → Görseli hemen göstermek için kullan.
+
+---
+
+### 1.10 Portfolyo Tamamen Değiştir
 
 **PATCH** `/api/me/portfolio`
 
-> Artist ve `kullanici_rol` kullanıcılar portfolyo yönetebilir.
+> Tüm portfolyoyu gönder; mevcut portfolyo yenisiyle tamamen değiştirilir.
 
 ```json
 {
   "portfolio": [
     {
       "title": "Tribal Kol",
-      "image_path": "portfolio/tribal.jpg",
-      "description": "Siyah-gri stil."
-    },
-    {
-      "title": "Çiçek Bileği",
-      "image_path": "portfolio/cicek.jpg",
-      "description": null
+      "image_path": "portfolio/1/uuid.jpg",
+      "description": "Siyah-gri stil.",
+      "category": "tribal"
     }
   ]
 }
 ```
 
-> Mevcut portfolyo tamamen yenisiyle değiştirilir. Tüm öğeleri gönder.
-
 ---
 
-### 1.7 Çıkış
+### 1.11 Çıkış
 
 **POST** `/api/logout`
 
@@ -910,18 +1012,54 @@ Tüm personel endpoint'leri `studio_admin`, `yonetici`, `admin` tarafından kull
 
 ## Test Hesapları
 
+> **Tüm hesaplarda şifre:** `123456`  
+> Seeder: `php artisan migrate:fresh --seed`
+
+### Platform Yöneticileri
+
 | E-posta | Şifre | Rol |
 |---|---|---|
 | admin@example.com | 123456 | Admin |
-| manager@example.com | 123456 | Yönetici |
-| studio-admin@example.com | 123456 | Stüdyo Yöneticisi |
-| supervisor@example.com | 123456 | Süpervizör |
-| artist@example.com | 123456 | Artist |
-| designer@example.com | 123456 | Tasarımcı |
-| info@example.com | 123456 | Info |
-| driver@example.com | 123456 | Şoför |
-| user-rol@example.com | 123456 | Kullanıcı (Rol) |
-| user@example.com | 123456 | Kullanıcı |
+| yonetici@example.com | 123456 | Yönetici |
+
+### Stüdyo 1 — Ink Empire Kadıköy Tattoo (studio_id: 1)
+
+| E-posta | Şifre | Stüdyo Rolü |
+|---|---|---|
+| studioadmin1@example.com | 123456 | studio_admin |
+| supervisor1@example.com | 123456 | supervisor |
+| designer1@example.com | 123456 | designer |
+| artist1@example.com | 123456 | artist |
+| dovmeci1@example.com | 123456 | dovmeci |
+| info1@example.com | 123456 | info |
+| sofor1@example.com | 123456 | sofor |
+| calisan@example.com | 123456 | calisan |
+
+### Stüdyo 2 — Ink Empire Beşiktaş Tattoo (studio_id: 2)
+
+| E-posta | Şifre | Stüdyo Rolü |
+|---|---|---|
+| studioadmin2@example.com | 123456 | studio_admin |
+| supervisor2@example.com | 123456 | supervisor |
+| designer2@example.com | 123456 | designer |
+| artist2@example.com | 123456 | artist |
+| dovmeci2@example.com | 123456 | dovmeci |
+| info2@example.com | 123456 | info |
+| sofor2@example.com | 123456 | sofor |
+
+### Stüdyo 3 — Bağımsız Piercing Studio (studio_id: 3, dükkan bağlantısı yok)
+
+| E-posta | Şifre | Stüdyo Rolü |
+|---|---|---|
+| studioadmin1@example.com | 123456 | studio_admin |
+| artist1@example.com | 123456 | artist |
+
+### Diğer Roller (Stüdyoya Atanmamış)
+
+| E-posta | Şifre | Rol |
+|---|---|---|
+| kullanici.rol@example.com | 123456 | kullanici_rol |
+| kullanici@example.com | 123456 | kullanici |
 
 ---
 

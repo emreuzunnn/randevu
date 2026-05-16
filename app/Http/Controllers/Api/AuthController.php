@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -247,7 +248,11 @@ class AuthController extends Controller
         ]);
     }
 
-    /** Portfolyoya tek öğe ekle */
+    /**
+     * Portfolyoya tek öğe ekle.
+     * image alanı (dosya) veya image_path (görece yol / tam URL) kabul eder.
+     * Dosya gönderilirse yüklenir ve görece path olarak saklanır.
+     */
     public function addPortfolioItem(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -255,13 +260,36 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'title'       => ['required', 'string', 'max:255'],
+            'image'       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'  => ['nullable', 'string', 'max:2048'],
             'description' => ['nullable', 'string', 'max:1000'],
             'category'    => ['nullable', 'string', 'max:50'],
         ]);
 
-        $portfolio = $user->portfolio ?? [];
-        $portfolio[] = array_filter($validated, fn ($v) => $v !== null);
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $imagePath = $file->storeAs(
+                'portfolio/' . $user->id,
+                Str::uuid() . '.' . $file->getClientOriginalExtension(),
+                'public'
+            );
+        } elseif (! empty($validated['image_path'])) {
+            $imagePath = $validated['image_path'];
+        }
+
+        // Mevcut portfolyoyu raw olarak oku (accessor'ın URL dönüşümünü atla).
+        $rawPortfolio = $user->getRawOriginal('portfolio');
+        $portfolio = $rawPortfolio ? json_decode($rawPortfolio, true) : [];
+
+        $item = array_filter([
+            'title'       => $validated['title'],
+            'image_path'  => $imagePath,
+            'description' => $validated['description'] ?? null,
+            'category'    => $validated['category'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        $portfolio[] = $item;
         $user->update(['portfolio' => $portfolio]);
 
         return response()->json([
@@ -277,7 +305,8 @@ class AuthController extends Controller
         $user = $request->user();
         abort_if($user === null, 401);
 
-        $portfolio = array_values($user->portfolio ?? []);
+        $rawPortfolio = $user->getRawOriginal('portfolio');
+        $portfolio = array_values($rawPortfolio ? json_decode($rawPortfolio, true) : []);
         abort_if(! isset($portfolio[$index]), 404, 'Portfolyo öğesi bulunamadı.');
 
         array_splice($portfolio, $index, 1);

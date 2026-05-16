@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Database\Factories\UserFactory;
@@ -48,6 +49,35 @@ class User extends Authenticatable
             'can_open_multiple_studios' => 'boolean',
             'portfolio'                => 'array',
         ];
+    }
+
+    /** Relative path → tam URL dönüştürür; eski tam URL verilerse olduğu gibi döner */
+    protected function profileImage(): Attribute
+    {
+        return Attribute::get(fn (?string $value): ?string => $value
+            ? (str_starts_with($value, 'http') ? $value : url('storage/' . $value))
+            : null
+        );
+    }
+
+    /**
+     * Portfolio öğelerindeki görece image_path'leri tam URL'e çevirir.
+     * JSON decode burada yapılır çünkü Attribute accessor raw DB değerini alır.
+     */
+    protected function portfolio(): Attribute
+    {
+        return Attribute::get(function (?string $value): ?array {
+            if ($value === null) {
+                return null;
+            }
+            $items = json_decode($value, true) ?? [];
+            return array_map(function (array $item): array {
+                if (! empty($item['image_path']) && ! str_starts_with($item['image_path'], 'http')) {
+                    $item['image_path'] = url('storage/' . $item['image_path']);
+                }
+                return $item;
+            }, $items);
+        });
     }
 
     public function hasRole(UserRole|string $role): bool
