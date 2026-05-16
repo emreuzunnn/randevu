@@ -9,7 +9,6 @@ use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class ApiTestSeeder extends Seeder
 {
@@ -36,7 +35,7 @@ class ApiTestSeeder extends Seeder
             'bio'      => 'Şirket bazında dükkan ve stüdyo yöneticisi.',
         ]);
 
-        // ── 2. STÜDYO ÇALIŞANLARI (Studio 1 için) ─────────────────────────
+        // ── 2. STÜDYO 1 ÇALIŞANLARI ───────────────────────────────────────
         $studioAdmin1 = User::factory()->create([
             'name'     => 'Stüdyo',
             'surname'  => 'Admin Bir',
@@ -56,36 +55,50 @@ class ApiTestSeeder extends Seeder
         ]);
 
         $designer1 = User::factory()->create([
-            'name'     => 'Tasarımcı',
-            'surname'  => 'Bir',
-            'phone'    => '5550000005',
-            'email'    => 'designer1@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Designer,
-            'bio'      => 'Geometrik ve minimalist dövme tasarımları.',
-            'rating'   => 4.8,
+            'name'      => 'Tasarımcı',
+            'surname'   => 'Bir',
+            'phone'     => '5550000005',
+            'email'     => 'designer1@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Designer,
+            'bio'       => 'Geometrik ve minimalist dövme tasarımları.',
+            'rating'    => 4.8,
+            'portfolio' => [
+                ['title' => 'Geometrik Mandala',  'image_path' => null, 'description' => 'İnce çizgilerle merkez mandala tasarımı.', 'category' => 'geometric'],
+                ['title' => 'Minimalist Çiçek',   'image_path' => null, 'description' => 'Tek çizgi tekniğiyle çiçek tasarımı.',    'category' => 'minimalist'],
+            ],
         ]);
 
         $artist1 = User::factory()->create([
-            'name'     => 'Artist',
-            'surname'  => 'Bir',
-            'phone'    => '5550000006',
-            'email'    => 'artist1@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Artist,
-            'bio'      => 'Realistik portre uzmanı.',
-            'rating'   => 4.9,
+            'name'      => 'Artist',
+            'surname'   => 'Bir',
+            'phone'     => '5550000006',
+            'email'     => 'artist1@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Artist,
+            'bio'       => 'Realistik portre uzmanı. 8 yıllık deneyim.',
+            'rating'    => 4.9,
+            'portfolio' => [
+                ['title' => 'Realistik Aslan',  'image_path' => null, 'description' => 'Siyah-gri tekniğiyle omuz dövmesi.',     'category' => 'realism'],
+                ['title' => 'Tribal Full Kol',  'image_path' => null, 'description' => 'Full sleeve tribal kompozisyon.',        'category' => 'tribal'],
+                ['title' => 'Gül Buketi',       'image_path' => null, 'description' => 'Ön kol için renk çalışması.',           'category' => 'floral'],
+            ],
         ]);
 
-        $dovmeci1 = User::factory()->create([
-            'name'     => 'Dövmeci',
-            'surname'  => 'Bir',
-            'phone'    => '5550000007',
-            'email'    => 'dovmeci1@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Dovmeci,
-            'bio'      => 'Traditional ve Neo-traditional stil.',
-            'rating'   => 4.7,
+        // Artist 1B — Studio 1'in ikinci artist'i (eski dovmeci1 yerine)
+        $artist1b = User::factory()->create([
+            'name'      => 'Artist',
+            'surname'   => 'Bir-B',
+            'phone'     => '5550000007',
+            'email'     => 'artist1b@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Artist,
+            'bio'       => 'Traditional ve Neo-traditional stil.',
+            'rating'    => 4.7,
+            'portfolio' => [
+                ['title' => 'Neo-Traditional Kartal', 'image_path' => null, 'description' => 'Kalın konturlu neo-traditional stil.',  'category' => 'neo-traditional'],
+                ['title' => 'American Traditional',   'image_path' => null, 'description' => 'Klasik sailor jerry tarzı gemi.',       'category' => 'traditional'],
+            ],
         ]);
 
         $info1 = User::factory()->create([
@@ -106,7 +119,7 @@ class ApiTestSeeder extends Seeder
             'role'     => UserRole::Sofor,
         ]);
 
-        // ── 3. STÜDYO ÇALIŞANLARI (Studio 2 için) ─────────────────────────
+        // ── 3. STÜDYO 2 ÇALIŞANLARI ───────────────────────────────────────
         $studioAdmin2 = User::factory()->create([
             'name'     => 'Stüdyo',
             'surname'  => 'Admin İki',
@@ -126,36 +139,49 @@ class ApiTestSeeder extends Seeder
         ]);
 
         $designer2 = User::factory()->create([
-            'name'     => 'Tasarımcı',
-            'surname'  => 'İki',
-            'phone'    => '5550000012',
-            'email'    => 'designer2@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Designer,
-            'bio'      => 'Watercolor ve abstract dövme tasarımları.',
-            'rating'   => 4.6,
+            'name'      => 'Tasarımcı',
+            'surname'   => 'İki',
+            'phone'     => '5550000012',
+            'email'     => 'designer2@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Designer,
+            'bio'       => 'Watercolor ve abstract dövme tasarımları.',
+            'rating'    => 4.6,
+            'portfolio' => [
+                ['title' => 'Watercolor Kelebek', 'image_path' => null, 'description' => 'Sıvı boya etkisi, canlı renkler.',         'category' => 'watercolor'],
+                ['title' => 'Abstract Fırtına',   'image_path' => null, 'description' => 'Soyut çizgilerle fırtına kompozisyonu.',   'category' => 'abstract'],
+            ],
         ]);
 
         $artist2 = User::factory()->create([
-            'name'     => 'Artist',
-            'surname'  => 'İki',
-            'phone'    => '5550000013',
-            'email'    => 'artist2@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Artist,
-            'bio'      => 'Fine line ve blackwork uzmanı.',
-            'rating'   => 4.5,
+            'name'      => 'Artist',
+            'surname'   => 'İki',
+            'phone'     => '5550000013',
+            'email'     => 'artist2@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Artist,
+            'bio'       => 'Fine line ve blackwork uzmanı.',
+            'rating'    => 4.5,
+            'portfolio' => [
+                ['title' => 'Fine Line Botanik', 'image_path' => null, 'description' => 'İnce çizgiyle botanik yaprak serisi.', 'category' => 'fine-line'],
+                ['title' => 'Blackwork Geometri','image_path' => null, 'description' => 'Tam siyah geometrik pattern.',         'category' => 'blackwork'],
+            ],
         ]);
 
-        $dovmeci2 = User::factory()->create([
-            'name'     => 'Dövmeci',
-            'surname'  => 'İki',
-            'phone'    => '5550000014',
-            'email'    => 'dovmeci2@example.com',
-            'password' => '123456',
-            'role'     => UserRole::Dovmeci,
-            'bio'      => 'Japanese ve Irezumi stil.',
-            'rating'   => 4.8,
+        // Artist 2B — Studio 2'nin ikinci artist'i (eski dovmeci2 yerine)
+        $artist2b = User::factory()->create([
+            'name'      => 'Artist',
+            'surname'   => 'İki-B',
+            'phone'     => '5550000014',
+            'email'     => 'artist2b@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Artist,
+            'bio'       => 'Japanese ve Irezumi stil.',
+            'rating'    => 4.8,
+            'portfolio' => [
+                ['title' => 'Koi Balığı Tam Kol', 'image_path' => null, 'description' => 'Geleneksel Japanese tam kol çalışması.', 'category' => 'japanese'],
+                ['title' => 'Hannya Maskesi',      'image_path' => null, 'description' => 'Irezumi tekniğiyle sırt üst bölüm.',     'category' => 'japanese'],
+            ],
         ]);
 
         $info2 = User::factory()->create([
@@ -187,12 +213,18 @@ class ApiTestSeeder extends Seeder
         ]);
 
         $kullaniciRol = User::factory()->create([
-            'name'     => 'Kullanıcı',
-            'surname'  => 'Rol',
-            'phone'    => '5550000018',
-            'email'    => 'kullanici.rol@example.com',
-            'password' => '123456',
-            'role'     => UserRole::KullaniciRol,
+            'name'      => 'Freelancer',
+            'surname'   => 'Artist',
+            'phone'     => '5550000018',
+            'email'     => 'freelancer@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::KullaniciRol,
+            'bio'       => 'Bağımsız çalışan dövme sanatçısı.',
+            'rating'    => 4.3,
+            'portfolio' => [
+                ['title' => 'Minimalist Ay',  'image_path' => null, 'description' => 'Tek çizgi ay serisi.',     'category' => 'minimalist'],
+                ['title' => 'Script Yazı',    'image_path' => null, 'description' => 'El yazısı metin dövmesi.', 'category' => 'lettering'],
+            ],
         ]);
 
         $kullanici = User::factory()->create([
@@ -206,15 +238,15 @@ class ApiTestSeeder extends Seeder
 
         // ── 5. ŞİRKET ─────────────────────────────────────────────────────
         $company = Company::create([
-            'name'              => 'Ink Empire Group',
-            'address'           => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
-            'phone'             => '02125550000',
-            'email'             => 'info@inkempire.com',
-            'about'             => 'İstanbul\'un önde gelen dövme ve sanat stüdyoları zinciri.',
-            'website'           => 'https://inkempire.com',
-            'is_active'         => true,
-            'max_shop_count'    => 5,
-            'max_studio_count'  => 10,
+            'name'             => 'Ink Empire Group',
+            'address'          => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
+            'phone'            => '02125550000',
+            'email'            => 'info@inkempire.com',
+            'about'            => 'İstanbul\'un önde gelen dövme ve sanat stüdyoları zinciri.',
+            'website'          => 'https://inkempire.com',
+            'is_active'        => true,
+            'max_shop_count'   => 5,
+            'max_studio_count' => 10,
         ]);
 
         // ── 6. DÜKKANLAR ──────────────────────────────────────────────────
@@ -274,19 +306,18 @@ class ApiTestSeeder extends Seeder
             'shop_id'       => null,
         ]);
 
-        // ── 8. STÜDYO - KULLANICI ATAMALARI ───────────────────────────────
-        // Studio 1 ekibi
+        // ── 8. STÜDYO — KULLANICI ATAMALARI ───────────────────────────────
         foreach ([
-            [$admin->id,        UserRole::Admin,        'working'],
-            [$yonetici->id,     UserRole::Yonetici,     'working'],
-            [$studioAdmin1->id, UserRole::StudioAdmin,  'working'],
-            [$supervisor1->id,  UserRole::Supervisor,   'working'],
-            [$designer1->id,    UserRole::Designer,     'working'],
-            [$artist1->id,      UserRole::Artist,       'working'],
-            [$dovmeci1->id,     UserRole::Dovmeci,      'working'],
-            [$info1->id,        UserRole::Info,         'working'],
-            [$sofor1->id,       UserRole::Sofor,        'transfer'],
-            [$calisan->id,      UserRole::Calisan,      'break'],
+            [$admin->id,        UserRole::Admin,       'working'],
+            [$yonetici->id,     UserRole::Yonetici,    'working'],
+            [$studioAdmin1->id, UserRole::StudioAdmin, 'working'],
+            [$supervisor1->id,  UserRole::Supervisor,  'working'],
+            [$designer1->id,    UserRole::Designer,    'working'],
+            [$artist1->id,      UserRole::Artist,      'working'],
+            [$artist1b->id,     UserRole::Artist,      'working'],
+            [$info1->id,        UserRole::Info,        'working'],
+            [$sofor1->id,       UserRole::Sofor,       'transfer'],
+            [$calisan->id,      UserRole::Calisan,     'break'],
         ] as [$userId, $role, $workStatus]) {
             $studio1->users()->attach($userId, [
                 'role'        => $role->value,
@@ -296,17 +327,16 @@ class ApiTestSeeder extends Seeder
             ]);
         }
 
-        // Studio 2 ekibi
         foreach ([
-            [$admin->id,        UserRole::Admin,        'working'],
-            [$yonetici->id,     UserRole::Yonetici,     'working'],
-            [$studioAdmin2->id, UserRole::StudioAdmin,  'working'],
-            [$supervisor2->id,  UserRole::Supervisor,   'working'],
-            [$designer2->id,    UserRole::Designer,     'working'],
-            [$artist2->id,      UserRole::Artist,       'working'],
-            [$dovmeci2->id,     UserRole::Dovmeci,      'working'],
-            [$info2->id,        UserRole::Info,         'working'],
-            [$sofor2->id,       UserRole::Sofor,        'working'],
+            [$admin->id,        UserRole::Admin,       'working'],
+            [$yonetici->id,     UserRole::Yonetici,    'working'],
+            [$studioAdmin2->id, UserRole::StudioAdmin, 'working'],
+            [$supervisor2->id,  UserRole::Supervisor,  'working'],
+            [$designer2->id,    UserRole::Designer,    'working'],
+            [$artist2->id,      UserRole::Artist,      'working'],
+            [$artist2b->id,     UserRole::Artist,      'working'],
+            [$info2->id,        UserRole::Info,        'working'],
+            [$sofor2->id,       UserRole::Sofor,       'working'],
         ] as [$userId, $role, $workStatus]) {
             $studio2->users()->attach($userId, [
                 'role'        => $role->value,
@@ -316,7 +346,6 @@ class ApiTestSeeder extends Seeder
             ]);
         }
 
-        // Studio 3 (bağımsız)
         $studio3->users()->attach($studioAdmin1->id, [
             'role'        => UserRole::StudioAdmin->value,
             'work_status' => 'working',
@@ -330,9 +359,10 @@ class ApiTestSeeder extends Seeder
             'joined_at'   => now()->subMonths(2),
         ]);
 
-        // ── 9. RANDEVULAR - STÜdyo 1 ──────────────────────────────────────
+        // ── 9. RANDEVULAR — STÜDYO 1 ──────────────────────────────────────
+        // driver_status:  null | 'picked_up' | 'dropped_off' | 'cancelled'
+        // artist_status:  null | 'pending'   | 'accepted'    | 'rejected'
         $appointments1 = [
-            // Onaylı - gelecek
             [
                 'appointment_type'        => 'tattoo',
                 'first_name'              => 'Ahmet',
@@ -344,8 +374,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Hilton Lobby',
                 'pax'                     => 1,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'waiting',
-                'artist_status'           => 'assigned',
+                'driver_status'           => null,
+                'artist_status'           => 'pending',
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $info1->id,
                 'assigned_driver_user_id' => $sofor1->id,
@@ -365,12 +395,12 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Hotel Entrance',
                 'pax'                     => 2,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'on_way',
-                'artist_status'           => 'assigned',
+                'driver_status'           => 'picked_up',
+                'artist_status'           => 'pending',
                 'is_old_customer'         => true,
                 'created_by_user_id'      => $supervisor1->id,
                 'assigned_driver_user_id' => $sofor1->id,
-                'assigned_artist_user_id' => $dovmeci1->id,
+                'assigned_artist_user_id' => $artist1b->id,
                 'appointment_at'          => now()->addDays(2)->setTime(11, 30),
                 'customer_notes'          => 'Sırt için büyük çiçek kompozisyonu.',
             ],
@@ -385,8 +415,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Swissôtel Lobby',
                 'pax'                     => 1,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'waiting',
-                'artist_status'           => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $info1->id,
                 'assigned_driver_user_id' => $sofor1->id,
@@ -394,7 +424,6 @@ class ApiTestSeeder extends Seeder
                 'appointment_at'          => now()->addDays(3)->setTime(16, 0),
                 'customer_notes'          => 'Kol boyunca tribal dövme.',
             ],
-            // Beklemede
             [
                 'appointment_type'        => 'standard',
                 'first_name'              => 'Sophie',
@@ -413,10 +442,10 @@ class ApiTestSeeder extends Seeder
                 'assigned_driver_user_id' => null,
                 'assigned_artist_user_id' => null,
                 'appointment_at'          => now()->addDays(4)->setTime(13, 0),
-                'customer_notes'          => 'Bilek dövmesi ve kulak piercing.',
+                'customer_notes'          => 'Bilek dövmesi.',
             ],
             [
-                'appointment_type'        => 'tattoo',
+                'appointment_type'        => 'designer',
                 'first_name'              => 'Hans',
                 'last_name'               => 'Müller',
                 'phone_country_code'      => '+49',
@@ -435,7 +464,6 @@ class ApiTestSeeder extends Seeder
                 'appointment_at'          => now()->addDays(5)->setTime(15, 30),
                 'customer_notes'          => 'Geometrik omuz dövmesi tasarımı.',
             ],
-            // Tamamlanmış (geçmiş)
             [
                 'appointment_type'        => 'tattoo',
                 'first_name'              => 'Lena',
@@ -447,8 +475,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Hilton Lobby',
                 'pax'                     => 1,
                 'status'                  => 'completed',
-                'driver_status'           => 'completed',
-                'artist_status'           => 'completed',
+                'driver_status'           => 'dropped_off',
+                'artist_status'           => 'accepted',
                 'is_old_customer'         => true,
                 'created_by_user_id'      => $info1->id,
                 'assigned_driver_user_id' => $sofor1->id,
@@ -467,15 +495,34 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'IC Lobby',
                 'pax'                     => 2,
                 'status'                  => 'completed',
-                'driver_status'           => 'completed',
-                'artist_status'           => 'completed',
+                'driver_status'           => 'dropped_off',
+                'artist_status'           => 'accepted',
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $supervisor1->id,
                 'assigned_driver_user_id' => $sofor1->id,
-                'assigned_artist_user_id' => $dovmeci1->id,
+                'assigned_artist_user_id' => $artist1b->id,
                 'appointment_at'          => now()->subDays(5)->setTime(14, 30),
             ],
-            // İptal edilmiş
+            [
+                'appointment_type'        => 'tattoo',
+                'first_name'              => 'Pierre',
+                'last_name'               => 'Dupont',
+                'phone_country_code'      => '+33',
+                'phone_number'            => '698765432',
+                'hotel_name'              => 'Le Méridien Istanbul',
+                'room_number'             => '101',
+                'place'                   => 'Le Méridien Lobby',
+                'pax'                     => 1,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => 'rejected',
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $info1->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => $artist1->id,
+                'appointment_at'          => now()->addDays(6)->setTime(10, 0),
+                'notes'                   => 'Artist müsait değil, yeniden atanacak.',
+            ],
             [
                 'appointment_type'        => 'tattoo',
                 'first_name'              => 'Anna',
@@ -487,14 +534,14 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Wyndham Lobby',
                 'pax'                     => 1,
                 'status'                  => 'cancelled',
-                'driver_status'           => null,
+                'driver_status'           => 'cancelled',
                 'artist_status'           => null,
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $info1->id,
-                'assigned_driver_user_id' => null,
+                'assigned_driver_user_id' => $sofor1->id,
                 'assigned_artist_user_id' => null,
                 'appointment_at'          => now()->subDay()->setTime(12, 0),
-                'notes'                   => 'Müşteri uçuşunu kaçırdı, iptal etti.',
+                'notes'                   => 'Müşteri uçuşunu kaçırdı.',
             ],
         ];
 
@@ -502,7 +549,7 @@ class ApiTestSeeder extends Seeder
             Appointment::create(array_merge($data, ['studio_id' => $studio1->id]));
         }
 
-        // ── 10. RANDEVULAR - STÜDYO 2 ─────────────────────────────────────
+        // ── 10. RANDEVULAR — STÜDYO 2 ─────────────────────────────────────
         $appointments2 = [
             [
                 'appointment_type'        => 'tattoo',
@@ -515,8 +562,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Ritz Lobby',
                 'pax'                     => 1,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'waiting',
-                'artist_status'           => 'assigned',
+                'driver_status'           => null,
+                'artist_status'           => 'pending',
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $info2->id,
                 'assigned_driver_user_id' => $sofor2->id,
@@ -535,12 +582,12 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Conrad Lobby',
                 'pax'                     => 2,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'on_way',
-                'artist_status'           => 'assigned',
+                'driver_status'           => 'picked_up',
+                'artist_status'           => 'pending',
                 'is_old_customer'         => true,
                 'created_by_user_id'      => $supervisor2->id,
                 'assigned_driver_user_id' => $sofor2->id,
-                'assigned_artist_user_id' => $dovmeci2->id,
+                'assigned_artist_user_id' => $artist2b->id,
                 'appointment_at'          => now()->addDays(2)->setTime(10, 0),
                 'customer_notes'          => 'Koi balığı Japanese stil, tam kol.',
             ],
@@ -574,8 +621,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Shangri-La Lobby',
                 'pax'                     => 1,
                 'status'                  => 'completed',
-                'driver_status'           => 'completed',
-                'artist_status'           => 'completed',
+                'driver_status'           => 'dropped_off',
+                'artist_status'           => 'accepted',
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $studioAdmin2->id,
                 'assigned_driver_user_id' => $sofor2->id,
@@ -601,7 +648,7 @@ class ApiTestSeeder extends Seeder
                 'assigned_driver_user_id' => null,
                 'assigned_artist_user_id' => null,
                 'appointment_at'          => now()->subDays(1)->setTime(15, 0),
-                'notes'                   => 'Müşteri planını değiştirdi, başka zaman gelecek.',
+                'notes'                   => 'Müşteri planını değiştirdi.',
             ],
         ];
 
@@ -609,7 +656,7 @@ class ApiTestSeeder extends Seeder
             Appointment::create(array_merge($data, ['studio_id' => $studio2->id]));
         }
 
-        // ── 11. RANDEVULAR - STÜDYO 3 (Bağımsız) ─────────────────────────
+        // ── 11. RANDEVULAR — STÜDYO 3 (Bağımsız) ─────────────────────────
         $appointments3 = [
             [
                 'appointment_type'        => 'standard',
@@ -622,8 +669,8 @@ class ApiTestSeeder extends Seeder
                 'place'                   => 'Park Hyatt Lobby',
                 'pax'                     => 1,
                 'status'                  => 'confirmed',
-                'driver_status'           => 'waiting',
-                'artist_status'           => 'assigned',
+                'driver_status'           => null,
+                'artist_status'           => 'pending',
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $studioAdmin1->id,
                 'assigned_driver_user_id' => null,

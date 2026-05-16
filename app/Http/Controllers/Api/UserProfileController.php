@@ -30,7 +30,7 @@ class UserProfileController extends Controller
             ->wherePivot('is_active', false)
             ->get(['studios.id', 'studios.name', 'studios.location', 'studio_user.joined_at', 'studio_user.left_at', 'studio_user.role']);
 
-        // Randevu istatistikleri (artist/dovmeci olarak atandığı randevular)
+        // Randevu istatistikleri (artist olarak atandığı randevular)
         $appointmentStats = null;
         if ($hasPortfolio) {
             $stats = Appointment::query()

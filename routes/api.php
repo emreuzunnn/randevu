@@ -222,8 +222,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin'])->group(funct
 |--------------------------------------------------------------------------
 */
 
-// Randevu oluşturma/güncelleme/silme: stüdyo yönetimi + bilgi ekranları + tasarımcı + dövmeci + şoför
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,dovmeci,info,sofor,calisan'])->group(function (): void {
+// Randevu oluşturma/güncelleme/silme: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,info,sofor,calisan'])->group(function (): void {
     // Randevu oluşturma/güncelleme ekranları için artist listesi ve sabitleri döndürür.
     Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Müşterinin önceki randevusuna bakarak eski mi yeni mi olduğunu kontrol eder.
@@ -237,7 +237,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,desi
 });
 
 // Randevu listesi ve detay: tüm stüdyo çalışanları tüm randevuları görür
-Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,artist,dovmeci,info,sofor,calisan'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,studio_admin,supervisor,designer,artist,info,sofor,calisan'])->group(function (): void {
     // Seçili stüdyodaki tüm randevuları listeler.
     Route::get('/studios/{studio}/appointments', [AppointmentController::class, 'index']);
     // Tek bir randevunun detayını getirir.

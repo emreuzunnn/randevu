@@ -19,7 +19,7 @@ class PublicController extends Controller
         $studio->load(['shop.company']);
 
         $artists = $studio->users()
-            ->wherePivotIn('role', [UserRole::Artist->value, UserRole::Dovmeci->value, UserRole::Designer->value])
+            ->wherePivotIn('role', [UserRole::Artist->value, UserRole::Designer->value])
             ->wherePivot('is_active', true)
             ->get(['users.id', 'users.name', 'users.surname', 'users.profile_image', 'users.bio', 'users.rating', 'users.portfolio', 'studio_user.role']);
 

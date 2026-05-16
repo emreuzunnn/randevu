@@ -29,10 +29,10 @@ Bu doküman mobil uygulamanın beklediği endpoint'leri, istek alanlarını ve d
 |---|---|---|
 | Stüdyo Yöneticisi | `studio_admin` | Stüdyoyu tam yönetir (logo, personel, bildirim) |
 | Süpervizör | `supervisor` | Tüm randevuları yönetir, artiste atar |
-| Tasarımcı | `designer` | Stüdyo hareketlerini görür, randevu oluşturur |
-| Artist | `artist` | Atanan dövmeleri görür, kabul/red verir |
+| Tasarımcı | `designer` | Tasarım randevusu oluşturur/düzenler/görür |
+| Artist | `artist` | Atanan dövme randevularını görür, kabul/red verir |
 | Info | `info` | Randevu oluşturur/düzenler, stüdyoyu görür |
-| Şoför | `sofor` | Randevu oluşturur/düzenler, alım/bırakım bildirir |
+| Şoför | `sofor` | Şubesinin tüm randevularını görür, alım/bırakım günceller |
 
 ### Yetki Hiyerarşisi
 
@@ -41,13 +41,60 @@ admin
  └─ yonetici (dükkan seviyesi)
      └─ studio_admin (stüdyo seviyesi)
          └─ supervisor (randevu yönetimi + artist atama)
-             ├─ designer  (randevu oluşturma)
+             ├─ designer  (randevu oluşturma/düzenleme)
              ├─ info      (randevu oluşturma/düzenleme)
              └─ sofor     (randevu oluşturma/düzenleme + alım/bırakım)
          └─ artist        (atanan randevuları görür + kabul/red)
 ```
 
 **Not:** Kayıt sırasında kullanıcı `kullanici` veya `kullanici_rol` olarak belirler. Stüdyo rolleri admin/stüdyo yöneticisi tarafından atanır.
+
+---
+
+## Test Kullanıcıları
+
+> Tüm şifreler: `123456`
+
+### Platform Yöneticileri
+| Email | Rol | Stüdyo Erişimi |
+|---|---|---|
+| `admin@example.com` | `admin` | Tümü |
+| `yonetici@example.com` | `yonetici` | Ink Empire Kadıköy + Beşiktaş |
+
+### Stüdyo 1 — Ink Empire Kadıköy Tattoo (ID: 1)
+| Email | Rol |
+|---|---|
+| `studioadmin1@example.com` | `studio_admin` |
+| `supervisor1@example.com` | `supervisor` |
+| `designer1@example.com` | `designer` |
+| `artist1@example.com` | `artist` |
+| `artist1b@example.com` | `artist` |
+| `info1@example.com` | `info` |
+| `sofor1@example.com` | `sofor` |
+| `calisan@example.com` | `calisan` |
+
+### Stüdyo 2 — Ink Empire Beşiktaş Tattoo (ID: 2)
+| Email | Rol |
+|---|---|
+| `studioadmin2@example.com` | `studio_admin` |
+| `supervisor2@example.com` | `supervisor` |
+| `designer2@example.com` | `designer` |
+| `artist2@example.com` | `artist` |
+| `artist2b@example.com` | `artist` |
+| `info2@example.com` | `info` |
+| `sofor2@example.com` | `sofor` |
+
+### Stüdyo 3 — Bağımsız Piercing Studio (ID: 3)
+| Email | Rol |
+|---|---|
+| `studioadmin1@example.com` | `studio_admin` *(Studio 1 ile aynı kullanıcı)* |
+| `artist1@example.com` | `artist` *(Studio 1 ile aynı kullanıcı)* |
+
+### Bağımsız Kullanıcılar
+| Email | Rol | Not |
+|---|---|---|
+| `freelancer@example.com` | `kullanici_rol` | Portfolyosu var, stüdyosuz |
+| `kullanici@example.com` | `kullanici` | Sıradan uygulama kullanıcısı |
 
 ---
 

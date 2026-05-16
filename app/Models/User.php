@@ -215,7 +215,6 @@ class User extends Authenticatable
             UserRole::Info,
             UserRole::Sofor,
             UserRole::Calisan,
-            UserRole::Dovmeci,
         ])) {
             return true;
         }
@@ -256,7 +255,7 @@ class User extends Authenticatable
         }
 
         return $this->canManageStudioAppointments($studio)
-            || $this->hasStudioRole($studioModel, [UserRole::Artist, UserRole::Dovmeci])
+            || $this->hasStudioRole($studioModel, [UserRole::Artist])
             || $this->belongsToStudio($studio);
     }
 

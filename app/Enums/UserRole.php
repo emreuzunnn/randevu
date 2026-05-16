@@ -15,7 +15,6 @@ enum UserRole: string
     // Stüdyo çalışanları
     case Designer = 'designer';
     case Artist = 'artist';
-    case Dovmeci = 'dovmeci';
     case Info = 'info';
     case Sofor = 'sofor';
     case Calisan = 'calisan'; // Geriye dönük uyumluluk
@@ -33,7 +32,6 @@ enum UserRole: string
             self::Supervisor   => 'Süpervizör',
             self::Designer     => 'Tasarımcı',
             self::Artist       => 'Artist',
-            self::Dovmeci      => 'Dövmeci',
             self::Info         => 'Info',
             self::Sofor        => 'Şoför',
             self::Calisan      => 'Çalışan',
@@ -50,7 +48,6 @@ enum UserRole: string
             self::Supervisor,
             self::Designer,
             self::Artist,
-            self::Dovmeci,
             self::Info,
             self::Sofor,
         ];
@@ -92,7 +89,6 @@ enum UserRole: string
             'süpervizör'                        => 'supervisor',
             'tasarımcı'                         => 'designer',
             'sanatçı'                           => 'artist',
-            'dövmeci'                           => 'dovmeci',
             'şoför'                             => 'sofor',
             'çalışan'                           => 'calisan',
             'kullanıcı'                         => 'kullanici',
