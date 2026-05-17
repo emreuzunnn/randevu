@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AppointmentRequestController;
 use App\Http\Controllers\Api\AppointmentSlipOcrController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
@@ -38,6 +39,8 @@ Route::get('/public/studios', [PublicController::class, 'studios']);
 Route::get('/public/studios/{studio}', [PublicController::class, 'studio']);
 Route::get('/public/artists', [PublicController::class, 'artists']);
 Route::get('/public/artists/{user}', [PublicController::class, 'artist']);
+Route::get('/public/artists/{user}/availability', [PublicController::class, 'artistAvailability']);
+Route::get('/public/artists/{user}/reviews', [PublicController::class, 'artistReviews']);
 
 /*
 |--------------------------------------------------------------------------
@@ -255,6 +258,11 @@ Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
     Route::get('/my-appointments', [AppointmentController::class, 'myAppointments']);
     // driver_status: picked_up (aldım) | dropped_off (bıraktım) | cancelled (iptal ettim)
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
+});
+
+// Kullanıcı randevu talebi — giriş yapmış herkes (müşteri) artist'e talep gönderebilir.
+Route::middleware(['api.auth'])->group(function (): void {
+    Route::post('/appointments/request', [AppointmentRequestController::class, 'store']);
 });
 
 // Artist kendi atanmış randevularını listeler ve kabul/red kararı verir.

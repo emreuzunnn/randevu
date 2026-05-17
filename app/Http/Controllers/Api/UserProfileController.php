@@ -47,20 +47,30 @@ class UserProfileController extends Controller
             ];
         }
 
+        $hasSpecializations = in_array(
+            $user->role?->value,
+            [UserRole::Artist->value, UserRole::Designer->value],
+            true
+        );
+
         return response()->json([
             'status' => 'success',
             'data'   => [
-                'id'                 => $user->id,
-                'name'               => $user->fullName(),
-                'bio'                => $user->bio,
-                'location'           => $user->location,
-                'availability_start' => $user->availability_start,
-                'availability_end'   => $user->availability_end,
-                'profile_image'      => $user->profile_image,
-                'rating'             => $user->rating,
-                'role'               => $user->role?->value,
-                'has_portfolio'      => $hasPortfolio,
-                'portfolio'          => $hasPortfolio ? ($user->portfolio ?? []) : null,
+                'id'                  => $user->id,
+                'name'                => $user->fullName(),
+                'username'            => $user->username,
+                'bio'                 => $user->bio,
+                'location'            => $user->location,
+                'experience_years'    => $user->experience_years,
+                'specializations'     => $hasSpecializations ? ($user->specializations ?? []) : null,
+                'has_specializations' => $hasSpecializations,
+                'availability_start'  => $user->availability_start,
+                'availability_end'    => $user->availability_end,
+                'profile_image'       => $user->profile_image,
+                'rating'              => $user->rating,
+                'role'                => $user->role?->value,
+                'has_portfolio'       => $hasPortfolio,
+                'portfolio'           => $hasPortfolio ? ($user->portfolio ?? []) : null,
                 'appointment_stats'  => $appointmentStats,
                 'current_studios' => $activeStudios->map(fn ($s): array => [
                     'id'        => $s->id,

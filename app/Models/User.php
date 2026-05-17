@@ -20,6 +20,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'surname',
+        'username',
         'email',
         'phone',
         'bio',
@@ -29,6 +30,11 @@ class User extends Authenticatable
         'portfolio',
         'profile_image',
         'rating',
+        'experience_years',
+        'specializations',
+        'instagram',
+        'whatsapp',
+        'response_time_hours',
         'password',
         'role',
         'can_open_multiple_studios',
@@ -43,11 +49,14 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at'        => 'datetime',
-            'password'                 => 'hashed',
-            'role'                     => UserRole::class,
+            'email_verified_at'         => 'datetime',
+            'password'                  => 'hashed',
+            'role'                      => UserRole::class,
             'can_open_multiple_studios' => 'boolean',
-            'portfolio'                => 'array',
+            'portfolio'                 => 'array',
+            'specializations'           => 'array',
+            'experience_years'   => 'integer',
+            'response_time_hours' => 'integer',
         ];
     }
 

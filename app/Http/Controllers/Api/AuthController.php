@@ -114,18 +114,27 @@ class AuthController extends Controller
                 'name'               => $user?->fullName(),
                 'email'              => $user?->email,
                 'phone'              => $user?->phone,
-                'bio'                => $user?->bio,
-                'location'           => $user?->location,
-                'availability_start' => $user?->availability_start,
-                'availability_end'   => $user?->availability_end,
-                'portfolio'          => $hasPortfolio ? ($user?->portfolio ?? []) : null,
-                'has_portfolio'      => $hasPortfolio,
-                'role'               => $membership?->role ?? $user?->role?->value,
-                'profile_image'      => $user?->profile_image,
-                'rating'             => $user?->rating,
-                'status'             => $membership?->work_status ?? 'working',
-                'is_active'          => (bool) ($membership?->is_active ?? true),
-                'current_studio'     => $primaryStudio ? [
+                'bio'                 => $user?->bio,
+                'location'            => $user?->location,
+                'username'            => $user?->username,
+                'experience_years'    => $user?->experience_years,
+                'specializations'     => $this->resolveSpecializations($user),
+                'has_specializations' => $this->hasSpecializations($user),
+                'availability_start'  => $user?->availability_start,
+                'availability_end'    => $user?->availability_end,
+                'portfolio'           => $hasPortfolio ? ($user?->portfolio ?? []) : null,
+                'has_portfolio'       => $hasPortfolio,
+                'role'                => $membership?->role ?? $user?->role?->value,
+                'profile_image'       => $user?->profile_image,
+                'rating'              => $user?->rating,
+                'social'              => [
+                    'instagram' => $user?->instagram,
+                    'whatsapp'  => $user?->whatsapp,
+                ],
+                'response_time_hours' => $user?->response_time_hours,
+                'status'              => $membership?->work_status ?? 'working',
+                'is_active'           => (bool) ($membership?->is_active ?? true),
+                'current_studio'      => $primaryStudio ? [
                     'id'       => $primaryStudio->id,
                     'name'     => $primaryStudio->name,
                     'location' => $primaryStudio->location,
@@ -148,17 +157,24 @@ class AuthController extends Controller
         abort_if($user === null, 401);
 
         $validated = $request->validate([
-            'name'               => ['sometimes', 'string', 'max:255'],
-            'surname'            => ['sometimes', 'nullable', 'string', 'max:255'],
-            'email'              => ['sometimes', 'string', 'email', 'max:255'],
-            'phone'              => ['sometimes', 'nullable', 'string', 'max:30'],
-            'bio'                => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'location'           => ['sometimes', 'nullable', 'string', 'max:255'],
-            'availability_start' => ['sometimes', 'nullable', 'date_format:H:i'],
-            'availability_end'   => ['sometimes', 'nullable', 'date_format:H:i'],
-            'profile_image'      => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'status'             => ['sometimes', 'string', 'in:working,break,transfer'],
-            'password'           => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
+            'name'                 => ['sometimes', 'string', 'max:255'],
+            'surname'              => ['sometimes', 'nullable', 'string', 'max:255'],
+            'username'             => ['sometimes', 'nullable', 'string', 'max:50', 'alpha_dash', 'unique:users,username,' . $user->id],
+            'email'                => ['sometimes', 'string', 'email', 'max:255'],
+            'phone'                => ['sometimes', 'nullable', 'string', 'max:30'],
+            'bio'                  => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'location'             => ['sometimes', 'nullable', 'string', 'max:255'],
+            'experience_years'     => ['sometimes', 'nullable', 'integer', 'min:0', 'max:60'],
+            'specializations'      => ['sometimes', 'nullable', 'array'],
+            'specializations.*'    => ['string', 'in:realism,fine_line,blackwork,old_school,minimal,chicano,japanese,color,cover_up,dotwork,tribal'],
+            'availability_start'   => ['sometimes', 'nullable', 'date_format:H:i'],
+            'availability_end'     => ['sometimes', 'nullable', 'date_format:H:i'],
+            'profile_image'        => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'instagram'            => ['sometimes', 'nullable', 'string', 'max:100'],
+            'whatsapp'             => ['sometimes', 'nullable', 'string', 'max:30'],
+            'response_time_hours'  => ['sometimes', 'nullable', 'integer', 'min:1', 'max:72'],
+            'status'               => ['sometimes', 'string', 'in:working,break,transfer'],
+            'password'             => ['sometimes', 'nullable', 'string', 'min:6', 'confirmed'],
         ]);
 
         if (array_key_exists('email', $validated)) {
@@ -176,8 +192,10 @@ class AuthController extends Controller
         }
 
         $user->fill(collect($validated)->only([
-            'name', 'surname', 'email', 'phone', 'bio',
-            'location', 'availability_start', 'availability_end', 'profile_image',
+            'name', 'surname', 'username', 'email', 'phone', 'bio',
+            'location', 'experience_years', 'specializations',
+            'availability_start', 'availability_end', 'profile_image',
+            'instagram', 'whatsapp', 'response_time_hours',
         ])->all());
 
         if (! empty($validated['password'] ?? null)) {
@@ -209,18 +227,27 @@ class AuthController extends Controller
                 'name'               => $refreshedUser?->fullName(),
                 'email'              => $refreshedUser?->email,
                 'phone'              => $refreshedUser?->phone,
-                'bio'                => $refreshedUser?->bio,
-                'location'           => $refreshedUser?->location,
-                'availability_start' => $refreshedUser?->availability_start,
-                'availability_end'   => $refreshedUser?->availability_end,
-                'portfolio'          => $hasPortfolio ? ($refreshedUser?->portfolio ?? []) : null,
-                'has_portfolio'      => $hasPortfolio,
-                'role'               => $membership?->role ?? $refreshedUser?->role?->value,
-                'profile_image'      => $refreshedUser?->profile_image,
-                'rating'             => $refreshedUser?->rating,
-                'status'             => $membership?->work_status ?? 'working',
-                'is_active'          => (bool) ($membership?->is_active ?? true),
-                'created_at'         => $refreshedUser?->created_at?->toIso8601String(),
+                'bio'                 => $refreshedUser?->bio,
+                'location'            => $refreshedUser?->location,
+                'username'            => $refreshedUser?->username,
+                'experience_years'    => $refreshedUser?->experience_years,
+                'specializations'     => $this->resolveSpecializations($refreshedUser),
+                'has_specializations' => $this->hasSpecializations($refreshedUser),
+                'availability_start'  => $refreshedUser?->availability_start,
+                'availability_end'    => $refreshedUser?->availability_end,
+                'portfolio'           => $hasPortfolio ? ($refreshedUser?->portfolio ?? []) : null,
+                'has_portfolio'       => $hasPortfolio,
+                'role'                => $membership?->role ?? $refreshedUser?->role?->value,
+                'profile_image'       => $refreshedUser?->profile_image,
+                'rating'              => $refreshedUser?->rating,
+                'social'              => [
+                    'instagram' => $refreshedUser?->instagram,
+                    'whatsapp'  => $refreshedUser?->whatsapp,
+                ],
+                'response_time_hours' => $refreshedUser?->response_time_hours,
+                'status'              => $membership?->work_status ?? 'working',
+                'is_active'           => (bool) ($membership?->is_active ?? true),
+                'created_at'          => $refreshedUser?->created_at?->toIso8601String(),
             ],
         ]);
     }
@@ -341,5 +368,22 @@ class AuthController extends Controller
     {
         $studioId = $user->accessibleStudioIds()[0] ?? null;
         return $studioId ? Studio::query()->find($studioId) : null;
+    }
+
+    private function hasSpecializations(?User $user): bool
+    {
+        return in_array(
+            $user?->role?->value,
+            [UserRole::Artist->value, UserRole::Designer->value],
+            true
+        );
+    }
+
+    private function resolveSpecializations(?User $user): ?array
+    {
+        if (! $this->hasSpecializations($user)) {
+            return null;
+        }
+        return $user?->specializations ?? [];
     }
 }

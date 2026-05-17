@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\Review;
 use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -66,10 +68,13 @@ class PublicController extends Controller
                 'staff' => $artists->map(fn ($a): array => [
                     'id'                 => $a->id,
                     'name'               => $a->fullName(),
+                    'username'           => $a->username,
                     'role'               => $a->pivot->role,
                     'profile_image'      => $a->profile_image,
                     'bio'                => $a->bio,
                     'location'           => $a->location,
+                    'experience_years'   => $a->experience_years,
+                    'specializations'    => $a->specializations ?? [],
                     'availability_start' => $a->availability_start,
                     'availability_end'   => $a->availability_end,
                     'rating'             => $a->rating,
@@ -91,19 +96,136 @@ class PublicController extends Controller
             ->wherePivot('is_active', true)
             ->get(['studios.id', 'studios.name', 'studios.location', 'studios.logo_path']);
 
+        // Portfolyodaki benzersiz kategorileri uzmanlık alanı olarak döndür
+        $portfolio  = $user->portfolio ?? [];
+        $specialties = collect($portfolio)
+            ->pluck('category')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $reviewStats = Review::query()
+            ->where('artist_id', $user->id)
+            ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
+            ->first();
+
         return response()->json([
             'data' => [
-                'id'             => $user->id,
-                'name'           => $user->fullName(),
-                'profile_image'  => $user->profile_image,
-                'bio'            => $user->bio,
-                'rating'         => $user->rating,
-                'portfolio'      => $user->portfolio ?? [],
-                'studios'        => $studioMemberships->map(fn ($s): array => [
-                    'id'       => $s->id,
-                    'name'     => $s->name,
-                    'location' => $s->location,
+                'id'                  => $user->id,
+                'name'                => $user->fullName(),
+                'username'            => $user->username,
+                'profile_image'       => $user->profile_image,
+                'bio'                 => $user->bio,
+                'location'            => $user->location,
+                'experience_years'    => $user->experience_years,
+                'specializations'     => $user->specializations ?? [],
+                'specialties'         => $specialties,
+                'rating'              => $user->rating,
+                'review_count'        => (int) ($reviewStats->total ?? 0),
+                'response_time_hours' => $user->response_time_hours,
+                'portfolio'           => $portfolio,
+                'social'              => [
+                    'instagram' => $user->instagram,
+                    'whatsapp'  => $user->whatsapp,
+                ],
+                'availability_start' => $user->availability_start,
+                'availability_end'   => $user->availability_end,
+                'studios'            => $studioMemberships->map(fn ($s): array => [
+                    'id'        => $s->id,
+                    'name'      => $s->name,
+                    'location'  => $s->location,
                     'logo_path' => $s->logo_path,
+                ])->values(),
+            ],
+        ]);
+    }
+
+    /** Artist müsaitlik takvimi — önümüzdeki 7 gün */
+    public function artistAvailability(User $user): JsonResponse
+    {
+        abort_unless(
+            $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
+            404
+        );
+
+        $maxDailySlots = 4;
+        $days          = [];
+
+        for ($i = 0; $i < 7; $i++) {
+            $date    = Carbon::today()->addDays($i);
+            $dateStr = $date->toDateString();
+
+            $bookedCount = Appointment::query()
+                ->where('assigned_artist_user_id', $user->id)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->whereDate('appointment_at', $dateStr)
+                ->count();
+
+            $available = max(0, $maxDailySlots - $bookedCount);
+
+            if ($i === 0) {
+                $label = 'Bugün';
+            } elseif ($i === 1) {
+                $label = 'Yarın';
+            } else {
+                $label = $date->locale('tr')->isoFormat('dddd');
+            }
+
+            $days[] = [
+                'date'            => $dateStr,
+                'label'           => $label,
+                'day_name'        => $date->locale('tr')->isoFormat('dddd'),
+                'available_slots' => $available,
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'artist_id'           => $user->id,
+                'artist_name'         => $user->fullName(),
+                'response_time_hours' => $user->response_time_hours,
+                'availability'        => $days,
+            ],
+        ]);
+    }
+
+    /** Artist değerlendirmeleri */
+    public function artistReviews(User $user): JsonResponse
+    {
+        abort_unless(
+            $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
+            404
+        );
+
+        $reviews = Review::query()
+            ->with('reviewer:id,name,surname')
+            ->where('artist_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $total   = $reviews->count();
+        $average = $total > 0 ? round($reviews->avg('rating'), 1) : null;
+
+        $distribution = collect([5, 4, 3, 2, 1])->mapWithKeys(
+            fn (int $star): array => [(string) $star => $reviews->where('rating', $star)->count()]
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'summary' => [
+                    'average'      => $average,
+                    'total'        => $total,
+                    'distribution' => $distribution,
+                ],
+                'items' => $reviews->map(fn ($r): array => [
+                    'id'         => $r->id,
+                    'user_name'  => $r->reviewer ? $r->reviewer->fullName() : 'Anonim',
+                    'rating'     => $r->rating,
+                    'comment'    => $r->comment,
+                    'created_at' => $r->created_at?->toIso8601String(),
                 ])->values(),
             ],
         ]);
@@ -151,16 +273,21 @@ class PublicController extends Controller
         $artists = User::query()
             ->whereIn('role', [UserRole::Artist->value, UserRole::KullaniciRol->value])
             ->orderBy('name')
-            ->get(['id', 'name', 'surname', 'profile_image', 'bio', 'rating', 'portfolio']);
+            ->get(['id', 'name', 'surname', 'username', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
 
         return response()->json([
             'data' => $artists->map(fn ($a): array => [
-                'id'            => $a->id,
-                'name'          => $a->fullName(),
-                'profile_image' => $a->profile_image,
-                'bio'           => $a->bio,
-                'rating'        => $a->rating,
-                'portfolio'     => $a->portfolio ?? [],
+                'id'                  => $a->id,
+                'name'                => $a->fullName(),
+                'username'            => $a->username,
+                'profile_image'       => $a->profile_image,
+                'bio'                 => $a->bio,
+                'location'            => $a->location,
+                'experience_years'    => $a->experience_years,
+                'specializations'     => $a->specializations ?? [],
+                'rating'              => $a->rating,
+                'response_time_hours' => $a->response_time_hours,
+                'portfolio'           => $a->portfolio ?? [],
             ])->values(),
         ]);
     }
