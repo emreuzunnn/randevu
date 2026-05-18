@@ -260,13 +260,17 @@ Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
 });
 
-// Kullanıcı randevu talebi — giriş yapmış herkes (müşteri) artist'e talep gönderebilir.
+// Kullanıcı/stüdyo randevu talebi — kabul edilince randevuya dönüşür.
 Route::middleware(['api.auth'])->group(function (): void {
     Route::post('/appointments/request', [AppointmentRequestController::class, 'store']);
+    Route::get('/appointment-requests', [AppointmentRequestController::class, 'index']);
+    Route::get('/appointment-requests/{appointmentRequest}', [AppointmentRequestController::class, 'show']);
+    Route::patch('/appointment-requests/{appointmentRequest}/accept', [AppointmentRequestController::class, 'accept']);
+    Route::patch('/appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject']);
 });
 
-// Artist kendi atanmış randevularını listeler ve kabul/red kararı verir.
-Route::middleware(['api.auth', 'role:artist,kullanici_rol'])->group(function (): void {
+// Artist/designer kendi atanmış randevularını listeler ve kabul/red kararı verir.
+Route::middleware(['api.auth', 'role:artist,designer,kullanici_rol'])->group(function (): void {
     // Stüdyodan bağımsız, artiste atanmış randevuları listeler.
     Route::get('/my-artist-appointments', [AppointmentController::class, 'myArtistAppointments']);
     // artist_status: accepted (kabul) | rejected (red)

@@ -3,17 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\Studio;
+use App\Models\User;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AppointmentController extends Controller
 {
     // Randevu türü sabit listesi
-    public const APPOINTMENT_TYPES = ['standard', 'designer', 'tattoo'];
+    public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
 
     /** Şoförün bağlı olduğu şubedeki TÜM randevuları döndürür */
     public function myAppointments(Request $request): JsonResponse
@@ -56,15 +60,48 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Artistin kendine atanmış randevuları (stüdyodan bağımsız) */
+    /** Artist/designer kendi aktif stüdyosundaki uygun randevuları görür */
     public function myArtistAppointments(Request $request): JsonResponse
     {
         $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        $artistStudioIds = $this->activeStudioIdsForRole($user, UserRole::Artist);
+        $designerStudioIds = $this->activeStudioIdsForRole($user, UserRole::Designer);
+
+        if ($artistStudioIds === [] && $designerStudioIds === []) {
+            return response()->json(['data' => []]);
+        }
 
         $appointments = Appointment::query()
             ->with(['studio', 'createdBy'])
-            ->where('assigned_artist_user_id', $user->id)
-            ->whereNotIn('artist_status', ['rejected'])
+            ->where(function ($query) use ($artistStudioIds, $designerStudioIds): void {
+                if ($artistStudioIds !== []) {
+                    $query->orWhere(function ($artistQuery) use ($artistStudioIds): void {
+                        $artistQuery
+                            ->whereIn('studio_id', $artistStudioIds)
+                            ->where('appointment_type', 'tattoo');
+                    });
+                }
+
+                if ($designerStudioIds !== []) {
+                    $query->orWhere(function ($designerQuery) use ($designerStudioIds): void {
+                        $designerQuery
+                            ->whereIn('studio_id', $designerStudioIds)
+                            ->where('appointment_type', 'designer');
+                    });
+                }
+            })
+            ->where(function ($query) use ($user): void {
+                $query
+                    ->whereNull('assigned_artist_user_id')
+                    ->orWhere('assigned_artist_user_id', $user->id);
+            })
+            ->where(function ($query): void {
+                $query
+                    ->whereNull('artist_status')
+                    ->orWhere('artist_status', '!=', 'rejected');
+            })
             ->orderBy('appointment_at')
             ->get();
 
@@ -115,9 +152,11 @@ class AppointmentController extends Controller
 
     public function show(Studio $studio, Appointment $appointment): JsonResponse
     {
-        abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
+        if ((int) $appointment->studio_id !== (int) $studio->id) {
+            abort_unless($this->driverCanAccessAppointment($studio, $appointment, request()), 403);
+        }
 
-        $appointment->load(['createdBy', 'assignedArtist']);
+        $appointment->load(['createdBy', 'assignedArtist', 'studio']);
 
         return response()->json([
             'data' => [
@@ -130,9 +169,16 @@ class AppointmentController extends Controller
                 'place'            => $appointment->place,
                 'pax'              => $appointment->pax,
                 'status'           => $appointment->status,
+                'driver_status'    => $appointment->driver_status,
                 'artist_status'    => $appointment->artist_status,
                 'notes'            => $appointment->notes,
+                'source_image_path' => $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $this->imageUrl($appointment->photo_path),
                 'is_old_customer'  => $appointment->is_old_customer,
+                'studio'           => $appointment->studio ? [
+                    'id'   => $appointment->studio->id,
+                    'name' => $appointment->studio->name,
+                ] : null,
                 'artist'           => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
                     'name'          => $appointment->assignedArtist->fullName(),
@@ -225,14 +271,14 @@ class AppointmentController extends Controller
         abort_unless($inBranch, 403);
 
         $validated = $request->validate([
-            'driver_status' => ['required', 'string', 'in:picked_up,dropped_off,cancelled'],
+            'driver_status' => ['required', 'string', 'in:picked_up,dropped_off,cancelled,customer_no_show'],
         ]);
 
         $appointment->driver_status = $validated['driver_status'];
 
-        if ($validated['driver_status'] === 'dropped_off') {
+        if (in_array($validated['driver_status'], ['picked_up', 'dropped_off'], true)) {
             $appointment->status = 'completed';
-        } elseif ($validated['driver_status'] === 'cancelled') {
+        } elseif (in_array($validated['driver_status'], ['cancelled', 'customer_no_show'], true)) {
             $appointment->status = 'cancelled';
         }
 
@@ -294,7 +340,18 @@ class AppointmentController extends Controller
         AppointmentService $appointmentService
     ): JsonResponse {
         abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
-        abort_unless((int) $appointment->assigned_artist_user_id === $request->user()?->id, 403);
+
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        if ($appointment->assigned_artist_user_id === null) {
+            abort_unless($this->userCanRespondToArtistAppointment($user, $studio, $appointment), 403);
+            $appointment->assigned_artist_user_id = $user->id;
+            $appointment->artist_status = 'pending';
+            $appointment->save();
+        } else {
+            abort_unless((int) $appointment->assigned_artist_user_id === (int) $user->id, 403);
+        }
 
         $validated = $request->validate([
             'artist_status' => ['required', 'string', 'in:accepted,rejected'],
@@ -324,10 +381,16 @@ class AppointmentController extends Controller
             'customer.customer_notes'     => ['nullable', 'string'],
             'pax'                         => ['required', 'integer', 'min:1', 'max:50'],
             'appointment_at'              => ['required', 'date'],
-            'appointment_type'            => ['nullable', 'string', 'in:standard,designer,tattoo'],
+            'appointment_type'            => ['nullable', 'string', 'in:designer,tattoo'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
+            'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ]);
+
+        $sourceImagePath = $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null;
+        if ($request->hasFile('image')) {
+            $sourceImagePath = $this->storeAppointmentImage($request, $studio);
+        }
 
         $appointment = $appointmentService->create($studio, $request->user(), [
             'customer' => [
@@ -341,11 +404,11 @@ class AppointmentController extends Controller
                 'photo_path'         => $validated['slip_image_path'] ?? null,
                 'customer_notes'     => $validated['customer']['customer_notes'] ?? null,
             ],
-            'appointment_type'  => $validated['appointment_type'] ?? 'standard',
+            'appointment_type'  => $validated['appointment_type'] ?? 'tattoo',
             'pax'               => $validated['pax'],
             'appointment_at'    => $validated['appointment_at'],
             'notes'             => $validated['notes'] ?? null,
-            'source_image_path' => $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null,
+            'source_image_path' => $sourceImagePath,
         ]);
 
         return response()->json([
@@ -370,7 +433,7 @@ class AppointmentController extends Controller
             'customer.customer_notes'     => ['nullable', 'string'],
             'pax'                         => ['sometimes', 'integer', 'min:1', 'max:50'],
             'appointment_at'              => ['sometimes', 'date'],
-            'appointment_type'            => ['sometimes', 'string', 'in:standard,designer,tattoo'],
+            'appointment_type'            => ['sometimes', 'string', 'in:designer,tattoo'],
             'status'                      => ['sometimes', 'string', 'in:pending,confirmed,completed,cancelled,rescheduled'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
@@ -409,5 +472,74 @@ class AppointmentController extends Controller
             'room_number'        => $appointment->room_number,
             'customer_notes'     => $appointment->customer_notes,
         ];
+    }
+
+    private function driverCanAccessAppointment(Studio $routeStudio, Appointment $appointment, Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user?->hasRole(UserRole::Sofor)) {
+            return false;
+        }
+
+        $myStudioIds = $user->studios()->pluck('studios.id');
+        $shopIds = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
+
+        return Studio::query()
+            ->whereIn('id', [$routeStudio->id, $appointment->studio_id])
+            ->whereIn('shop_id', $shopIds)
+            ->count() === 2;
+    }
+
+    private function imageUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        if (str_starts_with($path, '/storage/')) {
+            return url($path);
+        }
+
+        if (str_starts_with($path, 'storage/')) {
+            return url($path);
+        }
+
+        return url('storage/' . $path);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function activeStudioIdsForRole(User $user, UserRole $role): array
+    {
+        return $user->studios()
+            ->wherePivot('is_active', true)
+            ->wherePivot('role', $role->value)
+            ->pluck('studios.id')
+            ->map(static fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private function userCanRespondToArtistAppointment(User $user, Studio $studio, Appointment $appointment): bool
+    {
+        return match ($appointment->appointment_type) {
+            'designer' => $user->hasStudioRole($studio, [UserRole::Designer]),
+            'tattoo' => $user->hasStudioRole($studio, [UserRole::Artist]),
+            default => false,
+        };
+    }
+
+    private function storeAppointmentImage(Request $request, Studio $studio): string
+    {
+        $file = $request->file('image');
+        $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('appointments/' . $studio->id, $name, 'public');
+
+        return Storage::disk('public')->url($path);
     }
 }

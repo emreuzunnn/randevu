@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\StudioFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,7 +35,33 @@ class Studio extends Model
         ];
     }
 
-public function owner(): BelongsTo
+    protected function galleryImages(): Attribute
+    {
+        return Attribute::get(function (?string $value): ?array {
+            if ($value === null) {
+                return null;
+            }
+
+            $items = json_decode($value, true) ?? [];
+            return array_map(static function (string $item): string {
+                if (str_starts_with($item, 'http')) {
+                    return $item;
+                }
+
+                if (str_starts_with($item, '/storage/')) {
+                    return url($item);
+                }
+
+                if (str_starts_with($item, 'storage/')) {
+                    return url($item);
+                }
+
+                return url('storage/' . $item);
+            }, $items);
+        });
+    }
+
+    public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
     }

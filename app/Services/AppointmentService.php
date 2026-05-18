@@ -40,7 +40,7 @@ class AppointmentService
                 'created_by_user_id'      => $user->id,
                 'assigned_artist_user_id' => null,
                 'artist_status'           => null,
-                'appointment_type'        => $attributes['appointment_type'] ?? 'standard',
+                'appointment_type'        => $attributes['appointment_type'] ?? 'tattoo',
                 ...$attributes['customer'],
                 'pax'               => $attributes['pax'],
                 'appointment_at'    => $attributes['appointment_at'],
@@ -109,13 +109,17 @@ class AppointmentService
                 ]);
             }
 
-            // Artist stüdyoda kayıtlı artist olabilir ya da bağımsız KullaniciRol olabilir
-            $isStudioArtist = $artist->hasStudioRole($studio, [UserRole::Artist]);
+            $assignableRoles = $appointment->appointment_type === 'designer'
+                ? [UserRole::Designer]
+                : [UserRole::Artist];
+
+            // Kişi randevu türüne uygun stüdyo rolünde olabilir ya da bağımsız KullaniciRol olabilir
+            $isStudioArtist = $artist->hasStudioRole($studio, $assignableRoles);
             $isIndependent  = $artist->hasRole(UserRole::KullaniciRol);
 
             if (! $isStudioArtist && ! $isIndependent) {
                 throw ValidationException::withMessages([
-                    'assigned_artist_user_id' => ['Seçilen kullanıcı artist ya da bağımsız çalışan değil.'],
+                    'assigned_artist_user_id' => ['Seçilen kullanıcı bu randevu türü için uygun değil.'],
                 ]);
             }
         }

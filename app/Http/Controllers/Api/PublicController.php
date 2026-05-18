@@ -75,6 +75,7 @@ class PublicController extends Controller
                 'opening_time'   => $studio->opening_time ?? $studio->shop?->opening_time,
                 'closing_time'   => $studio->closing_time ?? $studio->shop?->closing_time,
                 'gallery_images' => $studio->gallery_images ?? [],
+                'portfolio'      => $studio->gallery_images ?? [],
                 'shop'           => $studio->shop ? [
                     'id'           => $studio->shop->id,
                     'name'         => $studio->shop->name,
@@ -82,6 +83,7 @@ class PublicController extends Controller
                     'logo_path'    => $studio->shop->logo_path,
                     'opening_time' => $studio->shop->opening_time,
                     'closing_time' => $studio->shop->closing_time,
+                    'gallery_images' => $studio->shop->gallery_images ?? [],
                     'company'      => $studio->shop->company ? [
                         'id'        => $studio->shop->company->id,
                         'name'      => $studio->shop->company->name,
@@ -130,6 +132,12 @@ class PublicController extends Controller
             ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
             ->first();
 
+        $appointmentStats = Appointment::query()
+            ->where('assigned_artist_user_id', $user->id)
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
         return response()->json([
             'data' => [
                 'id'                  => $user->id,
@@ -146,6 +154,11 @@ class PublicController extends Controller
                 'rating'              => $user->rating,
                 'review_count'        => (int) ($reviewStats->total ?? 0),
                 'response_time_hours' => $user->response_time_hours,
+                'appointment_stats'   => [
+                    'completed' => (int) ($appointmentStats['completed'] ?? 0),
+                    'cancelled' => (int) ($appointmentStats['cancelled'] ?? 0),
+                    'total'     => $appointmentStats->sum(),
+                ],
                 'portfolio'           => $portfolio,
                 'social'              => [
                     'instagram' => $user->instagram,

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\AppointmentRequest;
 use App\Models\Company;
 use App\Models\Shop;
 use App\Models\Studio;
@@ -424,7 +425,7 @@ class ApiTestSeeder extends Seeder
                 'customer_notes'          => 'Kol boyunca tribal dövme.',
             ],
             [
-                'appointment_type'        => 'standard',
+                'appointment_type'        => 'tattoo',
                 'first_name'              => 'Sophie',
                 'last_name'               => 'Dubois',
                 'phone_country_code'      => '+33',
@@ -484,7 +485,7 @@ class ApiTestSeeder extends Seeder
                 'notes'                   => 'Müşteri çok memnun kaldı.',
             ],
             [
-                'appointment_type'        => 'standard',
+                'appointment_type'        => 'tattoo',
                 'first_name'              => 'Carlos',
                 'last_name'               => 'García',
                 'phone_country_code'      => '+34',
@@ -591,7 +592,7 @@ class ApiTestSeeder extends Seeder
                 'customer_notes'          => 'Koi balığı Japanese stil, tam kol.',
             ],
             [
-                'appointment_type'        => 'standard',
+                'appointment_type'        => 'tattoo',
                 'first_name'              => 'Lucas',
                 'last_name'               => 'Oliveira',
                 'phone_country_code'      => '+55',
@@ -608,6 +609,27 @@ class ApiTestSeeder extends Seeder
                 'assigned_driver_user_id' => null,
                 'assigned_artist_user_id' => null,
                 'appointment_at'          => now()->addDays(3)->setTime(17, 0),
+            ],
+            [
+                'appointment_type'        => 'designer',
+                'first_name'              => 'Mila',
+                'last_name'               => 'Petrova',
+                'phone_country_code'      => '+7',
+                'phone_number'            => '9161234567',
+                'hotel_name'              => 'Mandarin Oriental Bosphorus',
+                'room_number'             => '604',
+                'place'                   => 'Mandarin Lobby',
+                'pax'                     => 1,
+                'status'                  => 'pending',
+                'driver_status'           => null,
+                'artist_status'           => null,
+                'is_old_customer'         => false,
+                'created_by_user_id'      => $designer2->id,
+                'assigned_driver_user_id' => null,
+                'assigned_artist_user_id' => null,
+                'appointment_at'          => now()->addDays(4)->setTime(12, 30),
+                'customer_notes'          => 'Sadece Studio 2 designer hesabında görünmeli.',
+                'notes'                   => 'Designer test randevusu.',
             ],
             [
                 'appointment_type'        => 'tattoo',
@@ -658,7 +680,7 @@ class ApiTestSeeder extends Seeder
         // ── 11. RANDEVULAR — STÜDYO 3 (Bağımsız) ─────────────────────────
         $appointments3 = [
             [
-                'appointment_type'        => 'standard',
+                'appointment_type'        => 'tattoo',
                 'first_name'              => 'Isabella',
                 'last_name'               => 'Ferrari',
                 'phone_country_code'      => '+39',
@@ -678,7 +700,7 @@ class ApiTestSeeder extends Seeder
                 'customer_notes'          => 'Kulak piercing kombinasyonu.',
             ],
             [
-                'appointment_type'        => 'standard',
+                'appointment_type'        => 'tattoo',
                 'first_name'              => 'Oliver',
                 'last_name'               => 'Brown',
                 'phone_country_code'      => '+44',
@@ -701,5 +723,32 @@ class ApiTestSeeder extends Seeder
         foreach ($appointments3 as $data) {
             Appointment::create(array_merge($data, ['studio_id' => $studio3->id]));
         }
+
+        // ── 12. RANDEVU TALEPLERİ — kabul edilince randevuya dönüşür ─────
+        AppointmentRequest::create([
+            'requester_user_id'  => $kullanici->id,
+            'target_user_id'     => $designer1->id,
+            'studio_id'          => $studio1->id,
+            'request_type'       => 'designer',
+            'requested_at'       => now()->addDays(2)->setTime(15, 0),
+            'price'              => 2500,
+            'notes'              => 'Ön kol için geometrik tasarım talebi.',
+            'phone_country_code' => '+90',
+            'phone_number'       => '5550001122',
+            'status'             => 'pending',
+        ]);
+
+        AppointmentRequest::create([
+            'requester_user_id'  => $supervisor1->id,
+            'target_user_id'     => $artist1->id,
+            'studio_id'          => $studio1->id,
+            'request_type'       => 'tattoo',
+            'requested_at'       => now()->addDays(3)->setTime(12, 0),
+            'price'              => 4200,
+            'notes'              => 'Studio 1 kendi dövmecisine test dövme talebi.',
+            'phone_country_code' => '+49',
+            'phone_number'       => '1510002233',
+            'status'             => 'pending',
+        ]);
     }
 }

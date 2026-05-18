@@ -43,6 +43,14 @@ class UserProfileController extends Controller
                 'accepted' => (int) ($stats['accepted'] ?? 0),
                 'rejected' => (int) ($stats['rejected'] ?? 0),
                 'pending'  => (int) ($stats['pending'] ?? 0),
+                'completed' => (int) Appointment::query()
+                    ->where('assigned_artist_user_id', $user->id)
+                    ->where('status', 'completed')
+                    ->count(),
+                'cancelled' => (int) Appointment::query()
+                    ->where('assigned_artist_user_id', $user->id)
+                    ->where('status', 'cancelled')
+                    ->count(),
                 'total'    => $stats->sum(),
             ];
         }
