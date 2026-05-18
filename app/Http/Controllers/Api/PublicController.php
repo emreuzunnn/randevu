@@ -23,7 +23,39 @@ class PublicController extends Controller
         $artists = $studio->users()
             ->wherePivotIn('role', [UserRole::Artist->value, UserRole::Designer->value])
             ->wherePivot('is_active', true)
-            ->get(['users.id', 'users.name', 'users.surname', 'users.profile_image', 'users.bio', 'users.rating', 'users.portfolio', 'studio_user.role']);
+            ->orderBy('users.name')
+            ->get([
+                'users.id',
+                'users.name',
+                'users.surname',
+                'users.username',
+                'users.profile_image',
+                'users.bio',
+                'users.location',
+                'users.experience_years',
+                'users.specializations',
+                'users.availability_start',
+                'users.availability_end',
+                'users.rating',
+                'users.portfolio',
+            ]);
+
+        $staff = $artists->map(fn ($a): array => [
+            'id'                 => $a->id,
+            'name'               => $a->fullName(),
+            'username'           => $a->username,
+            'role'               => $a->pivot->role,
+            'role_label'         => UserRole::fromValue($a->pivot->role)->label(),
+            'profile_image'      => $a->profile_image,
+            'bio'                => $a->bio,
+            'location'           => $a->location,
+            'experience_years'   => $a->experience_years,
+            'specializations'    => $a->specializations ?? [],
+            'availability_start' => $a->availability_start,
+            'availability_end'   => $a->availability_end,
+            'rating'             => $a->rating,
+            'portfolio'          => $a->portfolio ?? [],
+        ])->values();
 
         $stats = Appointment::query()
             ->where('studio_id', $studio->id)
@@ -65,21 +97,9 @@ class PublicController extends Controller
                     'cancelled' => (int) ($stats['cancelled'] ?? 0),
                     'pending'   => (int) ($stats['pending'] ?? 0),
                 ],
-                'staff' => $artists->map(fn ($a): array => [
-                    'id'                 => $a->id,
-                    'name'               => $a->fullName(),
-                    'username'           => $a->username,
-                    'role'               => $a->pivot->role,
-                    'profile_image'      => $a->profile_image,
-                    'bio'                => $a->bio,
-                    'location'           => $a->location,
-                    'experience_years'   => $a->experience_years,
-                    'specializations'    => $a->specializations ?? [],
-                    'availability_start' => $a->availability_start,
-                    'availability_end'   => $a->availability_end,
-                    'rating'             => $a->rating,
-                    'portfolio'          => $a->portfolio ?? [],
-                ])->values(),
+                'staff'     => $staff,
+                'artists'   => $staff->where('role', UserRole::Artist->value)->values(),
+                'designers' => $staff->where('role', UserRole::Designer->value)->values(),
             ],
         ]);
     }
@@ -88,7 +108,7 @@ class PublicController extends Controller
     public function artist(User $user): JsonResponse
     {
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
+            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
             404
         );
 
@@ -115,6 +135,8 @@ class PublicController extends Controller
                 'id'                  => $user->id,
                 'name'                => $user->fullName(),
                 'username'            => $user->username,
+                'role'                => $user->role?->value,
+                'role_label'          => $user->role?->label(),
                 'profile_image'       => $user->profile_image,
                 'bio'                 => $user->bio,
                 'location'            => $user->location,
@@ -271,15 +293,17 @@ class PublicController extends Controller
     public function artists(): JsonResponse
     {
         $artists = User::query()
-            ->whereIn('role', [UserRole::Artist->value, UserRole::KullaniciRol->value])
+            ->whereIn('role', [UserRole::Artist->value, UserRole::Designer->value, UserRole::KullaniciRol->value])
             ->orderBy('name')
-            ->get(['id', 'name', 'surname', 'username', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
+            ->get(['id', 'name', 'surname', 'username', 'role', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
 
         return response()->json([
             'data' => $artists->map(fn ($a): array => [
                 'id'                  => $a->id,
                 'name'                => $a->fullName(),
                 'username'            => $a->username,
+                'role'                => $a->role?->value,
+                'role_label'          => $a->role?->label(),
                 'profile_image'       => $a->profile_image,
                 'bio'                 => $a->bio,
                 'location'            => $a->location,
