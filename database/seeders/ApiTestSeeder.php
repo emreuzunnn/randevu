@@ -750,5 +750,18 @@ class ApiTestSeeder extends Seeder
             'phone_number'       => '1510002233',
             'status'             => 'pending',
         ]);
+
+        AppointmentRequest::create([
+            'requester_user_id'  => $kullanici->id,
+            'target_user_id'     => null,
+            'studio_id'          => $studio2->id,
+            'request_type'       => 'tattoo',
+            'requested_at'       => now()->addDays(4)->setTime(16, 0),
+            'price'              => 3800,
+            'notes'              => 'Direkt stüdyoya gönderilmiş test dövme talebi.',
+            'phone_country_code' => '+44',
+            'phone_number'       => '7700001122',
+            'status'             => 'pending',
+        ]);
     }
 }

@@ -70,8 +70,8 @@ class AppointmentRequestController extends Controller
         abort_unless($authUser instanceof User, 401);
 
         $validated = $request->validate([
-            'studio_id'          => ['nullable', 'integer', 'exists:studios,id'],
-            'artist_id'          => ['required', 'integer', 'exists:users,id'],
+            'studio_id'          => ['required_without:artist_id', 'nullable', 'integer', 'exists:studios,id'],
+            'artist_id'          => ['required_without:studio_id', 'nullable', 'integer', 'exists:users,id'],
             'requested_at'       => ['nullable', 'date', 'after:now'],
             'preferred_date'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'preferred_time'     => ['nullable', 'date_format:H:i'],
@@ -84,25 +84,27 @@ class AppointmentRequestController extends Controller
             'image_path'         => ['nullable', 'string', 'max:2048'],
         ]);
 
-        $target = User::query()->findOrFail($validated['artist_id']);
+        $target = ! empty($validated['artist_id'])
+            ? User::query()->findOrFail($validated['artist_id'])
+            : null;
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
 
         abort_unless(
             $this->canSendRequestToTarget($authUser, $target, $studio, $type),
             403,
-            'Bu kullanıcıya talep gönderme yetkiniz yok.'
+            'Bu talebi gönderme yetkiniz yok.'
         );
 
         $requestedAt = $this->resolveRequestedAt($validated);
         $imagePath = $validated['image_path'] ?? null;
         if ($request->hasFile('image')) {
-            $imagePath = $this->storeRequestImage($request, $target);
+            $imagePath = $this->storeRequestImage($request, $target, $studio);
         }
 
         $appointmentRequest = AppointmentRequest::query()->create([
             'requester_user_id'  => $authUser->id,
-            'target_user_id'     => $target->id,
+            'target_user_id'     => $target?->id,
             'studio_id'          => $studio?->id,
             'request_type'       => $type,
             'requested_at'       => $requestedAt,
@@ -114,7 +116,11 @@ class AppointmentRequestController extends Controller
             'status'             => 'pending',
         ]);
 
-        $this->notifyTarget($target, $authUser, $appointmentRequest);
+        if ($target !== null) {
+            $this->notifyTarget($target, $authUser, $appointmentRequest);
+        } elseif ($studio !== null) {
+            $this->notifyStudio($studio, $authUser, $appointmentRequest);
+        }
 
         return response()->json([
             'message' => 'Talebiniz gönderildi.',
@@ -137,7 +143,7 @@ class AppointmentRequestController extends Controller
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
-            $studio = $appointmentRequest->studio ?? $appointmentRequest->target->studios()->wherePivot('is_active', true)->first();
+            $studio = $appointmentRequest->studio ?? $appointmentRequest->target?->studios()->wherePivot('is_active', true)->first();
 
             if ($studio === null) {
                 throw ValidationException::withMessages([
@@ -157,7 +163,7 @@ class AppointmentRequestController extends Controller
                 'phone_number'            => $appointmentRequest->phone_number,
                 'appointment_at'          => $requestedAt,
                 'status'                  => 'confirmed',
-                'artist_status'           => 'accepted',
+                'artist_status'           => $appointmentRequest->target_user_id !== null ? 'accepted' : null,
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
                 'notes'                   => $this->priceNote($validated['price'] ?? $appointmentRequest->price),
                 'source_image_path'       => $appointmentRequest->image_path,
@@ -208,22 +214,22 @@ class AppointmentRequestController extends Controller
         ]);
     }
 
-    private function resolveStudio(User $target, ?int $studioId): ?Studio
+    private function resolveStudio(?User $target, ?int $studioId): ?Studio
     {
         if ($studioId !== null) {
             return Studio::query()->findOrFail($studioId);
         }
 
-        return $target->studios()->wherePivot('is_active', true)->first();
+        return $target?->studios()->wherePivot('is_active', true)->first();
     }
 
-    private function resolveRequestType(User $target, ?Studio $studio, ?string $type): string
+    private function resolveRequestType(?User $target, ?Studio $studio, ?string $type): string
     {
         if ($type !== null) {
             return $type;
         }
 
-        if ($target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]))) {
+        if ($target && ($target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer])))) {
             return 'designer';
         }
 
@@ -246,8 +252,12 @@ class AppointmentRequestController extends Controller
         return $fallback ?? now()->addDay()->setTime(9, 0);
     }
 
-    private function canSendRequestToTarget(User $sender, User $target, ?Studio $studio, string $type): bool
+    private function canSendRequestToTarget(User $sender, ?User $target, ?Studio $studio, string $type): bool
     {
+        if ($target === null) {
+            return $studio !== null;
+        }
+
         $isFreelancer = $target->hasRole(UserRole::KullaniciRol);
         $isDesigner = $target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]));
 
@@ -322,11 +332,12 @@ class AppointmentRequestController extends Controller
         return $price !== null ? 'Fiyat: ' . number_format((float) $price, 2, '.', '') : null;
     }
 
-    private function storeRequestImage(Request $request, User $target): string
+    private function storeRequestImage(Request $request, ?User $target, ?Studio $studio): string
     {
         $file = $request->file('image');
         $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('appointment-requests/' . $target->id, $name, 'public');
+        $folder = $target !== null ? 'user-' . $target->id : 'studio-' . $studio?->id;
+        $path = $file->storeAs('appointment-requests/' . $folder, $name, 'public');
 
         return Storage::disk('public')->url($path);
     }
@@ -354,5 +365,31 @@ class AppointmentRequestController extends Controller
                 'requester_id' => $requester->id,
             ],
         ]);
+    }
+
+    private function notifyStudio(Studio $studio, User $requester, AppointmentRequest $appointmentRequest): void
+    {
+        $users = $studio->users()
+            ->wherePivot('is_active', true)
+            ->wherePivotIn('role', [
+                UserRole::Supervisor->value,
+                UserRole::Yonetici->value,
+                UserRole::Info->value,
+            ])
+            ->get(['users.id']);
+
+        foreach ($users as $user) {
+            PushNotification::query()->create([
+                'user_id' => $user->id,
+                'type'    => 'appointment_request',
+                'title'   => 'Yeni Stüdyo Talebi',
+                'body'    => "{$requester->fullName()}, {$studio->name} için {$appointmentRequest->requested_at?->format('d.m.Y H:i')} tarihli talep gönderdi.",
+                'data'    => [
+                    'appointment_request_id' => $appointmentRequest->id,
+                    'studio_id' => $studio->id,
+                    'requester_id' => $requester->id,
+                ],
+            ]);
+        }
     }
 }

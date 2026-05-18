@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('appointment_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('requester_user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('target_user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('studio_id')->nullable()->constrained('studios')->nullOnDelete();
             $table->foreignId('appointment_id')->nullable()->constrained('appointments')->nullOnDelete();
             $table->string('request_type')->default('tattoo');
