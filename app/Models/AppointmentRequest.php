@@ -14,11 +14,16 @@ class AppointmentRequest extends Model
         'appointment_id',
         'request_type',
         'requested_at',
-        'price',
         'image_path',
         'notes',
+        'first_name',
+        'last_name',
         'phone_country_code',
         'phone_number',
+        'hotel_name',
+        'room_number',
+        'place',
+        'pax',
         'status',
         'response_notes',
         'responded_at',
@@ -29,7 +34,7 @@ class AppointmentRequest extends Model
         return [
             'requested_at' => 'datetime',
             'responded_at' => 'datetime',
-            'price' => 'decimal:2',
+            'pax' => 'integer',
         ];
     }
 

@@ -76,10 +76,15 @@ class AppointmentRequestController extends Controller
             'preferred_date'     => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'preferred_time'     => ['nullable', 'date_format:H:i'],
             'type'               => ['nullable', 'string', 'in:designer,tattoo'],
-            'price'              => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
             'notes'              => ['nullable', 'string', 'max:2000'],
+            'first_name'         => ['nullable', 'string', 'max:255'],
+            'last_name'          => ['nullable', 'string', 'max:255'],
             'phone_country_code' => ['nullable', 'string', 'max:10'],
             'phone_number'       => ['nullable', 'string', 'max:30'],
+            'hotel_name'         => ['nullable', 'string', 'max:255'],
+            'room_number'        => ['nullable', 'string', 'max:100'],
+            'place'              => ['nullable', 'string', 'max:255'],
+            'pax'                => ['nullable', 'integer', 'min:1', 'max:50'],
             'image'              => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'         => ['nullable', 'string', 'max:2048'],
         ]);
@@ -108,11 +113,16 @@ class AppointmentRequestController extends Controller
             'studio_id'          => $studio?->id,
             'request_type'       => $type,
             'requested_at'       => $requestedAt,
-            'price'              => $validated['price'] ?? null,
             'image_path'         => $imagePath,
             'notes'              => $validated['notes'] ?? null,
+            'first_name'         => $validated['first_name'] ?? ($authUser->name ?: null),
+            'last_name'          => $validated['last_name'] ?? ($authUser->surname ?: null),
             'phone_country_code' => $validated['phone_country_code'] ?? $authUser->phone_country_code ?? null,
             'phone_number'       => $validated['phone_number'] ?? $authUser->phone ?? null,
+            'hotel_name'         => $validated['hotel_name'] ?? null,
+            'room_number'        => $validated['room_number'] ?? null,
+            'place'              => $validated['place'] ?? $validated['hotel_name'] ?? null,
+            'pax'                => $validated['pax'] ?? 1,
             'status'             => 'pending',
         ]);
 
@@ -137,8 +147,13 @@ class AppointmentRequestController extends Controller
             'requested_at'   => ['nullable', 'date'],
             'preferred_date' => ['nullable', 'date_format:Y-m-d'],
             'preferred_time' => ['nullable', 'date_format:H:i'],
-            'price'          => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
             'notes'          => ['nullable', 'string', 'max:2000'],
+            'first_name'     => ['nullable', 'string', 'max:255'],
+            'last_name'      => ['nullable', 'string', 'max:255'],
+            'hotel_name'     => ['nullable', 'string', 'max:255'],
+            'room_number'    => ['nullable', 'string', 'max:100'],
+            'place'          => ['nullable', 'string', 'max:255'],
+            'pax'            => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
@@ -151,32 +166,39 @@ class AppointmentRequestController extends Controller
                 ]);
             }
 
-            $requester = $appointmentRequest->requester;
             $appointment = Appointment::query()->create([
                 'studio_id'               => $studio->id,
                 'created_by_user_id'      => $appointmentRequest->requester_user_id,
                 'assigned_artist_user_id' => $appointmentRequest->target_user_id,
                 'appointment_type'        => $appointmentRequest->request_type,
-                'first_name'              => $requester?->name ?: '-',
-                'last_name'               => $requester?->surname ?: '-',
+                'first_name'              => $validated['first_name'] ?? $appointmentRequest->first_name ?? '-',
+                'last_name'               => $validated['last_name'] ?? $appointmentRequest->last_name ?? '-',
                 'phone_country_code'      => $appointmentRequest->phone_country_code,
                 'phone_number'            => $appointmentRequest->phone_number,
+                'hotel_name'              => $validated['hotel_name'] ?? $appointmentRequest->hotel_name,
+                'room_number'             => $validated['room_number'] ?? $appointmentRequest->room_number,
+                'place'                   => $validated['place'] ?? $appointmentRequest->place ?? $appointmentRequest->hotel_name,
                 'appointment_at'          => $requestedAt,
                 'status'                  => 'confirmed',
                 'artist_status'           => $appointmentRequest->target_user_id !== null ? 'accepted' : null,
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
-                'notes'                   => $this->priceNote($validated['price'] ?? $appointmentRequest->price),
+                'notes'                   => null,
                 'source_image_path'       => $appointmentRequest->image_path,
                 'is_old_customer'         => false,
-                'pax'                     => 1,
+                'pax'                     => $validated['pax'] ?? $appointmentRequest->pax ?? 1,
             ]);
 
             $appointmentRequest->fill([
                 'studio_id'       => $studio->id,
                 'appointment_id'  => $appointment->id,
                 'requested_at'    => $requestedAt,
-                'price'           => $validated['price'] ?? $appointmentRequest->price,
                 'notes'           => $validated['notes'] ?? $appointmentRequest->notes,
+                'first_name'      => $validated['first_name'] ?? $appointmentRequest->first_name,
+                'last_name'       => $validated['last_name'] ?? $appointmentRequest->last_name,
+                'hotel_name'      => $validated['hotel_name'] ?? $appointmentRequest->hotel_name,
+                'room_number'     => $validated['room_number'] ?? $appointmentRequest->room_number,
+                'place'           => $validated['place'] ?? $appointmentRequest->place,
+                'pax'             => $validated['pax'] ?? $appointmentRequest->pax,
                 'status'          => 'accepted',
                 'responded_at'    => now(),
             ])->save();
@@ -296,10 +318,23 @@ class AppointmentRequestController extends Controller
             'status'         => $appointmentRequest->status,
             'request_type'   => $appointmentRequest->request_type,
             'requested_at'   => optional($appointmentRequest->requested_at)->toIso8601String(),
-            'price'          => $appointmentRequest->price !== null ? (float) $appointmentRequest->price : null,
             'image_path'     => $this->imageUrl($appointmentRequest->image_path),
             'notes'          => $appointmentRequest->notes,
             'response_notes' => $appointmentRequest->response_notes,
+            'customer'       => [
+                'first_name' => $appointmentRequest->first_name,
+                'last_name' => $appointmentRequest->last_name,
+                'hotel_name' => $appointmentRequest->hotel_name,
+                'room_number' => $appointmentRequest->room_number,
+                'place' => $appointmentRequest->place,
+                'pax' => $appointmentRequest->pax,
+            ],
+            'first_name'     => $appointmentRequest->first_name,
+            'last_name'      => $appointmentRequest->last_name,
+            'hotel_name'     => $appointmentRequest->hotel_name,
+            'room_number'    => $appointmentRequest->room_number,
+            'place'          => $appointmentRequest->place,
+            'pax'            => $appointmentRequest->pax,
             'phone_country_code' => $appointmentRequest->phone_country_code,
             'phone_number'   => $appointmentRequest->phone_number,
             'requester'      => $this->formatUser($appointmentRequest->requester),
@@ -325,11 +360,6 @@ class AppointmentRequestController extends Controller
             'phone' => $user->phone,
             'role'  => $user->role?->value,
         ];
-    }
-
-    private function priceNote(mixed $price): ?string
-    {
-        return $price !== null ? 'Fiyat: ' . number_format((float) $price, 2, '.', '') : null;
     }
 
     private function storeRequestImage(Request $request, ?User $target, ?Studio $studio): string

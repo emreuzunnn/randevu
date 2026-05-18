@@ -16,11 +16,16 @@ return new class extends Migration
             $table->foreignId('appointment_id')->nullable()->constrained('appointments')->nullOnDelete();
             $table->string('request_type')->default('tattoo');
             $table->timestamp('requested_at');
-            $table->decimal('price', 10, 2)->nullable();
             $table->string('image_path')->nullable();
             $table->text('notes')->nullable();
+            $table->string('first_name')->nullable();
+            $table->string('last_name')->nullable();
             $table->string('phone_country_code', 10)->nullable();
             $table->string('phone_number', 30)->nullable();
+            $table->string('hotel_name')->nullable();
+            $table->string('room_number')->nullable();
+            $table->string('place')->nullable();
+            $table->unsignedSmallInteger('pax')->default(1);
             $table->string('status')->default('pending');
             $table->text('response_notes')->nullable();
             $table->timestamp('responded_at')->nullable();
