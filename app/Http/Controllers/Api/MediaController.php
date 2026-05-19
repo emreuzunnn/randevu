@@ -273,6 +273,20 @@ class MediaController extends Controller
         ]);
     }
 
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $this->deleteOldImage($user->profile_image);
+        $user->update(['profile_image' => null]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Profil fotoğrafı silindi.',
+        ]);
+    }
+
     // ── Portfolio Görsel Yükleme ──────────────────────────────────────────────
 
     /**

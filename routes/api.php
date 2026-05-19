@@ -65,8 +65,9 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::post('/me/portfolio/items', [AuthController::class, 'addPortfolioItem']);
     Route::delete('/me/portfolio/items/{index}', [AuthController::class, 'removePortfolioItem']);
 
-    // Avatar (profil fotoğrafı) yükleme — multipart/form-data, alan adı: avatar
+    // Avatar: yükle/güncelle (multipart/form-data, alan adı: avatar) | sil
     Route::post('/me/avatar', [MediaController::class, 'uploadAvatar']);
+    Route::delete('/me/avatar', [MediaController::class, 'deleteAvatar']);
 
     // Portfolio görsel yükleme — URL döndürür, portfolyoya kaydetmez
     Route::post('/me/portfolio/upload', [MediaController::class, 'uploadPortfolioImage']);
