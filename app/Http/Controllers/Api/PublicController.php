@@ -11,7 +11,10 @@ use App\Models\Studio;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicController extends Controller
 {
@@ -63,6 +66,11 @@ class PublicController extends Controller
             ->groupBy('status')
             ->pluck('count', 'status');
 
+        $reviewStats = Review::query()
+            ->where('studio_id', $studio->id)
+            ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
+            ->first();
+
         return response()->json([
             'status' => 'success',
             'data'   => [
@@ -72,6 +80,8 @@ class PublicController extends Controller
                 'location'       => $studio->location,
                 'about'          => $studio->about,
                 'logo_path'      => $studio->logo_path,
+                'rating'         => $reviewStats?->avg_rating !== null ? round((float) $reviewStats->avg_rating, 1) : null,
+                'review_count'   => (int) ($reviewStats->total ?? 0),
                 'opening_time'   => $studio->opening_time ?? $studio->shop?->opening_time,
                 'closing_time'   => $studio->closing_time ?? $studio->shop?->closing_time,
                 'gallery_images' => $studio->gallery_images ?? [],
@@ -230,7 +240,7 @@ class PublicController extends Controller
     public function artistReviews(User $user): JsonResponse
     {
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
+            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
             404
         );
 
@@ -240,6 +250,23 @@ class PublicController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        return $this->reviewsResponse($reviews);
+    }
+
+    /** Stüdyo değerlendirmeleri */
+    public function studioReviews(Studio $studio): JsonResponse
+    {
+        $reviews = Review::query()
+            ->with('reviewer:id,name,surname')
+            ->where('studio_id', $studio->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->reviewsResponse($reviews);
+    }
+
+    private function reviewsResponse($reviews): JsonResponse
+    {
         $total   = $reviews->count();
         $average = $total > 0 ? round($reviews->avg('rating'), 1) : null;
 
@@ -256,14 +283,204 @@ class PublicController extends Controller
                     'distribution' => $distribution,
                 ],
                 'items' => $reviews->map(fn ($r): array => [
-                    'id'         => $r->id,
-                    'user_name'  => $r->reviewer ? $r->reviewer->fullName() : 'Anonim',
-                    'rating'     => $r->rating,
-                    'comment'    => $r->comment,
-                    'created_at' => $r->created_at?->toIso8601String(),
+                    ...$this->reviewResource($r),
                 ])->values(),
             ],
         ]);
+    }
+
+    public function storeArtistReview(Request $request, User $user): JsonResponse
+    {
+        abort_unless(
+            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
+            404
+        );
+
+        $authUser = $request->user();
+        abort_if($authUser === null, 401);
+        abort_if((int) $authUser->id === (int) $user->id, 422, 'Kendi profilinizi değerlendiremezsiniz.');
+
+        $validated = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'image_path' => ['nullable', 'string', 'max:2048'],
+        ]);
+
+        $imagePath = $validated['image_path'] ?? null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $imagePath = Storage::disk('public')->url(
+                $file->storeAs('reviews/' . $user->id, $name, 'public')
+            );
+        }
+
+        $review = Review::query()->updateOrCreate(
+            [
+                'user_id' => $authUser->id,
+                'artist_id' => $user->id,
+            ],
+            [
+                'rating' => $validated['rating'],
+                'comment' => $validated['comment'] ?? null,
+                'image_path' => $imagePath,
+            ]
+        );
+
+        $average = Review::query()
+            ->where('artist_id', $user->id)
+            ->avg('rating');
+
+        $user->forceFill([
+            'rating' => $average !== null ? round((float) $average, 1) : null,
+        ])->save();
+
+        $review->load('reviewer:id,name,surname');
+
+        return response()->json([
+            'message' => 'Değerlendirmeniz kaydedildi.',
+            'data' => [
+                ...$this->reviewResource($review),
+                'artist_rating' => $user->rating,
+            ],
+        ], 201);
+    }
+
+    public function storeStudioReview(Request $request, Studio $studio): JsonResponse
+    {
+        $authUser = $request->user();
+        abort_if($authUser === null, 401);
+
+        $validated = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'image_path' => ['nullable', 'string', 'max:2048'],
+        ]);
+
+        $imagePath = $validated['image_path'] ?? null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $imagePath = Storage::disk('public')->url(
+                $file->storeAs('reviews/studios/' . $studio->id, $name, 'public')
+            );
+        }
+
+        $review = Review::query()->updateOrCreate(
+            [
+                'user_id' => $authUser->id,
+                'studio_id' => $studio->id,
+            ],
+            [
+                'artist_id' => null,
+                'rating' => $validated['rating'],
+                'comment' => $validated['comment'] ?? null,
+                'image_path' => $imagePath,
+            ]
+        );
+
+        $review->load('reviewer:id,name,surname');
+
+        return response()->json([
+            'message' => 'Stüdyo değerlendirmeniz kaydedildi.',
+            'data' => $this->reviewResource($review),
+        ], 201);
+    }
+
+    public function reviews(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
+
+        $reviews = Review::query()
+            ->with([
+                'reviewer:id,name,surname,email',
+                'artist:id,name,surname,role',
+                'studio:id,name,location',
+            ])
+            ->orderByDesc('created_at')
+            ->paginate((int) $request->integer('per_page', 50));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'items' => $reviews->getCollection()->map(fn (Review $review): array => $this->adminReviewResource($review))->values(),
+                'pagination' => [
+                    'current_page' => $reviews->currentPage(),
+                    'last_page' => $reviews->lastPage(),
+                    'per_page' => $reviews->perPage(),
+                    'total' => $reviews->total(),
+                ],
+            ],
+        ]);
+    }
+
+    public function destroyReview(Request $request, Review $review): JsonResponse
+    {
+        abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
+
+        $artist = $review->artist;
+        $review->delete();
+
+        if ($artist !== null) {
+            $average = Review::query()
+                ->where('artist_id', $artist->id)
+                ->avg('rating');
+
+            $artist->forceFill([
+                'rating' => $average !== null ? round((float) $average, 1) : null,
+            ])->save();
+        }
+
+        return response()->json([
+            'message' => 'Yorum silindi.',
+        ]);
+    }
+
+    private function reviewResource(Review $review): array
+    {
+        return [
+            'id' => $review->id,
+            'user_name' => $review->reviewer ? $review->reviewer->fullName() : 'Anonim',
+            'rating' => $review->rating,
+            'comment' => $review->comment,
+            'image_path' => $this->reviewImageUrl($review->image_path),
+            'created_at' => $review->created_at?->toIso8601String(),
+        ];
+    }
+
+    private function adminReviewResource(Review $review): array
+    {
+        return [
+            ...$this->reviewResource($review),
+            'reviewer' => $review->reviewer ? [
+                'id' => $review->reviewer->id,
+                'name' => $review->reviewer->fullName(),
+                'email' => $review->reviewer->email,
+            ] : null,
+            'target_type' => $review->studio_id !== null ? 'studio' : 'user',
+            'target' => $review->studio_id !== null ? [
+                'id' => $review->studio?->id,
+                'name' => $review->studio?->name,
+                'location' => $review->studio?->location,
+            ] : [
+                'id' => $review->artist?->id,
+                'name' => $review->artist?->fullName(),
+                'role' => $review->artist?->role?->value,
+            ],
+        ];
+    }
+
+    private function reviewImageUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '' || str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return str_starts_with($path, 'storage/') || str_starts_with($path, '/storage/')
+            ? url($path)
+            : url('storage/' . $path);
     }
 
     /** Stüdyo listesi (herkese açık, discovery için) */

@@ -30,13 +30,13 @@ Route::post('/ocr/appointment-slip', AppointmentSlipOcrController::class);
 // Kullanıcı girişi yapar ve sonraki API isteklerinde kullanılacak bearer token üretir.
 Route::post('/login', [AuthController::class, 'login']);
 
-// Yeni kullanıcı kaydı (kullanici veya kullanici_rol olarak).
-// role: kullanici (varsayılan) | kullanici_rol (portfolyolu bağımsız artist vb.)
+// Yeni kullanıcı kaydı: public kayıt sadece normal kullanıcı (kullanici) oluşturur.
 Route::post('/register', [AuthController::class, 'register']);
 
 // Stüdyo keşif sayfası için herkese açık listeler.
 Route::get('/public/studios', [PublicController::class, 'studios']);
 Route::get('/public/studios/{studio}', [PublicController::class, 'studio']);
+Route::get('/public/studios/{studio}/reviews', [PublicController::class, 'studioReviews']);
 Route::get('/public/artists', [PublicController::class, 'artists']);
 Route::get('/public/artists/{user}', [PublicController::class, 'artist']);
 Route::get('/public/artists/{user}/availability', [PublicController::class, 'artistAvailability']);
@@ -77,6 +77,8 @@ Route::middleware(['api.auth'])->group(function (): void {
 
     // Herhangi bir kullanıcının profilini görüntüle (giriş yapılmış kullanıcılar)
     Route::get('/users/{user}', [UserProfileController::class, 'show']);
+    Route::post('/public/artists/{user}/reviews', [PublicController::class, 'storeArtistReview']);
+    Route::post('/public/studios/{studio}/reviews', [PublicController::class, 'storeStudioReview']);
 
     // Çıkış
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -128,6 +130,10 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 |--------------------------------------------------------------------------
 */
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    // Tüm yorumları listele / uygunsuz yorumu sil.
+    Route::get('/reviews', [PublicController::class, 'reviews']);
+    Route::delete('/reviews/{review}', [PublicController::class, 'destroyReview']);
+
     // Şirket yönetimi
     Route::get('/companies', [CompanyController::class, 'index']);
     Route::post('/companies', [CompanyController::class, 'store']);

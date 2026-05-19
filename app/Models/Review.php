@@ -10,8 +10,10 @@ class Review extends Model
     protected $fillable = [
         'user_id',
         'artist_id',
+        'studio_id',
         'rating',
         'comment',
+        'image_path',
     ];
 
     protected function casts(): array
@@ -29,5 +31,10 @@ class Review extends Model
     public function artist(): BelongsTo
     {
         return $this->belongsTo(User::class, 'artist_id');
+    }
+
+    public function studio(): BelongsTo
+    {
+        return $this->belongsTo(Studio::class);
     }
 }
