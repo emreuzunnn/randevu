@@ -15,7 +15,6 @@
         $roleLabels = [
             'admin'       => 'Admin',
             'yonetici'    => 'Yönetici',
-            'studio_admin'=> 'Stüdyo Yöneticisi',
             'supervisor'  => 'Süpervizör',
             'designer'    => 'Tasarımcı',
             'artist'      => 'Artist',
@@ -27,16 +26,16 @@
         $userName    = $u?->fullName() ?: $u?->name;
         $userInitial = strtoupper(mb_substr($userName ?? 'A', 0, 1));
 
-        $isAdmin        = $u?->hasRole(\App\Enums\UserRole::Admin);
-        $isYonetici     = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]);
-        $isStudioAdmin  = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::StudioAdmin]);
-        $canManageUsers = $isStudioAdmin;
-        $isSupervisor   = $u?->hasRole(\App\Enums\UserRole::Supervisor);
+        $isAdmin          = $u?->hasRole(\App\Enums\UserRole::Admin);
+        $isYonetici       = $u?->hasRole(\App\Enums\UserRole::Yonetici);
+        $isSupervisor     = $u?->hasRole(\App\Enums\UserRole::Supervisor);
+        $canManageShops   = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]);
+        $canManageStudios = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::Supervisor]);
+        $canManageUsers   = $canManageStudios;
 
         $roleBadgeClass = match($userRole) {
             'admin'        => 'badge-pill--danger',
             'yonetici'     => 'badge-pill--warning',
-            'studio_admin' => 'badge-pill--purple',
             'supervisor'   => 'badge-pill--info',
             'designer'     => 'badge-pill--teal',
             'artist'       => 'badge-pill--success',
@@ -47,9 +46,11 @@
     <meta name="admin-api-base"             content="/api">
     <meta name="admin-api-token"            content="{{ $adminApiToken }}">
     <meta name="admin-user-role"            content="{{ $userRole }}">
-    <meta name="admin-can-manage-structure" content="{{ $isYonetici ? '1' : '0' }}">
+    <meta name="admin-can-manage-structure" content="{{ $canManageShops ? '1' : '0' }}">
+    <meta name="admin-can-manage-shops"     content="{{ $canManageShops ? '1' : '0' }}">
+    <meta name="admin-can-manage-studios"   content="{{ $canManageStudios ? '1' : '0' }}">
     <meta name="admin-is-admin"             content="{{ $isAdmin ? '1' : '0' }}">
-    <meta name="admin-is-studio-admin"      content="{{ $u?->hasRole(\App\Enums\UserRole::StudioAdmin) ? '1' : '0' }}">
+    <meta name="admin-is-studio-admin"      content="{{ $canManageStudios && ! $canManageShops ? '1' : '0' }}">
     <meta name="admin-is-supervisor"        content="{{ $isSupervisor ? '1' : '0' }}">
     <meta name="admin-can-manage-users"     content="{{ $canManageUsers ? '1' : '0' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,13 +70,13 @@
                 <div class="section-eyebrow">
                     @if($isAdmin) Platform Admin
                     @elseif($isYonetici) Operasyon Merkezi
-                    @elseif($isStudioAdmin) Stüdyo Yönetim
+                    @elseif($isSupervisor) Şube Stüdyo Yönetimi
                     @else Personel Paneli
                     @endif
                 </div>
                 <div class="mt-2 text-lg font-bold tracking-tight" style="color:var(--text-main)">Randevu Panel</div>
                 <p class="mt-1.5 text-xs leading-5" style="color:var(--text-muted)">
-                    @if($isStudioAdmin) Stüdyonuzu, ekibinizi ve randevularınızı yönetin.
+                    @if($canManageStudios) Stüdyonuzu, ekibinizi ve randevularınızı yönetin.
                     @else Randevu operasyonunuzu buradan yönetin.
                     @endif
                 </p>
@@ -107,7 +108,7 @@
                 @endif
 
                 {{-- Admin + Yönetici: Yönetim bölümü --}}
-                @if ($isYonetici)
+                @if ($canManageShops)
                     <div class="admin-nav-section">Yönetim</div>
 
                     <a href="{{ route('admin.shops.index') }}"
@@ -120,9 +121,9 @@
                     </a>
                 @endif
 
-                {{-- Admin + Yönetici + Stüdyo Admin: Stüdyolar & Kullanıcılar --}}
-                @if ($isStudioAdmin)
-                    @if (! $isYonetici)
+                {{-- Admin + Yönetici + Supervisor: Stüdyolar & Kullanıcılar --}}
+                @if ($canManageStudios)
+                    @if (! $canManageShops)
                         <div class="admin-nav-section">Stüdyom</div>
                     @endif
 
@@ -177,8 +178,8 @@
                     <div class="section-eyebrow">{{ $title ?? 'Admin Panel' }}</div>
                     <div class="mt-1 text-sm font-medium" style="color:var(--text-muted)">
                         @if($isAdmin) Tüm şirket, dükkan, stüdyo ve randevu hareketleri.
-                        @elseif($isYonetici) Stüdyolar, personel ve randevu operasyonu.
-                        @elseif($isStudioAdmin) Stüdyonuzun ekibi ve randevu akışı.
+                        @elseif($isYonetici) Şirketinize bağlı dükkan, stüdyo ve personel operasyonu.
+                        @elseif($isSupervisor) Şubenize bağlı stüdyo, ekip ve randevu akışı.
                         @else Randevu ve operasyon hareketleri.
                         @endif
                     </div>

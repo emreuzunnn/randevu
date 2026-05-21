@@ -19,6 +19,8 @@ const adminConfig = {
     token:              meta('admin-api-token'),
     role:               meta('admin-user-role'),
     canManageStructure: meta('admin-can-manage-structure') === '1',
+    canManageShops:     meta('admin-can-manage-shops') === '1',
+    canManageStudios:   meta('admin-can-manage-studios') === '1',
     isAdmin:            meta('admin-is-admin') === '1',
     isStudioAdmin:      meta('admin-is-studio-admin') === '1',
     isSupervisor:       meta('admin-is-supervisor') === '1',
@@ -42,11 +44,9 @@ const STATUS_LABELS = {
 const ROLE_LABELS = {
     admin:          'Admin',
     yonetici:       'Yönetici',
-    studio_admin:   'Stüdyo Yöneticisi',
     supervisor:     'Süpervizör',
     designer:       'Tasarımcı',
     artist:         'Artist',
-    dovmeci:        'Dövmeci',
     info:           'Info',
     sofor:          'Şoför',
     calisan:        'Çalışan',
@@ -365,10 +365,16 @@ const renderDashboard = async (root) => {
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
-        ? ['admin', 'yonetici', 'studio_admin', 'supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan']
-        : adminConfig.canManageStructure
-        ? ['studio_admin', 'supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan']
-        : ['supervisor', 'designer', 'artist', 'dovmeci', 'info', 'sofor', 'calisan'];
+        ? ['admin', 'yonetici', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        : adminConfig.canManageShops
+        ? ['supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
+        : ['designer', 'artist', 'info', 'sofor', 'calisan'];
+
+    const canEditRole = (role) => {
+        if (adminConfig.isAdmin) return true;
+        if (adminConfig.canManageShops) return !['admin', 'yonetici'].includes(role);
+        return !['admin', 'yonetici', 'supervisor'].includes(role);
+    };
 
     root.innerHTML = `
         <section class="hero-card">
@@ -473,16 +479,17 @@ const renderUsersPage = async (root) => {
         const roleBadge = (role) => {
             const map = {
                 admin: 'badge-pill--danger', yonetici: 'badge-pill--warning',
-                studio_admin: 'badge-pill--purple', supervisor: 'badge-pill--info',
+                supervisor: 'badge-pill--info',
                 designer: 'badge-pill--teal', artist: 'badge-pill--success',
-                dovmeci: 'badge-pill--purple',
                 info: 'badge-pill--info', sofor: 'badge-pill--warning', calisan: '',
             };
             return `<span class="badge-pill ${map[role] || ''}" style="font-size:0.62rem">${roleLabel(role)}</span>`;
         };
 
         listNode.innerHTML = users.length
-            ? users.map((user, index) => `
+            ? users.map((user, index) => {
+                const canEditUser = adminConfig.canManageUsers && canEditRole(user.role);
+                return `
                 <article class="data-card animate-stagger-${(index % 3) + 1}" data-user-card data-user-id="${user.id}" style="${! user.is_active ? 'opacity:0.6' : ''}">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-center gap-3">
@@ -500,7 +507,7 @@ const renderUsersPage = async (root) => {
                             ${! user.is_active ? '<span class="badge-pill badge-pill--danger" style="font-size:0.58rem">Banlı</span>' : ''}
                         </div>
                     </div>
-                    ${adminConfig.canManageUsers ? `
+                    ${canEditUser ? `
                     <div class="mt-4 form-grid form-grid--split">
                         <div class="field-wrap">
                             <label class="field-label">Rol</label>
@@ -522,9 +529,12 @@ const renderUsersPage = async (root) => {
                         </label>
                         <button class="button-primary" data-user-save style="padding:0.42rem 0.9rem;font-size:0.76rem">Kaydet</button>
                     </div>
+                    ` : adminConfig.canManageUsers ? `
+                    <div class="mt-4 text-xs" style="color:var(--text-muted)">Bu rolü yalnızca daha üst yetkili hesaplar yönetebilir.</div>
                     ` : ''}
                 </article>
-            `).join('')
+            `;
+            }).join('')
             : '<div class="empty-state">Bu stüdyoda kullanıcı bulunmuyor.</div>';
 
         listNode.querySelectorAll('[data-user-save]').forEach((button) => {
@@ -784,7 +794,7 @@ const renderAppointmentsPage = async (root) => {
 /* ── Stüdyolar ─────────────────────────────────────────────── */
 
 const renderStudiosPage = async (root) => {
-    const isStudioAdminOnly = adminConfig.isStudioAdmin && !adminConfig.canManageStructure;
+    const isStudioAdminOnly = adminConfig.canManageStudios && !adminConfig.canManageShops;
 
     root.innerHTML = `
         <section class="hero-card">

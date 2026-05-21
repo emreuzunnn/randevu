@@ -52,10 +52,9 @@ class RoleMiddleware
                 }
             }
 
-            // Stüdyo üyesi olmayan platform rolleri (kullanici_rol, artist) —
-            // controller kendi assignment kontrolünü yapar, middleware geçişe izin verir.
-            if (! $canPass) {
-                $canPass = $user->hasAnyRole($allowedRoles);
+            // Freelancer artist yanıtı gibi atama bazlı uçlarda controller detay kontrolü yapar.
+            if (! $canPass && $this->allowsControllerScopedAccess($request, $allowedRoles)) {
+                $canPass = true;
             }
 
             abort_if(! $canPass, Response::HTTP_FORBIDDEN);
@@ -87,5 +86,28 @@ class RoleMiddleware
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<int, UserRole>  $allowedRoles
+     */
+    private function allowsControllerScopedAccess(Request $request, array $allowedRoles): bool
+    {
+        if (! $request->is('api/studios/*/appointments/*/artist-response')) {
+            return false;
+        }
+
+        $scopedRoles = [
+            UserRole::Artist,
+            UserRole::Designer,
+            UserRole::KullaniciRol,
+        ];
+
+        $allowedScopedRoles = array_values(array_filter(
+            $scopedRoles,
+            static fn (UserRole $role): bool => in_array($role, $allowedRoles, true),
+        ));
+
+        return $allowedScopedRoles !== [] && ($request->user()?->hasAnyRole($allowedScopedRoles) ?? false);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Studio;
 use Illuminate\Http\RedirectResponse;
@@ -13,12 +14,12 @@ class StudioController extends Controller
     public function index(): View
     {
         $user = request()->user();
-        abort_unless($user?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]), 403);
+        abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
         $studios = Studio::query()
             ->with('shop')
             ->when(
-                ! $user?->hasRole(\App\Enums\UserRole::Admin),
+                ! $user?->hasRole(UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
             )
             ->withCount([

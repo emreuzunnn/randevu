@@ -14,7 +14,8 @@ class UserDirectoryController extends Controller
 {
     public function userOptions(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
+        $authUser = $request->user();
+        abort_unless($authUser?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
         $roles = collect(explode(',', (string) $request->query('roles')))
             ->filter()
@@ -25,6 +26,13 @@ class UserDirectoryController extends Controller
 
         $users = User::query()
             ->when($roles->isNotEmpty(), fn ($q) => $q->whereIn('role', $roles->all()))
+            ->when(
+                ! $authUser?->hasRole(UserRole::Admin),
+                fn ($q) => $q->whereHas(
+                    'studios',
+                    fn ($sq) => $sq->whereIn('studios.id', $authUser?->accessibleStudioIds() ?? [])
+                )
+            )
             ->when($companyId, fn ($q) => $q->whereHas(
                 'studios',
                 fn ($sq) => $sq->whereHas(
@@ -143,6 +151,20 @@ class UserDirectoryController extends Controller
 
         $currentRole = $studio->users()->where('users.id', $user->id)->first()?->pivot?->role;
         abort_if($currentRole === null, 404);
+
+        if (
+            ! $request->user()?->hasRole(UserRole::Admin)
+            && in_array($currentRole, ['admin', 'yonetici'], true)
+        ) {
+            abort(403);
+        }
+
+        if (
+            $request->user()?->hasRole(UserRole::Supervisor)
+            && in_array($currentRole, ['admin', 'yonetici', 'supervisor'], true)
+        ) {
+            abort(403);
+        }
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],

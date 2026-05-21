@@ -90,10 +90,10 @@ Route::middleware(['api.auth'])->group(function (): void {
 
 /*
 |--------------------------------------------------------------------------
-| Stüdyo Yönetimi: Admin + Yönetici
+| Stüdyo Yönetimi: Admin + Yönetici + Supervisor
 |--------------------------------------------------------------------------
 */
-Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     // Erişilebilir stüdyoları detay ve sayaç bilgileriyle listeler.
     Route::get('/studios/overview', [StudioController::class, 'overview']);
     // Yeni stüdyo oluşturur (şirket limiti kontrol edilir).
@@ -103,6 +103,9 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
     // Seçili stüdyoyu sistemden siler.
     Route::delete('/studios/{studio}', [StudioController::class, 'destroy']);
 
+});
+
+Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
     // Dükkan güncelleme.
     Route::patch('/shops/{shop}', [ShopController::class, 'update']);
 });
@@ -297,7 +300,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 });
 
 // Şube profili: bağlı stüdyolar, toplu istatistikler, galeri
-Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     Route::get('/shops/{shop}/profile', [ProfileController::class, 'shopProfile']);
 });
 

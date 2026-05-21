@@ -32,6 +32,8 @@ class StudioStaffController extends Controller
     public function store(Studio $studio, Request $request, StudioStaffService $studioStaffService): JsonResponse
     {
         $role = UserRole::fromValue((string) $request->route('role'));
+        $this->authorizeRoleManagement($request, $studio, $role);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
@@ -62,6 +64,8 @@ class StudioStaffController extends Controller
         StudioStaffService $studioStaffService
     ): JsonResponse {
         $role = UserRole::fromValue((string) $request->route('role'));
+        $this->authorizeRoleManagement($request, $studio, $role);
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'string', 'email', 'max:255'],
@@ -89,10 +93,27 @@ class StudioStaffController extends Controller
         StudioStaffService $studioStaffService
     ): JsonResponse {
         $role = UserRole::fromValue((string) $request->route('role'));
+        $this->authorizeRoleManagement($request, $studio, $role);
+
         $studioStaffService->deactivateMembership($studio, $user, $role);
 
         return response()->json([
             'message' => $role->label().' studyodan pasife alindi.',
         ]);
+    }
+
+    private function authorizeRoleManagement(Request $request, Studio $studio, UserRole $role): void
+    {
+        $user = $request->user();
+
+        abort_unless($user?->canManageStudio($studio), 403);
+
+        if (! $user?->hasRole(UserRole::Admin) && in_array($role, [UserRole::Admin, UserRole::Yonetici], true)) {
+            abort(403);
+        }
+
+        if ($user?->hasRole(UserRole::Supervisor) && in_array($role, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor], true)) {
+            abort(403);
+        }
     }
 }

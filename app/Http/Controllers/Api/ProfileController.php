@@ -74,7 +74,7 @@ class ProfileController extends Controller
     public function shopProfile(Shop $shop): JsonResponse
     {
         $user = request()->user();
-        abort_unless($user?->canManageShop($shop) || $user?->hasRole(UserRole::Admin), 403);
+        abort_unless($user?->canManageStudiosInShop($shop) || $user?->hasRole(UserRole::Admin), 403);
 
         $studios = Studio::query()
             ->where('shop_id', $shop->id)

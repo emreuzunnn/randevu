@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Shop;
 use App\Models\Studio;
@@ -49,7 +50,7 @@ class StudioController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]), 403);
+        abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
         $validated = $request->validate([
             'shop_id'                    => ['required', 'integer', 'exists:shops,id'],
@@ -59,7 +60,7 @@ class StudioController extends Controller
 
         $shop = Shop::query()->with('company')->findOrFail($validated['shop_id']);
 
-        abort_unless($request->user()?->canManageShop($shop), 403);
+        abort_unless($request->user()?->canManageStudiosInShop($shop), 403);
 
         // Şirket stüdyo limiti kontrolü
         if ($shop->company !== null && ! $shop->company->canAddStudio()) {

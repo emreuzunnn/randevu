@@ -184,6 +184,24 @@ class User extends Authenticatable
             ->exists();
     }
 
+    public function canManageStudiosInShop(Shop|int $shop): bool
+    {
+        if ($this->canManageShop($shop)) {
+            return true;
+        }
+
+        $shopId = $shop instanceof Shop ? $shop->getKey() : $shop;
+
+        if (! $this->hasRole(UserRole::Supervisor)) {
+            return false;
+        }
+
+        return $this->managedShops()
+            ->whereKey($shopId)
+            ->where('is_active', true)
+            ->exists();
+    }
+
     public function canManageStudio(Studio|int $studio): bool
     {
         if ($this->hasRole(UserRole::Admin)) {
@@ -202,7 +220,7 @@ class User extends Authenticatable
         }
 
         return $studioModel->shop_id !== null
-            && $this->canManageShop($studioModel->shop_id);
+            && $this->canManageStudiosInShop($studioModel->shop_id);
     }
 
     public function canManageStudioAppointments(Studio|int $studio): bool
