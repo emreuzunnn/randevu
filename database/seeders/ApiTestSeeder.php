@@ -802,5 +802,24 @@ class ApiTestSeeder extends Seeder
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
+
+        AppointmentRequest::create([
+            'requester_user_id'  => $kullanici->id,
+            'target_user_id'     => $artist2->id,
+            'studio_id'          => $studio2->id,
+            'request_type'       => 'tattoo',
+            'requested_at'       => now()->addDays(2)->setTime(18, 0),
+            'notes'              => 'Artist 2 için fine line test talebi.',
+            'first_name'         => 'Test',
+            'last_name'          => 'Artistiki',
+            'phone_country_code' => '+90',
+            'phone_number'       => '5552223344',
+            'hotel_name'         => 'Artist 2 Test Hotel',
+            'room_number'        => '220',
+            'place'              => 'Artist 2 Test Hotel',
+            'pax'                => 1,
+            'image_path'         => 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
+            'status'             => 'pending',
+        ]);
     }
 }
