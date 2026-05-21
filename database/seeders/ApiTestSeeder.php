@@ -821,5 +821,24 @@ class ApiTestSeeder extends Seeder
             'image_path'         => 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
+
+        AppointmentRequest::create([
+            'requester_user_id'  => $kullanici->id,
+            'target_user_id'     => $kullaniciRol->id,
+            'studio_id'          => null,
+            'request_type'       => 'tattoo',
+            'requested_at'       => now()->addDays(5)->setTime(14, 30),
+            'notes'              => 'Freelancer hesabına gelen test talebi. Kabul edilince randevu oluşmalı.',
+            'first_name'         => 'Freelancer',
+            'last_name'          => 'Test',
+            'phone_country_code' => '+90',
+            'phone_number'       => '5554447788',
+            'hotel_name'         => 'Freelancer Test Hotel',
+            'room_number'        => '510',
+            'place'              => 'Freelancer Test Hotel',
+            'pax'                => 1,
+            'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+            'status'             => 'pending',
+        ]);
     }
 }
