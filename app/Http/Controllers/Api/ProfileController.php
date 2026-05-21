@@ -28,6 +28,9 @@ class ProfileController extends Controller
 
         $shop = $studio->shop()->with('company')->first();
 
+        $studioPortfolio = $this->galleryItems($studio->gallery_images ?? []);
+        $shopPortfolio = $this->galleryItems($shop?->gallery_images ?? []);
+
         return response()->json([
             'status' => 'success',
             'code'   => 200,
@@ -40,13 +43,16 @@ class ProfileController extends Controller
                 'logo_path'    => $studio->logo_path,
                 'opening_time' => $studio->opening_time,
                 'closing_time' => $studio->closing_time,
-                'gallery_images' => $studio->gallery_images ?? [],
+                'gallery_images' => $studioPortfolio,
+                'portfolio'      => $studioPortfolio,
+                'aggregated_gallery' => array_values(array_unique(array_merge($studioPortfolio, $shopPortfolio))),
                 'shop'         => $shop ? [
                     'id'           => $shop->id,
                     'name'         => $shop->name,
                     'logo_path'    => $shop->logo_path,
                     'opening_time' => $shop->opening_time,
                     'closing_time' => $shop->closing_time,
+                    'gallery_images' => $shopPortfolio,
                     'company'      => $shop->company ? [
                         'id'        => $shop->company->id,
                         'name'      => $shop->company->name,
@@ -83,7 +89,7 @@ class ProfileController extends Controller
             ->groupBy('status')
             ->pluck('count', 'status');
 
-        $galleryImages = $studios->flatMap(fn ($s) => $s->gallery_images ?? [])->values()->all();
+        $galleryImages = $studios->flatMap(fn ($s) => $this->galleryItems($s->gallery_images ?? []))->values()->all();
 
         $company = $shop->company;
 
@@ -98,7 +104,7 @@ class ProfileController extends Controller
                 'logo_path'    => $shop->logo_path,
                 'opening_time' => $shop->opening_time,
                 'closing_time' => $shop->closing_time,
-                'gallery_images' => $shop->gallery_images ?? [],
+                'gallery_images' => $this->galleryItems($shop->gallery_images ?? []),
                 'company'      => $company ? [
                     'id'        => $company->id,
                     'name'      => $company->name,
@@ -114,7 +120,7 @@ class ProfileController extends Controller
                     'logo_path'      => $s->logo_path,
                     'opening_time'   => $s->opening_time,
                     'closing_time'   => $s->closing_time,
-                    'gallery_images' => $s->gallery_images ?? [],
+                    'gallery_images' => $this->galleryItems($s->gallery_images ?? []),
                     'appointment_count' => $s->appointments_count,
                 ])->values(),
                 'aggregated_gallery' => $galleryImages,
@@ -126,6 +132,59 @@ class ProfileController extends Controller
                 ],
             ],
         ]);
+    }
+
+    private function galleryItems(mixed $items): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        return collect($items)
+            ->map(fn (mixed $item): ?string => $this->mediaUrl($this->extractImagePath($item)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function extractImagePath(mixed $item): ?string
+    {
+        if (is_string($item)) {
+            return $item;
+        }
+
+        if (is_array($item)) {
+            foreach (['image_url', 'image_path', 'url', 'image', 'path', 'src'] as $key) {
+                $value = $item[$key] ?? null;
+                if (is_string($value) && $value !== '') {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function mediaUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        if (str_starts_with($path, '/storage/')) {
+            return url($path);
+        }
+
+        if (str_starts_with($path, 'storage/')) {
+            return url($path);
+        }
+
+        return url('storage/' . ltrim($path, '/'));
     }
 
     // ── Şirket Profili ────────────────────────────────────────────────────────

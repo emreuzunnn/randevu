@@ -258,6 +258,10 @@ class ApiTestSeeder extends Seeder
             'about'           => 'Kadıköy\'ün merkezi konumundaki ana dükkanımız.',
             'opening_time'    => '10:00',
             'closing_time'    => '22:00',
+            'gallery_images'  => [
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+            ],
             'manager_user_id' => $yonetici->id,
             'is_active'       => true,
         ]);
@@ -269,6 +273,10 @@ class ApiTestSeeder extends Seeder
             'about'           => 'Beşiktaş\'taki ikinci şubemiz.',
             'opening_time'    => '11:00',
             'closing_time'    => '21:00',
+            'gallery_images'  => [
+                'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
+            ],
             'manager_user_id' => $yonetici->id,
             'is_active'       => true,
         ]);
@@ -283,6 +291,11 @@ class ApiTestSeeder extends Seeder
             'closing_time'  => '22:00',
             'owner_user_id' => $admin->id,
             'shop_id'       => $shop1->id,
+            'gallery_images' => [
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+            ],
         ]);
 
         $studio2 = Studio::create([
@@ -294,6 +307,10 @@ class ApiTestSeeder extends Seeder
             'closing_time'  => '21:00',
             'owner_user_id' => $admin->id,
             'shop_id'       => $shop2->id,
+            'gallery_images' => [
+                'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80',
+            ],
         ]);
 
         // Bağımsız stüdyo — supervisor1 tarafından yönetilir
@@ -306,6 +323,10 @@ class ApiTestSeeder extends Seeder
             'closing_time'  => '20:00',
             'owner_user_id' => $supervisor1->id,
             'shop_id'       => null,
+            'gallery_images' => [
+                'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80',
+                'https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=1200&q=80',
+            ],
         ]);
 
         // ── 8. STÜDYO — KULLANICI ATAMALARI ───────────────────────────────

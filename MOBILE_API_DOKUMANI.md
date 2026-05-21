@@ -244,7 +244,7 @@ admin
 
 ---
 
-### 1.5 Profil Fotoğrafı Yükle
+### 1.5 Profil Fotoğrafı Yükle / Güncelle
 
 **POST** `/api/me/avatar`
 
@@ -264,7 +264,24 @@ admin
 }
 ```
 
-> Dönen `profile_image` URL'i, sonraki `/api/me` yanıtında da aynı şekilde gelir.
+> Mevcut fotoğraf varsa otomatik silinir, yenisi kaydedilir. Dönen `profile_image` URL'i `/api/me` yanıtında da aynı şekilde gelir.
+
+---
+
+### 1.5.1 Profil Fotoğrafı Sil
+
+**DELETE** `/api/me/avatar`
+
+> Fotoğraf diskten silinir, `profile_image` null'a çekilir.
+
+**Response `200`**
+
+```json
+{
+  "status": "success",
+  "message": "Profil fotoğrafı silindi."
+}
+```
 
 ---
 
@@ -1227,7 +1244,8 @@ Mevcut `PATCH` endpoint'lerine yeni alanlar eklendi:
 - **Kayıt** — `phone` artık **zorunlu** alan. `name` opsiyonel hale getirildi. Kayıt yalnızca `kullanici` rolü oluşturur.
 - **Portfolio tüm rollerde** — Portfolio API'leri artık tüm authenticated kullanıcılara açık. `has_portfolio: false` dönenler (şoför, normal kullanıcı) için UI göstermez.
 - **Portfolio öğe yönetimi** — Tek öğe ekle/sil endpoint'leri eklendi.
-- **Avatar yükleme** — `POST /api/me/avatar` ile profil fotoğrafı yüklenebilir.
+- **Avatar yükleme/güncelleme** — `POST /api/me/avatar` ile profil fotoğrafı yüklenebilir veya güncellenebilir.
+- **Avatar silme** — `DELETE /api/me/avatar` ile profil fotoğrafı silinebilir.
 - **Portfolio görsel yükleme** — `POST /api/me/portfolio/upload` ile görsel yükle, URL döner.
 - **Kullanıcı profil görüntüleme** — `GET /api/users/{user}` ile herhangi bir kullanıcının profili görüntülenebilir.
 

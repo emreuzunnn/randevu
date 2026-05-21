@@ -71,6 +71,9 @@ class PublicController extends Controller
             ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
             ->first();
 
+        $studioPortfolio = $this->galleryItems($studio->gallery_images ?? []);
+        $shopPortfolio = $this->galleryItems($studio->shop?->gallery_images ?? []);
+
         return response()->json([
             'status' => 'success',
             'data'   => [
@@ -84,8 +87,9 @@ class PublicController extends Controller
                 'review_count'   => (int) ($reviewStats->total ?? 0),
                 'opening_time'   => $studio->opening_time ?? $studio->shop?->opening_time,
                 'closing_time'   => $studio->closing_time ?? $studio->shop?->closing_time,
-                'gallery_images' => $studio->gallery_images ?? [],
-                'portfolio'      => $studio->gallery_images ?? [],
+                'gallery_images' => $studioPortfolio,
+                'portfolio'      => $studioPortfolio,
+                'aggregated_gallery' => array_values(array_unique(array_merge($studioPortfolio, $shopPortfolio))),
                 'shop'           => $studio->shop ? [
                     'id'           => $studio->shop->id,
                     'name'         => $studio->shop->name,
@@ -93,7 +97,7 @@ class PublicController extends Controller
                     'logo_path'    => $studio->shop->logo_path,
                     'opening_time' => $studio->shop->opening_time,
                     'closing_time' => $studio->shop->closing_time,
-                    'gallery_images' => $studio->shop->gallery_images ?? [],
+                    'gallery_images' => $shopPortfolio,
                     'company'      => $studio->shop->company ? [
                         'id'        => $studio->shop->company->id,
                         'name'      => $studio->shop->company->name,
@@ -483,6 +487,64 @@ class PublicController extends Controller
             : url('storage/' . $path);
     }
 
+    /**
+     * Galeri verisi eski kayıtlarda string, yeni kayıtlarda URL, bazı ekranlarda
+     * obje olarak gelebiliyor. Public API her durumda mobilin doğrudan
+     * gösterebileceği tam URL listesi döndürsün.
+     */
+    private function galleryItems(mixed $items): array
+    {
+        if (! is_array($items)) {
+            return [];
+        }
+
+        return collect($items)
+            ->map(fn (mixed $item): ?string => $this->mediaUrl($this->extractImagePath($item)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function extractImagePath(mixed $item): ?string
+    {
+        if (is_string($item)) {
+            return $item;
+        }
+
+        if (is_array($item)) {
+            foreach (['image_url', 'image_path', 'url', 'image', 'path', 'src'] as $key) {
+                $value = $item[$key] ?? null;
+                if (is_string($value) && $value !== '') {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function mediaUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        if (str_starts_with($path, '/storage/')) {
+            return url($path);
+        }
+
+        if (str_starts_with($path, 'storage/')) {
+            return url($path);
+        }
+
+        return url('storage/' . ltrim($path, '/'));
+    }
+
     /** Stüdyo listesi (herkese açık, discovery için) */
     public function studios(): JsonResponse
     {
@@ -494,6 +556,8 @@ class PublicController extends Controller
         return response()->json([
             'status' => 'success',
             'data'   => $studios->map(fn ($studio): array => [
+                'gallery_images' => $this->galleryItems($studio->gallery_images ?? []),
+                'portfolio'      => $this->galleryItems($studio->gallery_images ?? []),
                 'id'           => $studio->id,
                 'name'         => $studio->name,
                 'slug'         => $studio->slug,
