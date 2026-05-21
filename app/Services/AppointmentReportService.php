@@ -192,7 +192,7 @@ class AppointmentReportService
             'completed_appointments' => (clone $periodQuery)->where('status', 'completed')->count(),
             'cancelled_appointments' => (clone $periodQuery)->where('status', 'cancelled')->count(),
             'confirmed_appointments' => (clone $periodQuery)->where('status', 'confirmed')->count(),
-            'pending_appointments'   => (clone $periodQuery)->where('status', 'pending')->count(),
+            'active_appointments'    => (clone $periodQuery)->where('status', 'confirmed')->count(),
         ];
     }
 }

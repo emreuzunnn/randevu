@@ -60,7 +60,7 @@ class ProfileController extends Controller
                     ] : null,
                 ] : null,
                 'appointment_stats' => [
-                    'open'      => (int) ($stats['pending'] ?? 0) + (int) ($stats['confirmed'] ?? 0),
+                    'open'      => (int) ($stats['confirmed'] ?? 0),
                     'cancelled' => (int) ($stats['cancelled'] ?? 0),
                     'completed' => (int) ($stats['completed'] ?? 0),
                     'total'     => $stats->sum(),
@@ -125,7 +125,7 @@ class ProfileController extends Controller
                 ])->values(),
                 'aggregated_gallery' => $galleryImages,
                 'appointment_stats' => [
-                    'open'      => (int) ($appointmentStats['pending'] ?? 0) + (int) ($appointmentStats['confirmed'] ?? 0),
+                    'open'      => (int) ($appointmentStats['confirmed'] ?? 0),
                     'cancelled' => (int) ($appointmentStats['cancelled'] ?? 0),
                     'completed' => (int) ($appointmentStats['completed'] ?? 0),
                     'total'     => $appointmentStats->sum(),
@@ -248,7 +248,7 @@ class ProfileController extends Controller
                     ])->values(),
                 ])->values(),
                 'appointment_stats' => [
-                    'open'      => (int) ($appointmentStats['pending'] ?? 0) + (int) ($appointmentStats['confirmed'] ?? 0),
+                    'open'      => (int) ($appointmentStats['confirmed'] ?? 0),
                     'cancelled' => (int) ($appointmentStats['cancelled'] ?? 0),
                     'completed' => (int) ($appointmentStats['completed'] ?? 0),
                     'total'     => $appointmentStats->sum(),

@@ -44,7 +44,7 @@ class AppointmentService
                 ...$attributes['customer'],
                 'pax'               => $attributes['pax'],
                 'appointment_at'    => $attributes['appointment_at'],
-                'status'            => 'pending',
+                'status'            => 'confirmed',
                 'is_old_customer'   => $status['is_old_customer'],
                 'notes'             => $attributes['notes'] ?? null,
                 'source_image_path' => $attributes['source_image_path'] ?? null,
@@ -126,7 +126,7 @@ class AppointmentService
 
         $appointment->fill([
             'assigned_artist_user_id' => $artistUserId,
-            'artist_status'           => $artistUserId !== null ? 'pending' : null,
+            'artist_status'           => null,
         ])->save();
 
         return $appointment->fresh(['assignedArtist']);

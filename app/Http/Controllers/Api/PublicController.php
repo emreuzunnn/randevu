@@ -111,7 +111,6 @@ class PublicController extends Controller
                     'completed' => (int) ($stats['completed'] ?? 0),
                     'accepted'  => (int) ($stats['confirmed'] ?? 0),
                     'cancelled' => (int) ($stats['cancelled'] ?? 0),
-                    'pending'   => (int) ($stats['pending'] ?? 0),
                 ],
                 'staff'     => $staff,
                 'artists'   => $staff->where('role', UserRole::Artist->value)->values(),
@@ -207,7 +206,7 @@ class PublicController extends Controller
 
             $bookedCount = Appointment::query()
                 ->where('assigned_artist_user_id', $user->id)
-                ->whereIn('status', ['pending', 'confirmed'])
+                ->whereIn('status', ['confirmed'])
                 ->whereDate('appointment_at', $dateStr)
                 ->count();
 

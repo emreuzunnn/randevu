@@ -145,7 +145,7 @@ class AppointmentController extends Controller
                     'rating'        => $a->rating,
                 ])->values(),
                 'appointment_types' => self::APPOINTMENT_TYPES,
-                'statuses' => ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'],
+                'statuses' => ['confirmed', 'completed', 'cancelled', 'rescheduled'],
             ],
         ]);
     }
@@ -434,7 +434,7 @@ class AppointmentController extends Controller
             'pax'                         => ['sometimes', 'integer', 'min:1', 'max:50'],
             'appointment_at'              => ['sometimes', 'date'],
             'appointment_type'            => ['sometimes', 'string', 'in:designer,tattoo'],
-            'status'                      => ['sometimes', 'string', 'in:pending,confirmed,completed,cancelled,rescheduled'],
+            'status'                      => ['sometimes', 'string', 'in:confirmed,completed,cancelled,rescheduled'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
         ]);
