@@ -366,6 +366,10 @@ class AuthController extends Controller
 
     private function resolvePrimaryStudio(User $user): ?Studio
     {
+        if ($user->hasRole(UserRole::Admin)) {
+            return null;
+        }
+
         $studioId = $user->accessibleStudioIds()[0] ?? null;
         return $studioId ? Studio::query()->find($studioId) : null;
     }
