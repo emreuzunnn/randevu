@@ -753,8 +753,15 @@ class ApiTestSeeder extends Seeder
             'request_type'       => 'designer',
             'requested_at'       => now()->addDays(2)->setTime(15, 0),
             'notes'              => 'Ön kol için geometrik tasarım talebi.',
+            'first_name'         => 'Deniz',
+            'last_name'          => 'Kaya',
             'phone_country_code' => '+90',
             'phone_number'       => '5550001122',
+            'hotel_name'         => 'Moda Hotel',
+            'room_number'        => '304',
+            'place'              => 'Moda Hotel',
+            'pax'                => 1,
+            'image_path'         => 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
 
@@ -765,8 +772,15 @@ class ApiTestSeeder extends Seeder
             'request_type'       => 'tattoo',
             'requested_at'       => now()->addDays(3)->setTime(12, 0),
             'notes'              => 'Studio 1 kendi dövmecisine test dövme talebi.',
+            'first_name'         => 'Studio',
+            'last_name'          => 'Müşterisi',
             'phone_country_code' => '+49',
             'phone_number'       => '1510002233',
+            'hotel_name'         => 'Kadıköy Ink Lobby',
+            'room_number'        => 'A1',
+            'place'              => 'Kadıköy Ink Lobby',
+            'pax'                => 2,
+            'image_path'         => 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
 
@@ -777,8 +791,15 @@ class ApiTestSeeder extends Seeder
             'request_type'       => 'tattoo',
             'requested_at'       => now()->addDays(4)->setTime(16, 0),
             'notes'              => 'Direkt stüdyoya gönderilmiş test dövme talebi.',
+            'first_name'         => 'Maya',
+            'last_name'          => 'Stone',
             'phone_country_code' => '+44',
             'phone_number'       => '7700001122',
+            'hotel_name'         => 'Beşiktaş Palace',
+            'room_number'        => '812',
+            'place'              => 'Beşiktaş Palace',
+            'pax'                => 1,
+            'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
     }
