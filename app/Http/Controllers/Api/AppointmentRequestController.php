@@ -158,16 +158,20 @@ class AppointmentRequestController extends Controller
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
-            $studio = $appointmentRequest->studio ?? $appointmentRequest->target?->studios()->wherePivot('is_active', true)->first();
+            $target = $appointmentRequest->target;
+            $isFreelancer = $target?->hasRole(UserRole::KullaniciRol) === true;
+            $studio = $isFreelancer
+                ? null
+                : ($appointmentRequest->studio ?? $target?->studios()->wherePivot('is_active', true)->first());
 
-            if ($studio === null) {
+            if (! $isFreelancer && $studio === null) {
                 throw ValidationException::withMessages([
                     'studio_id' => ['Talebi randevuya çevirmek için stüdyo bilgisi gerekli.'],
                 ]);
             }
 
             $appointment = Appointment::query()->create([
-                'studio_id'               => $studio->id,
+                'studio_id'               => $studio?->id,
                 'created_by_user_id'      => $appointmentRequest->requester_user_id,
                 'assigned_artist_user_id' => $appointmentRequest->target_user_id,
                 'appointment_type'        => $appointmentRequest->request_type,
@@ -189,7 +193,7 @@ class AppointmentRequestController extends Controller
             ]);
 
             $appointmentRequest->fill([
-                'studio_id'       => $studio->id,
+                'studio_id'       => $studio?->id,
                 'appointment_id'  => $appointment->id,
                 'requested_at'    => $requestedAt,
                 'notes'           => $validated['notes'] ?? $appointmentRequest->notes,

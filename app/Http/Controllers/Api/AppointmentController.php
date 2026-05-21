@@ -69,13 +69,15 @@ class AppointmentController extends Controller
         $artistStudioIds = $this->activeStudioIdsForRole($user, UserRole::Artist);
         $designerStudioIds = $this->activeStudioIdsForRole($user, UserRole::Designer);
 
-        if ($artistStudioIds === [] && $designerStudioIds === []) {
+        $isIndependentArtist = $user->hasRole(UserRole::KullaniciRol);
+
+        if ($artistStudioIds === [] && $designerStudioIds === [] && ! $isIndependentArtist) {
             return response()->json(['data' => []]);
         }
 
         $appointments = Appointment::query()
             ->with(['studio', 'createdBy'])
-            ->where(function ($query) use ($artistStudioIds, $designerStudioIds): void {
+            ->where(function ($query) use ($artistStudioIds, $designerStudioIds, $isIndependentArtist, $user): void {
                 if ($artistStudioIds !== []) {
                     $query->orWhere(function ($artistQuery) use ($artistStudioIds): void {
                         $artistQuery
@@ -89,6 +91,14 @@ class AppointmentController extends Controller
                         $designerQuery
                             ->whereIn('studio_id', $designerStudioIds)
                             ->where('appointment_type', 'designer');
+                    });
+                }
+
+                if ($isIndependentArtist) {
+                    $query->orWhere(function ($independentQuery) use ($user): void {
+                        $independentQuery
+                            ->whereNull('studio_id')
+                            ->where('assigned_artist_user_id', $user->id);
                     });
                 }
             })
@@ -156,6 +166,26 @@ class AppointmentController extends Controller
             abort_unless($this->driverCanAccessAppointment($studio, $appointment, request()), 403);
         }
 
+        return $this->appointmentDetailResponse($appointment);
+    }
+
+    public function showMine(Request $request, Appointment $appointment): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        $canAccess =
+            (int) $appointment->created_by_user_id === (int) $user->id ||
+            (int) $appointment->assigned_artist_user_id === (int) $user->id ||
+            ($appointment->studio && $user->canManageStudioAppointments($appointment->studio));
+
+        abort_unless($canAccess, 403);
+
+        return $this->appointmentDetailResponse($appointment);
+    }
+
+    private function appointmentDetailResponse(Appointment $appointment): JsonResponse
+    {
         $appointment->load(['createdBy', 'assignedArtist', 'studio']);
 
         return response()->json([

@@ -269,6 +269,7 @@ Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
 
 // Kullanıcı/stüdyo randevu talebi — kabul edilince randevuya dönüşür.
 Route::middleware(['api.auth'])->group(function (): void {
+    Route::get('/appointments/{appointment}', [AppointmentController::class, 'showMine']);
     Route::post('/appointments/request', [AppointmentRequestController::class, 'store']);
     Route::get('/appointment-requests', [AppointmentRequestController::class, 'index']);
     Route::get('/appointment-requests/{appointmentRequest}', [AppointmentRequestController::class, 'show']);
