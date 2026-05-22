@@ -52,6 +52,16 @@ class RoleMiddleware
                 }
             }
 
+            // Şoför, çalıştığı şubedeki tüm stüdyoların randevu ekranlarına erişebilir.
+            if (
+                ! $canPass
+                && in_array(UserRole::Sofor, $allowedRoles, true)
+                && $this->isStudioAppointmentRequest($request)
+                && $this->driverWorksInStudioBranch($request, $studio)
+            ) {
+                $canPass = true;
+            }
+
             // Freelancer artist yanıtı gibi atama bazlı uçlarda controller detay kontrolü yapar.
             if (! $canPass && $this->allowsControllerScopedAccess($request, $allowedRoles)) {
                 $canPass = true;
@@ -65,6 +75,29 @@ class RoleMiddleware
         abort_if(! $user->hasAnyRole($allowedRoles), Response::HTTP_FORBIDDEN);
 
         return $next($request);
+    }
+
+    private function isStudioAppointmentRequest(Request $request): bool
+    {
+        return $request->is('api/studios/*/appointment-support')
+            || $request->is('api/studios/*/appointments')
+            || $request->is('api/studios/*/appointments/*');
+    }
+
+    private function driverWorksInStudioBranch(Request $request, Studio $studio): bool
+    {
+        $user = $request->user();
+        if (! $user?->hasRole(UserRole::Sofor) || $studio->shop_id === null) {
+            return false;
+        }
+
+        $driverShopIds = Studio::query()
+            ->whereIn('id', $user->studios()->pluck('studios.id'))
+            ->pluck('shop_id')
+            ->filter()
+            ->unique();
+
+        return $driverShopIds->contains((int) $studio->shop_id);
     }
 
     private function resolveStudio(Request $request): ?Studio

@@ -179,7 +179,8 @@ class AppointmentController extends Controller
         $canAccess =
             (int) $appointment->created_by_user_id === (int) $user->id ||
             (int) $appointment->assigned_artist_user_id === (int) $user->id ||
-            ($appointment->studio && $user->canManageStudioAppointments($appointment->studio));
+            ($appointment->studio && $user->canManageStudioAppointments($appointment->studio)) ||
+            ($appointment->studio && $this->driverCanAccessStudio($appointment->studio, $request));
 
         abort_unless($canAccess, 403);
 
@@ -310,7 +311,7 @@ class AppointmentController extends Controller
 
         $appointment->driver_status = $validated['driver_status'];
 
-        if (in_array($validated['driver_status'], ['picked_up', 'dropped_off'], true)) {
+        if ($validated['driver_status'] === 'dropped_off') {
             $appointment->status = 'completed';
         } elseif (in_array($validated['driver_status'], ['cancelled', 'customer_no_show'], true)) {
             $appointment->status = 'cancelled';
@@ -525,6 +526,19 @@ class AppointmentController extends Controller
             ->whereIn('id', [$routeStudio->id, $appointment->studio_id])
             ->whereIn('shop_id', $shopIds)
             ->count() === 2;
+    }
+
+    private function driverCanAccessStudio(Studio $studio, Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user?->hasRole(UserRole::Sofor) || $studio->shop_id === null) {
+            return false;
+        }
+
+        $myStudioIds = $user->studios()->pluck('studios.id');
+        $shopIds = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
+
+        return $shopIds->contains((int) $studio->shop_id);
     }
 
     private function imageUrl(?string $path): ?string
