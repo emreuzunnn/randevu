@@ -24,6 +24,7 @@ class AppointmentRequest extends Model
         'room_number',
         'place',
         'pax',
+        'price',
         'status',
         'response_notes',
         'responded_at',
@@ -35,6 +36,7 @@ class AppointmentRequest extends Model
             'requested_at' => 'datetime',
             'responded_at' => 'datetime',
             'pax' => 'integer',
+            'price' => 'decimal:2',
         ];
     }
 

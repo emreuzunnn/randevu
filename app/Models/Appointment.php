@@ -28,6 +28,7 @@ class Appointment extends Model
         'photo_path',
         'customer_notes',
         'pax',
+        'price',
         'appointment_at',
         'status',
         'driver_status',
@@ -43,6 +44,7 @@ class Appointment extends Model
             'appointment_at' => 'datetime',
             'is_old_customer' => 'boolean',
             'pax' => 'integer',
+            'price' => 'decimal:2',
         ];
     }
 

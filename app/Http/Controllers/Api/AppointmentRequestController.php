@@ -85,6 +85,7 @@ class AppointmentRequestController extends Controller
             'room_number'        => ['required', 'string', 'max:100'],
             'place'              => ['required', 'string', 'max:255'],
             'pax'                => ['required', 'integer', 'min:1', 'max:50'],
+            'price'              => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'image'              => ['required_without:image_path', 'nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'         => ['required_without:image', 'nullable', 'string', 'max:2048'],
         ]);
@@ -123,6 +124,7 @@ class AppointmentRequestController extends Controller
             'room_number'        => $validated['room_number'] ?? null,
             'place'              => $validated['place'] ?? $validated['hotel_name'] ?? null,
             'pax'                => $validated['pax'] ?? 1,
+            'price'              => $validated['price'],
             'status'             => 'pending',
         ]);
 
@@ -154,6 +156,7 @@ class AppointmentRequestController extends Controller
             'room_number'    => ['nullable', 'string', 'max:100'],
             'place'          => ['nullable', 'string', 'max:255'],
             'pax'            => ['nullable', 'integer', 'min:1', 'max:50'],
+            'price'          => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ]);
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
@@ -190,6 +193,7 @@ class AppointmentRequestController extends Controller
                 'source_image_path'       => $appointmentRequest->image_path,
                 'is_old_customer'         => false,
                 'pax'                     => $validated['pax'] ?? $appointmentRequest->pax ?? 1,
+                'price'                   => $validated['price'] ?? $appointmentRequest->price,
             ]);
 
             $appointmentRequest->fill([
@@ -203,6 +207,7 @@ class AppointmentRequestController extends Controller
                 'room_number'     => $validated['room_number'] ?? $appointmentRequest->room_number,
                 'place'           => $validated['place'] ?? $appointmentRequest->place,
                 'pax'             => $validated['pax'] ?? $appointmentRequest->pax,
+                'price'           => $validated['price'] ?? $appointmentRequest->price,
                 'status'          => 'accepted',
                 'responded_at'    => now(),
             ])->save();
@@ -339,6 +344,7 @@ class AppointmentRequestController extends Controller
             'room_number'    => $appointmentRequest->room_number,
             'place'          => $appointmentRequest->place,
             'pax'            => $appointmentRequest->pax,
+            'price'          => $appointmentRequest->price,
             'phone_country_code' => $appointmentRequest->phone_country_code,
             'phone_number'   => $appointmentRequest->phone_number,
             'requester'      => $this->formatUser($appointmentRequest->requester),

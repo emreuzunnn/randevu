@@ -567,6 +567,7 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments1 as $data) {
+            $data['price'] ??= fake()->numberBetween(2500, 18000);
             Appointment::create(array_merge($data, ['studio_id' => $studio1->id]));
         }
 
@@ -695,6 +696,7 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments2 as $data) {
+            $data['price'] ??= fake()->numberBetween(3000, 22000);
             Appointment::create(array_merge($data, ['studio_id' => $studio2->id]));
         }
 
@@ -742,6 +744,7 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments3 as $data) {
+            $data['price'] ??= fake()->numberBetween(2000, 14000);
             Appointment::create(array_merge($data, ['studio_id' => $studio3->id]));
         }
 
@@ -761,6 +764,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '304',
             'place'              => 'Moda Hotel',
             'pax'                => 1,
+            'price'              => 4500,
             'image_path'         => 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
@@ -780,6 +784,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => 'A1',
             'place'              => 'Kadıköy Ink Lobby',
             'pax'                => 2,
+            'price'              => 12000,
             'image_path'         => 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
@@ -799,6 +804,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '812',
             'place'              => 'Beşiktaş Palace',
             'pax'                => 1,
+            'price'              => 8500,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
@@ -818,6 +824,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '220',
             'place'              => 'Artist 2 Test Hotel',
             'pax'                => 1,
+            'price'              => 6500,
             'image_path'         => 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
@@ -837,6 +844,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '510',
             'place'              => 'Freelancer Test Hotel',
             'pax'                => 1,
+            'price'              => 9000,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'status'             => 'pending',
         ]);
