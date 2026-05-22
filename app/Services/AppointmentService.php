@@ -40,7 +40,7 @@ class AppointmentService
                 'created_by_user_id'      => $user->id,
                 'assigned_artist_user_id' => null,
                 'artist_status'           => null,
-                'appointment_type'        => $attributes['appointment_type'] ?? 'tattoo',
+                'appointment_type'        => $attributes['appointment_type'] ?? 'designer',
                 ...$attributes['customer'],
                 'pax'               => $attributes['pax'],
                 'price'             => $attributes['price'] ?? null,

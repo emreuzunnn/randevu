@@ -53,7 +53,7 @@ class AppointmentController extends Controller
             'pax'              => ['required', 'integer', 'min:1', 'max:50'],
             'date'             => ['required', 'date'],
             'time'             => ['required', 'date_format:H:i'],
-            'appointment_type' => ['nullable', 'string', 'in:standard,designer,tattoo'],
+            'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
             'place'            => ['nullable', 'string', 'max:255'],
             'notes'            => ['nullable', 'string'],
         ]);
@@ -73,7 +73,7 @@ class AppointmentController extends Controller
                 'photo_path'         => $validated['slip_image_path'] ?? null,
                 'customer_notes'     => null,
             ],
-            'appointment_type'  => $validated['appointment_type'] ?? 'standard',
+            'appointment_type'  => $validated['appointment_type'] ?? 'designer',
             'pax'               => $validated['pax'],
             'appointment_at'    => $validated['date'].' '.$validated['time'].':00',
             'notes'             => $validated['notes'] ?? null,

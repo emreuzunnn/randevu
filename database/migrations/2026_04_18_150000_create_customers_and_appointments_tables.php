@@ -11,8 +11,9 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('studio_id')
+                ->nullable()
                 ->constrained('studios')
-                ->cascadeOnDelete();
+                ->nullOnDelete();
             $table->foreignId('created_by_user_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
@@ -24,7 +25,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
-            $table->string('appointment_type')->default('standard');
+            $table->string('appointment_type')->default('designer');
             $table->string('first_name');
             $table->string('last_name');
             $table->string('phone_country_code', 10)->nullable();
@@ -35,8 +36,9 @@ return new class extends Migration
             $table->string('photo_path')->nullable();
             $table->text('customer_notes')->nullable();
             $table->unsignedSmallInteger('pax')->default(1);
+            $table->decimal('price', 10, 2)->nullable();
             $table->timestamp('appointment_at');
-            $table->string('status')->default('pending');
+            $table->string('status')->default('confirmed');
             $table->string('driver_status')->nullable();
             $table->string('artist_status')->nullable();
             $table->boolean('is_old_customer')->default(false);

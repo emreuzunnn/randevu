@@ -439,7 +439,7 @@ class AppointmentController extends Controller
                 'photo_path'         => $validated['slip_image_path'] ?? null,
                 'customer_notes'     => $validated['customer']['customer_notes'] ?? null,
             ],
-            'appointment_type'  => $validated['appointment_type'] ?? 'tattoo',
+            'appointment_type'  => $validated['appointment_type'] ?? 'designer',
             'pax'               => $validated['pax'],
             'price'             => $validated['price'],
             'appointment_at'    => $validated['appointment_at'],

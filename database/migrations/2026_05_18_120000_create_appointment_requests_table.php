@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('studio_id')->nullable()->constrained('studios')->nullOnDelete();
             $table->foreignId('appointment_id')->nullable()->constrained('appointments')->nullOnDelete();
-            $table->string('request_type')->default('tattoo');
+            $table->string('request_type')->default('designer');
             $table->timestamp('requested_at');
             $table->string('image_path')->nullable();
             $table->text('notes')->nullable();
@@ -26,6 +26,7 @@ return new class extends Migration
             $table->string('room_number')->nullable();
             $table->string('place')->nullable();
             $table->unsignedSmallInteger('pax')->default(1);
+            $table->decimal('price', 10, 2)->nullable();
             $table->string('status')->default('pending');
             $table->text('response_notes')->nullable();
             $table->timestamp('responded_at')->nullable();

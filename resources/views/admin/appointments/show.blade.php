@@ -58,7 +58,6 @@
                     <span class="detail-label">Randevu Tipi</span>
                     @php
                         $typeLabels = [
-                            'standard' => 'Standart',
                             'designer' => 'Tasarımcı Randevusu',
                             'tattoo'   => 'Dövme Randevusu',
                         ];

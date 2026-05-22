@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('name')->nullable();
             $table->string('surname')->nullable();
             $table->string('email')->unique();
+            $table->string('username')->nullable()->unique();
             $table->string('phone')->nullable();
             $table->text('bio')->nullable();
             $table->string('location', 255)->nullable();
@@ -21,6 +22,11 @@ return new class extends Migration
             $table->json('portfolio')->nullable();
             $table->string('profile_image')->nullable();
             $table->decimal('rating', 3, 1)->nullable();
+            $table->unsignedTinyInteger('experience_years')->nullable();
+            $table->json('specializations')->nullable();
+            $table->string('instagram', 100)->nullable();
+            $table->string('whatsapp', 30)->nullable();
+            $table->unsignedTinyInteger('response_time_hours')->nullable();
             $table->string('role')->default('kullanici');
             $table->boolean('can_open_multiple_studios')->default(false);
             $table->string('api_token', 80)->nullable()->unique();

@@ -23,7 +23,7 @@ class AppointmentFactory extends Factory
             'studio_id' => Studio::factory(),
             'created_by_user_id' => User::factory(),
             'assigned_driver_user_id' => null,
-            'appointment_type' => 'standard',
+            'appointment_type' => 'designer',
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'phone_country_code' => '+90',
