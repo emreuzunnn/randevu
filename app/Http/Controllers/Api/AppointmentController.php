@@ -50,7 +50,8 @@ class AppointmentController extends Controller
                 'appointment_type'  => $appointment->appointment_type,
                 'status'            => $appointment->status,
                 'driver_status'     => $appointment->driver_status,
-                'source_image_path' => $appointment->source_image_path,
+                'source_image_path' => $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $this->imageUrl($appointment->photo_path),
                 'notes'             => $appointment->notes,
                 'created_by'        => $appointment->createdBy ? [
                     'id'   => $appointment->createdBy->id,
@@ -132,6 +133,8 @@ class AppointmentController extends Controller
                 'status'           => $appointment->status,
                 'artist_status'    => $appointment->artist_status,
                 'notes'            => $appointment->notes,
+                'source_image_path' => $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $this->imageUrl($appointment->photo_path),
                 'created_at'       => optional($appointment->created_at)->toIso8601String(),
             ])->values(),
         ]);
@@ -271,7 +274,8 @@ class AppointmentController extends Controller
                 'status'           => $appointment->status,
                 'artist_status'    => $appointment->artist_status,
                 'notes'            => $appointment->notes,
-                'source_image_path' => $appointment->source_image_path,
+                'source_image_path' => $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $this->imageUrl($appointment->photo_path),
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -475,7 +479,12 @@ class AppointmentController extends Controller
             'status'                      => ['sometimes', 'string', 'in:confirmed,completed,cancelled,rescheduled'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
+            'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ]);
+
+        if ($request->hasFile('image')) {
+            $validated['source_image_path'] = $this->storeAppointmentImage($request, $studio);
+        }
 
         $appointment = $appointmentService->update($studio, $appointment, $validated);
 
@@ -508,6 +517,7 @@ class AppointmentController extends Controller
             'phone_number'       => $appointment->phone_number,
             'hotel_name'         => $appointment->hotel_name,
             'room_number'        => $appointment->room_number,
+            'photo_path'         => $this->imageUrl($appointment->photo_path),
             'customer_notes'     => $appointment->customer_notes,
         ];
     }
