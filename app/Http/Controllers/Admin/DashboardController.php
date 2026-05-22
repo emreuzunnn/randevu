@@ -71,7 +71,10 @@ class DashboardController extends Controller
         $reports = $user !== null
             ? $appointmentReportService->buildPeriodReports($user)
             : [];
+        $staffReports = $user !== null
+            ? ($appointmentReportService->buildReport($user, 'monthly')['staff_reports'] ?? [])
+            : [];
 
-        return view('admin.dashboard', compact('summary', 'studios', 'recentAppointments', 'reports'));
+        return view('admin.dashboard', compact('summary', 'studios', 'recentAppointments', 'reports', 'staffReports'));
     }
 }

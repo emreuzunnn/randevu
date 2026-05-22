@@ -587,25 +587,51 @@ class PublicController extends Controller
     {
         $artists = User::query()
             ->whereIn('role', [UserRole::Artist->value, UserRole::Designer->value, UserRole::KullaniciRol->value])
+            ->with(['studios' => fn ($query) => $query
+                ->where('studio_user.is_active', true)
+                ->select('studios.id', 'studios.name', 'studios.location')])
             ->orderBy('name')
             ->get(['id', 'name', 'surname', 'username', 'role', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
 
         return response()->json([
-            'data' => $artists->map(fn ($a): array => [
-                'id'                  => $a->id,
-                'name'                => $a->fullName(),
-                'username'            => $a->username,
-                'role'                => $a->role?->value,
-                'role_label'          => $a->role?->label(),
-                'profile_image'       => $a->profile_image,
-                'bio'                 => $a->bio,
-                'location'            => $a->location,
-                'experience_years'    => $a->experience_years,
-                'specializations'     => $a->specializations ?? [],
-                'rating'              => $a->rating,
-                'response_time_hours' => $a->response_time_hours,
-                'portfolio'           => $a->portfolio ?? [],
-            ])->values(),
+            'data' => $artists->map(function ($a): array {
+                $portfolio = $a->portfolio ?? [];
+                $completedCount = Appointment::query()
+                    ->where('assigned_artist_user_id', $a->id)
+                    ->where('status', 'completed')
+                    ->count();
+                $cancelledCount = Appointment::query()
+                    ->where('assigned_artist_user_id', $a->id)
+                    ->where('status', 'cancelled')
+                    ->count();
+
+                return [
+                    'id'                  => $a->id,
+                    'name'                => $a->fullName(),
+                    'username'            => $a->username,
+                    'role'                => $a->role?->value,
+                    'role_label'          => $a->role?->label(),
+                    'profile_image'       => $a->profile_image,
+                    'bio'                 => $a->bio,
+                    'location'            => $a->location,
+                    'experience_years'    => $a->experience_years,
+                    'specializations'     => $a->specializations ?? [],
+                    'rating'              => $a->rating,
+                    'response_time_hours' => $a->response_time_hours,
+                    'portfolio'           => $portfolio,
+                    'portfolio_preview'   => array_slice($portfolio, 0, 3),
+                    'is_freelancer'       => $a->studios->isEmpty(),
+                    'current_studio'      => $a->studios->first() ? [
+                        'id'       => $a->studios->first()->id,
+                        'name'     => $a->studios->first()->name,
+                        'location' => $a->studios->first()->location,
+                    ] : null,
+                    'stats'               => [
+                        'completed' => $completedCount,
+                        'cancelled' => $cancelledCount,
+                    ],
+                ];
+            })->values(),
         ]);
     }
 }

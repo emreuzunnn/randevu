@@ -214,6 +214,7 @@ const renderDashboard = async (root) => {
         ${adminConfig.isAdmin ? `<section class="panel-card" data-dashboard-companies>${skeletonGrid(3)}</section>` : ''}
         <section class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</section>
         <section class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</section>
+        <section class="panel-card" data-dashboard-staff-reports>${skeletonGrid(4)}</section>
         <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
             <div class="panel-card" data-dashboard-studios>${skeletonGrid(1)}</div>
             <div class="panel-card" data-dashboard-appointments>${skeletonGrid(1)}</div>
@@ -265,6 +266,67 @@ const renderDashboard = async (root) => {
             </div>
         </article>
     `).join('');
+
+    const staffReports = data.staff_reports || [];
+    qs('[data-dashboard-staff-reports]', root).innerHTML = `
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <div class="section-eyebrow">Personel Raporları</div>
+                <h2 class="mt-2 section-title">Ekip Bazlı Grafikler</h2>
+            </div>
+            <span class="badge-pill badge-pill--info">${staffReports.length} personel</span>
+        </div>
+        <div class="mt-5 data-grid">
+            ${staffReports.map((staff, index) => {
+                const stats = staff.stats || {};
+                const weekly = staff.weekly_data || [];
+                const maxValue = Math.max(1, ...weekly.map((day) => Number(day.value || 0)));
+
+                return `
+                    <article class="data-card animate-stagger-${(index % 3) + 1}">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="font-semibold">${escapeHtml(staff.name)}</div>
+                                <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(staff.role || 'Personel')}</div>
+                            </div>
+                            <span class="badge-pill">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
+                        </div>
+                        <div class="mt-5 grid grid-cols-4 gap-2 text-sm">
+                            <div class="list-card">
+                                <div class="text-xs" style="color:var(--text-subtle)">Toplam</div>
+                                <div class="mt-1 text-xl font-bold" data-counter="${stats.total_appointments || 0}">0</div>
+                            </div>
+                            <div class="list-card">
+                                <div class="text-xs" style="color:var(--text-subtle)">Tamam</div>
+                                <div class="mt-1 text-xl font-bold" data-counter="${stats.completed || 0}">0</div>
+                            </div>
+                            <div class="list-card">
+                                <div class="text-xs" style="color:var(--text-subtle)">İptal</div>
+                                <div class="mt-1 text-xl font-bold" data-counter="${stats.cancelled || 0}">0</div>
+                            </div>
+                            <div class="list-card">
+                                <div class="text-xs" style="color:var(--text-subtle)">Hafta</div>
+                                <div class="mt-1 text-xl font-bold" data-counter="${stats.this_week || 0}">0</div>
+                            </div>
+                        </div>
+                        <div class="mt-5 flex items-end gap-2" style="height:96px">
+                            ${weekly.map((day) => {
+                                const value = Number(day.value || 0);
+                                const height = Math.max(10, Math.round((value / maxValue) * 86));
+
+                                return `
+                                    <div class="flex-1 text-center">
+                                        <div title="${escapeHtml(day.day)}: ${value}" style="height:${height}px;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#4ECDC4,#001B5E)"></div>
+                                        <div class="mt-2 text-xs" style="color:var(--text-muted)">${escapeHtml(day.day)}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </article>
+                `;
+            }).join('') || '<div class="empty-state" style="padding:1.5rem">Bu kapsamda personel raporu bulunmuyor.</div>'}
+        </div>
+    `;
 
     qs('[data-dashboard-studios]', root).innerHTML = `
         <div class="flex items-center justify-between gap-4">

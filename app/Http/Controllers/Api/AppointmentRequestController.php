@@ -85,7 +85,7 @@ class AppointmentRequestController extends Controller
             'room_number'        => ['required', 'string', 'max:100'],
             'place'              => ['required', 'string', 'max:255'],
             'pax'                => ['required', 'integer', 'min:1', 'max:50'],
-            'price'              => ['required', 'numeric', 'min:0', 'max:99999999.99'],
+            'price'              => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'image'              => ['required_without:image_path', 'nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'         => ['required_without:image', 'nullable', 'string', 'max:2048'],
         ]);
@@ -124,7 +124,7 @@ class AppointmentRequestController extends Controller
             'room_number'        => $validated['room_number'] ?? null,
             'place'              => $validated['place'] ?? $validated['hotel_name'] ?? null,
             'pax'                => $validated['pax'] ?? 1,
-            'price'              => $validated['price'],
+            'price'              => $validated['price'] ?? null,
             'status'             => 'pending',
         ]);
 

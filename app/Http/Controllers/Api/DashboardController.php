@@ -83,8 +83,12 @@ class DashboardController extends Controller
             ->take(12)
             ->get();
 
+        $reportStudioId = $studioId > 0 ? $studioId : null;
         $reports = $user !== null
-            ? $appointmentReportService->buildPeriodReports($user, $studioId > 0 ? $studioId : null)
+            ? $appointmentReportService->buildPeriodReports($user, $reportStudioId)
+            : [];
+        $currentReport = $user !== null
+            ? $appointmentReportService->buildReport($user, 'monthly', $reportStudioId)
             : [];
 
         return response()->json([
@@ -96,6 +100,7 @@ class DashboardController extends Controller
                     'transfer_count' => $transferCount,
                 ],
                 'reports' => $reports,
+                'staff_reports' => $currentReport['staff_reports'] ?? [],
                 'studios' => $studios->map(fn (Studio $studio): array => [
                     'id' => $studio->id,
                     'name' => $studio->name,

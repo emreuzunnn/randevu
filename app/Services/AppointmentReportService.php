@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\Studio;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,6 +59,7 @@ class AppointmentReportService
             ],
             'weekly_data'  => $this->buildWeeklyData($base, $weekStart),
             'performance'  => $this->buildPerformance($periodQuery),
+            'staff_reports' => $this->buildStaffReports($user, $start, $end, $weekStart, $studioId),
             'insight'      => $this->buildInsight($thisWeek, $lastWeekCount),
         ];
     }
@@ -98,9 +100,10 @@ class AppointmentReportService
     private function baseQuery(User $user, ?int $studioId = null): Builder
     {
         $query = Appointment::query();
+        $studioIds = $this->reportStudioIds($user);
 
         if (! $user->hasRole(UserRole::Admin)) {
-            $query->whereIn('studio_id', $user->accessibleStudioIds());
+            $query->whereIn('studio_id', $studioIds);
         }
 
         if ($studioId !== null && $studioId > 0) {
@@ -108,6 +111,52 @@ class AppointmentReportService
         }
 
         return $query;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function reportStudioIds(User $user): array
+    {
+        if ($user->hasRole(UserRole::Admin)) {
+            return Studio::query()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        }
+
+        if ($user->hasRole(UserRole::Yonetici)) {
+            $companyIds = $user->managedShops()
+                ->whereNotNull('company_id')
+                ->pluck('company_id');
+
+            if ($companyIds->isNotEmpty()) {
+                return Studio::query()
+                    ->whereHas('shop', fn ($query) => $query->whereIn('company_id', $companyIds))
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+            }
+        }
+
+        if ($user->hasRole(UserRole::Supervisor)) {
+            $shopIds = $user->managedShops()->pluck('id');
+
+            if ($shopIds->isEmpty()) {
+                $shopIds = $user->studios()
+                    ->wherePivot('role', UserRole::Supervisor->value)
+                    ->wherePivot('is_active', true)
+                    ->pluck('studios.shop_id')
+                    ->filter();
+            }
+
+            if ($shopIds->isNotEmpty()) {
+                return Studio::query()
+                    ->whereIn('shop_id', $shopIds)
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->all();
+            }
+        }
+
+        return $user->accessibleStudioIds();
     }
 
     /**
@@ -153,6 +202,80 @@ class AppointmentReportService
             ->filter()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildStaffReports(
+        User $viewer,
+        CarbonImmutable $start,
+        CarbonImmutable $end,
+        CarbonImmutable $weekStart,
+        ?int $studioId = null
+    ): array {
+        $studioIds = $this->reportStudioIds($viewer);
+        if ($studioId !== null && $studioId > 0) {
+            $studioIds = in_array($studioId, $studioIds, true) || $viewer->hasRole(UserRole::Admin)
+                ? [$studioId]
+                : [];
+        }
+
+        if ($studioIds === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereHas('studios', function ($query) use ($studioIds): void {
+                $query
+                    ->whereIn('studios.id', $studioIds)
+                    ->where('studio_user.is_active', true);
+            })
+            ->with(['studios' => function ($query) use ($studioIds): void {
+                $query
+                    ->whereIn('studios.id', $studioIds)
+                    ->where('studio_user.is_active', true)
+                    ->select('studios.id', 'studios.name');
+            }])
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $staff) use ($studioIds, $start, $end, $weekStart): array {
+                $base = $this->staffAppointmentQuery($staff, $studioIds);
+                $periodQuery = (clone $base)->whereBetween('appointment_at', [$start, $end]);
+
+                return [
+                    'id' => $staff->id,
+                    'name' => $staff->fullName(),
+                    'role' => self::ROLE_LABELS[$staff->role?->value ?? ''] ?? ($staff->role?->value ?? ''),
+                    'studio_names' => $staff->studios->pluck('name')->values()->all(),
+                    'stats' => [
+                        'total_appointments' => (clone $periodQuery)->count(),
+                        'cancelled' => (clone $periodQuery)->where('status', 'cancelled')->count(),
+                        'completed' => (clone $periodQuery)->where('status', 'completed')->count(),
+                        'this_week' => (clone $base)
+                            ->whereBetween('appointment_at', [$weekStart, $weekStart->endOfWeek()])
+                            ->count(),
+                    ],
+                    'weekly_data' => $this->buildWeeklyData($base, $weekStart),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $studioIds
+     */
+    private function staffAppointmentQuery(User $staff, array $studioIds): Builder
+    {
+        return Appointment::query()
+            ->whereIn('studio_id', $studioIds)
+            ->where(function (Builder $query) use ($staff): void {
+                $query
+                    ->where('created_by_user_id', $staff->id)
+                    ->orWhere('assigned_artist_user_id', $staff->id)
+                    ->orWhere('assigned_driver_user_id', $staff->id);
+            });
     }
 
     private function buildInsight(int $thisWeek, int $lastWeek): string
