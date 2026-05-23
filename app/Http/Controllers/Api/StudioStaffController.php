@@ -15,6 +15,8 @@ class StudioStaffController extends Controller
     public function index(Studio $studio, Request $request): JsonResponse
     {
         $role = UserRole::fromValue((string) $request->route('role'));
+        abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
+
         $users = $studio->users()
             ->wherePivot('role', $role->value)
             ->get(['users.id', 'users.name', 'users.email']);
@@ -106,7 +108,7 @@ class StudioStaffController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user?->canManageStudio($studio), 403);
+        abort_unless($this->canAccessStaffInStudio($user, $studio), 403);
 
         if (! $user?->hasRole(UserRole::Admin) && in_array($role, [UserRole::Admin, UserRole::Yonetici], true)) {
             abort(403);
@@ -115,5 +117,18 @@ class StudioStaffController extends Controller
         if ($user?->hasRole(UserRole::Supervisor) && in_array($role, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor], true)) {
             abort(403);
         }
+    }
+
+    private function canAccessStaffInStudio(?User $user, Studio $studio): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->hasRole(UserRole::Supervisor)) {
+            return $user->hasStudioRole($studio, [UserRole::Supervisor]);
+        }
+
+        return $user->canManageStudio($studio);
     }
 }

@@ -7,13 +7,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class UserProfileController extends Controller
 {
-    /** Herhangi bir kullanıcının profili (giriş yapılmış kullanıcılar) */
-    public function show(User $user): JsonResponse
+    /** Yetkili kapsamda kullanıcı profili. */
+    public function show(Request $request, User $user): JsonResponse
     {
+        $viewer = $request->user();
+        abort_unless($viewer instanceof User, 401);
+        abort_unless($this->canViewProfile($viewer, $user), 403);
+
         $hasPortfolio = ! in_array(
             $user->role?->value,
             [UserRole::Sofor->value, UserRole::Kullanici->value],
@@ -65,6 +70,8 @@ class UserProfileController extends Controller
             'data'   => [
                 'id'                  => $user->id,
                 'name'                => $user->fullName(),
+                'email'               => $user->email,
+                'phone'               => $user->phone,
                 'username'            => $user->username,
                 'bio'                 => $user->bio,
                 'location'            => $user->location,
@@ -85,6 +92,7 @@ class UserProfileController extends Controller
                     'location'  => $s->location,
                     'logo_path' => $s->logo_path,
                     'role'      => $s->pivot->role,
+                    'status'    => $s->pivot->work_status,
                 ])->values(),
                 'past_studios' => $pastStudios->map(fn ($s): array => [
                     'id'        => $s->id,
@@ -97,5 +105,38 @@ class UserProfileController extends Controller
                 'member_since' => $user->created_at?->toIso8601String(),
             ],
         ]);
+    }
+
+    private function canViewProfile(User $viewer, User $target): bool
+    {
+        if ($viewer->is($target) || $viewer->hasRole(UserRole::Admin)) {
+            return true;
+        }
+
+        $targetStudioIds = $target->studios()
+            ->pluck('studios.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        if ($targetStudioIds === []) {
+            return false;
+        }
+
+        if ($viewer->hasRole(UserRole::Yonetici)) {
+            return count(array_intersect($targetStudioIds, $viewer->accessibleStudioIds())) > 0;
+        }
+
+        if ($viewer->hasRole(UserRole::Supervisor)) {
+            $supervisedStudioIds = $viewer->studios()
+                ->wherePivot('is_active', true)
+                ->wherePivot('role', UserRole::Supervisor->value)
+                ->pluck('studios.id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            return count(array_intersect($targetStudioIds, $supervisedStudioIds)) > 0;
+        }
+
+        return false;
     }
 }

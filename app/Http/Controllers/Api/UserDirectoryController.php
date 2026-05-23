@@ -23,6 +23,9 @@ class UserDirectoryController extends Controller
             ->values();
 
         $companyId = $request->query('company_id');
+        $scopeStudioIds = $authUser->hasRole(UserRole::Supervisor)
+            ? $this->supervisedStudioIds($authUser)
+            : $authUser->accessibleStudioIds();
 
         $users = User::query()
             ->when($roles->isNotEmpty(), fn ($q) => $q->whereIn('role', $roles->all()))
@@ -30,7 +33,7 @@ class UserDirectoryController extends Controller
                 ! $authUser?->hasRole(UserRole::Admin),
                 fn ($q) => $q->whereHas(
                     'studios',
-                    fn ($sq) => $sq->whereIn('studios.id', $authUser?->accessibleStudioIds() ?? [])
+                    fn ($sq) => $sq->whereIn('studios.id', $scopeStudioIds)
                 )
             )
             ->when($companyId, fn ($q) => $q->whereHas(
@@ -72,7 +75,7 @@ class UserDirectoryController extends Controller
         ]);
 
         $studio = Studio::query()->findOrFail($validated['studio_id']);
-        abort_unless($request->user()?->canManageStudio($studio), 403);
+        abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
 
         // Sadece admin, admin/yonetici rolü atayabilir
         if (
@@ -111,7 +114,11 @@ class UserDirectoryController extends Controller
         $user = request()->user();
         $studios = Studio::query()
             ->when(
-                ! $user?->hasRole(UserRole::Admin),
+                $user?->hasRole(UserRole::Supervisor),
+                fn ($query) => $query->whereIn('id', $this->supervisedStudioIds($user))
+            )
+            ->when(
+                ! $user?->hasRole(UserRole::Admin) && ! $user?->hasRole(UserRole::Supervisor),
                 fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
             )
             ->get(['id', 'name']);
@@ -126,7 +133,7 @@ class UserDirectoryController extends Controller
 
     public function indexByStudio(Studio $studio): JsonResponse
     {
-        abort_unless(request()->user()?->canManageStudio($studio), 403);
+        abort_unless($this->canAccessStaffInStudio(request()->user(), $studio), 403);
 
         $users = $studio->users()->get();
 
@@ -147,7 +154,7 @@ class UserDirectoryController extends Controller
 
     public function update(Request $request, Studio $studio, User $user, StudioStaffService $studioStaffService): JsonResponse
     {
-        abort_unless($request->user()?->canManageStudio($studio), 403);
+        abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
 
         $currentRole = $studio->users()->where('users.id', $user->id)->first()?->pivot?->role;
         abort_if($currentRole === null, 404);
@@ -215,5 +222,35 @@ class UserDirectoryController extends Controller
                 'is_active' => (bool) $pivot->is_active,
             ],
         ]);
+    }
+
+    private function canAccessStaffInStudio(?User $user, Studio $studio): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->hasRole(UserRole::Supervisor)) {
+            return $user->hasStudioRole($studio, [UserRole::Supervisor]);
+        }
+
+        return $user->canManageStudio($studio);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function supervisedStudioIds(?User $user): array
+    {
+        if ($user === null) {
+            return [];
+        }
+
+        return $user->studios()
+            ->wherePivot('is_active', true)
+            ->wherePivot('role', UserRole::Supervisor->value)
+            ->pluck('studios.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 }
