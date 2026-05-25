@@ -67,6 +67,7 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::post('/notifications/test', [NotificationController::class, 'test']);
+    Route::post('/notifications/test-broadcast', [NotificationController::class, 'broadcastTest']);
     Route::patch('/notifications/{pushNotification}/read', [NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{pushNotification}', [NotificationController::class, 'destroy']);
 

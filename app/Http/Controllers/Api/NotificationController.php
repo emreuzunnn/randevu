@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PushNotification;
+use App\Models\PushToken;
 use App\Models\User;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +84,42 @@ class NotificationController extends Controller
                 ? 'Test bildirimi gönderildi.'
                 : 'Test bildirimi kaydedildi. FCM göndermek için service account eklenmeli.',
             'data' => $this->format($notification),
+        ]);
+    }
+
+    public function broadcastTest(Request $request, FcmService $fcmService): JsonResponse
+    {
+        $sender = $request->user();
+        abort_unless($sender instanceof User, 401);
+        abort_unless($sender->hasRole('admin'), 403, 'Bu işlem sadece admin tarafından yapılabilir.');
+
+        $users = User::query()
+            ->whereHas('pushTokens')
+            ->with('pushTokens:id,user_id')
+            ->get();
+
+        foreach ($users as $user) {
+            $fcmService->sendToUser(
+                $user,
+                'Genel Test Bildirimi',
+                'Tattoodesk genel bildirim testi başarıyla gönderildi.',
+                'test_broadcast',
+                [
+                    'source'    => 'manual_broadcast_test',
+                    'sender_id' => $sender->id,
+                ],
+            );
+        }
+
+        return response()->json([
+            'message' => $fcmService->isConfigured()
+                ? 'Tokenı olan tüm kullanıcılara test bildirimi gönderildi.'
+                : 'Tokenı olan tüm kullanıcılar için bildirim kaydedildi. FCM göndermek için service account eklenmeli.',
+            'data' => [
+                'user_count'  => $users->count(),
+                'token_count' => PushToken::query()->count(),
+                'fcm_ready'   => $fcmService->isConfigured(),
+            ],
         ]);
     }
 
