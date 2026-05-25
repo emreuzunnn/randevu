@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentControll
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLogController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -30,6 +31,8 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
     Route::post('/appointments', [AdminAppointmentController::class, 'store'])->name('appointments.store');
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
+
+    Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');
 
     Route::get('/studios', [AdminStudioController::class, 'index'])->name('studios.index');
     Route::post('/studios/{studio}', [AdminStudioController::class, 'update'])->name('studios.update');

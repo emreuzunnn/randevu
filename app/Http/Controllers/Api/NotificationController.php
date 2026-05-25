@@ -71,6 +71,9 @@ class NotificationController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User, 401);
 
+        $platformCounts = $this->platformCountsForUser($user);
+        $fcmService->resetDeliveryReport();
+
         $notification = $fcmService->sendToUser(
             $user,
             'Test Bildirimi',
@@ -83,7 +86,13 @@ class NotificationController extends Controller
             'message' => $fcmService->isConfigured()
                 ? 'Test bildirimi gönderildi.'
                 : 'Test bildirimi kaydedildi. FCM göndermek için service account eklenmeli.',
-            'data' => $this->format($notification),
+            'data' => [
+                'notification' => $this->format($notification),
+                'delivery'     => $fcmService->lastDeliveryReport(),
+                'fcm_ready'    => $fcmService->isConfigured(),
+                'token_count'  => array_sum($platformCounts),
+                'platforms'    => $platformCounts,
+            ],
         ]);
     }
 
@@ -97,6 +106,8 @@ class NotificationController extends Controller
             ->whereHas('pushTokens')
             ->with('pushTokens:id,user_id')
             ->get();
+
+        $fcmService->resetDeliveryReport();
 
         foreach ($users as $user) {
             $fcmService->sendToUser(
@@ -118,9 +129,38 @@ class NotificationController extends Controller
             'data' => [
                 'user_count'  => $users->count(),
                 'token_count' => PushToken::query()->count(),
+                'platforms'   => $this->platformCounts(),
                 'fcm_ready'   => $fcmService->isConfigured(),
+                'delivery'    => $fcmService->lastDeliveryReport(),
             ],
         ]);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function platformCounts(): array
+    {
+        return PushToken::query()
+            ->selectRaw("COALESCE(platform, 'unknown') as platform, COUNT(*) as total")
+            ->groupBy('platform')
+            ->pluck('total', 'platform')
+            ->map(fn ($total): int => (int) $total)
+            ->all();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function platformCountsForUser(User $user): array
+    {
+        return PushToken::query()
+            ->where('user_id', $user->id)
+            ->selectRaw("COALESCE(platform, 'unknown') as platform, COUNT(*) as total")
+            ->groupBy('platform')
+            ->pluck('total', 'platform')
+            ->map(fn ($total): int => (int) $total)
+            ->all();
     }
 
     private function authorizeOwner(Request $request, PushNotification $pushNotification): void

@@ -3,15 +3,45 @@
 namespace App\Services;
 
 use App\Models\PushNotification;
+use App\Models\PushNotificationDelivery;
 use App\Models\PushToken;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class FcmService
 {
+    /**
+     * @var array{sent:int,failed:int,skipped:int,errors:array<int,array<string,mixed>>}
+     */
+    private array $deliveryReport = [
+        'sent'    => 0,
+        'failed'  => 0,
+        'skipped' => 0,
+        'errors'  => [],
+    ];
+
+    public function resetDeliveryReport(): void
+    {
+        $this->deliveryReport = [
+            'sent'    => 0,
+            'failed'  => 0,
+            'skipped' => 0,
+            'errors'  => [],
+        ];
+    }
+
+    /**
+     * @return array{sent:int,failed:int,skipped:int,errors:array<int,array<string,mixed>>}
+     */
+    public function lastDeliveryReport(): array
+    {
+        return $this->deliveryReport;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -30,19 +60,30 @@ class FcmService
             'data'    => $data,
         ]);
 
-        $tokens = $user->pushTokens()
-            ->pluck('token')
-            ->filter()
-            ->values()
-            ->all();
+        $pushTokens = $user->pushTokens()
+            ->get(['id', 'user_id', 'token', 'token_hash', 'platform']);
 
-        if ($tokens !== []) {
-            $this->sendToTokens($tokens, $title, $body, [
-                ...$this->stringData($data),
-                'notification_id' => (string) $notification->id,
-                'type'            => $type,
-            ]);
+        if ($pushTokens->isEmpty()) {
+            $this->deliveryReport['skipped']++;
+            $this->recordDelivery(
+                $notification,
+                null,
+                null,
+                'skipped',
+                'NO_TOKEN',
+                null,
+                null,
+                'Kullanıcının kayıtlı push tokenı yok.',
+            );
+
+            return $notification;
         }
+
+        $this->sendToPushTokens($notification, $pushTokens, $title, $body, [
+            ...$this->stringData($data),
+            'notification_id' => (string) $notification->id,
+            'type'            => $type,
+        ]);
 
         return $notification;
     }
@@ -53,48 +94,199 @@ class FcmService
      */
     public function sendToTokens(array $tokens, string $title, string $body, array $data = []): void
     {
-        if ($tokens === [] || ! $this->isConfigured()) {
+        $tokens = array_values(array_unique(array_filter($tokens)));
+
+        $targets = array_map(
+            fn (string $token): array => [
+                'token'        => $token,
+                'push_token'   => null,
+                'notification' => null,
+            ],
+            $tokens,
+        );
+
+        $this->dispatchToTargets($targets, $title, $body, $data);
+    }
+
+    /**
+     * @param  iterable<int, PushToken>  $pushTokens
+     * @param  array<string, string>  $data
+     */
+    private function sendToPushTokens(
+        PushNotification $notification,
+        iterable $pushTokens,
+        string $title,
+        string $body,
+        array $data = []
+    ): void {
+        $targets = [];
+
+        foreach ($pushTokens as $pushToken) {
+            if (! is_string($pushToken->token) || trim($pushToken->token) === '') {
+                continue;
+            }
+
+            $targets[] = [
+                'token'        => $pushToken->token,
+                'push_token'   => $pushToken,
+                'notification' => $notification,
+            ];
+        }
+
+        $this->dispatchToTargets($targets, $title, $body, $data);
+    }
+
+    /**
+     * @param  array<int, array{token:string,push_token:?PushToken,notification:?PushNotification}>  $targets
+     * @param  array<string, string>  $data
+     */
+    private function dispatchToTargets(array $targets, string $title, string $body, array $data = []): void
+    {
+        if ($targets === []) {
+            $this->deliveryReport['skipped']++;
+
             return;
         }
 
-        $projectId = $this->projectId();
-        $accessToken = $this->accessToken();
+        if (! $this->isConfigured()) {
+            foreach ($targets as $target) {
+                $this->deliveryReport['skipped']++;
+                $this->recordDelivery(
+                    $target['notification'],
+                    $target['push_token'],
+                    $target['token'],
+                    'skipped',
+                    'NOT_CONFIGURED',
+                    null,
+                    null,
+                    'Firebase service account ayarı eksik.',
+                );
+            }
+
+            return;
+        }
+
+        try {
+            $projectId = $this->projectId();
+            $accessToken = $this->accessToken();
+        } catch (RuntimeException $exception) {
+            $this->deliveryReport['failed'] += count($targets);
+            $this->deliveryReport['errors'][] = [
+                'status'  => 'CONFIG_ERROR',
+                'message' => $exception->getMessage(),
+            ];
+
+            Log::warning('FCM configuration failed.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            foreach ($targets as $target) {
+                $this->recordDelivery(
+                    $target['notification'],
+                    $target['push_token'],
+                    $target['token'],
+                    'failed',
+                    'CONFIG_ERROR',
+                    null,
+                    null,
+                    $exception->getMessage(),
+                );
+            }
+
+            return;
+        }
+
         $endpoint = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
 
-        foreach (array_unique($tokens) as $token) {
-            $response = Http::withToken($accessToken)
-                ->acceptJson()
-                ->post($endpoint, [
-                    'message' => [
-                        'token'        => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body'  => $body,
-                        ],
-                        'data' => $data,
-                        'android' => [
-                            'priority' => 'high',
-                        ],
-                        'apns' => [
-                            'payload' => [
-                                'aps' => [
-                                    'sound' => 'default',
-                                ],
-                            ],
-                        ],
-                        'webpush' => [
+        foreach ($targets as $target) {
+            $token = $target['token'];
+
+            try {
+                $response = Http::withToken($accessToken)
+                    ->acceptJson()
+                    ->post($endpoint, [
+                        'message' => [
+                            'token'        => $token,
                             'notification' => [
                                 'title' => $title,
                                 'body'  => $body,
-                                'icon'  => '/icons/Icon-192.png',
+                            ],
+                            'data' => $data,
+                            'android' => [
+                                'priority' => 'high',
+                            ],
+                            'apns' => [
+                                'payload' => [
+                                    'aps' => [
+                                        'sound' => 'default',
+                                    ],
+                                ],
+                            ],
+                            'webpush' => [
+                                'notification' => [
+                                    'title' => $title,
+                                    'body'  => $body,
+                                    'icon'  => '/icons/Icon-192.png',
+                                ],
                             ],
                         ],
-                    ],
-                ]);
+                    ]);
+            } catch (Throwable $exception) {
+                $this->deliveryReport['failed']++;
+                $this->addDeliveryError($token, 'REQUEST_FAILED', $exception->getMessage());
+                $this->recordDelivery(
+                    $target['notification'],
+                    $target['push_token'],
+                    $token,
+                    'failed',
+                    'REQUEST_FAILED',
+                    null,
+                    null,
+                    $exception->getMessage(),
+                );
+                continue;
+            }
 
             if ($response->failed()) {
-                $this->handleFailedToken($token, $response->json() ?? []);
+                $payload = $response->json() ?? [];
+                $status = (string) data_get($payload, 'error.status', 'UNKNOWN');
+                $message = (string) data_get($payload, 'error.message', 'FCM request failed.');
+                $errorCode = $this->firstFcmErrorCode($payload);
+                $this->deliveryReport['failed']++;
+                $this->addDeliveryError(
+                    $token,
+                    $status,
+                    $message,
+                    $errorCode,
+                );
+                $this->recordDelivery(
+                    $target['notification'],
+                    $target['push_token'],
+                    $token,
+                    'failed',
+                    $status,
+                    $errorCode,
+                    null,
+                    $message,
+                    $payload,
+                );
+                $this->handleFailedToken($token, $payload);
+                continue;
             }
+
+            $payload = $response->json() ?? [];
+            $this->deliveryReport['sent']++;
+            $this->recordDelivery(
+                $target['notification'],
+                $target['push_token'],
+                $token,
+                'sent',
+                'OK',
+                null,
+                is_string($payload['name'] ?? null) ? $payload['name'] : null,
+                null,
+                $payload,
+            );
         }
     }
 
@@ -226,6 +418,77 @@ class FcmService
         $decoded = json_decode($base64, true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    private function addDeliveryError(string $token, string $status, string $message, ?string $errorCode = null): void
+    {
+        $error = [
+            'token'   => substr($token, 0, 12) . '...',
+            'status'  => $status,
+            'message' => $message,
+        ];
+
+        if ($errorCode !== null && $errorCode !== '') {
+            $error['error_code'] = $errorCode;
+        }
+
+        $this->deliveryReport['errors'][] = $error;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function firstFcmErrorCode(array $payload): ?string
+    {
+        $details = data_get($payload, 'error.details');
+        if (! is_array($details)) {
+            return null;
+        }
+
+        foreach ($details as $detail) {
+            if (is_array($detail) && is_string($detail['errorCode'] ?? null)) {
+                return $detail['errorCode'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $response
+     */
+    private function recordDelivery(
+        ?PushNotification $notification,
+        ?PushToken $pushToken,
+        ?string $token,
+        string $status,
+        ?string $fcmStatus = null,
+        ?string $fcmErrorCode = null,
+        ?string $fcmMessageId = null,
+        ?string $errorMessage = null,
+        ?array $response = null,
+    ): void {
+        try {
+            PushNotificationDelivery::query()->create([
+                'push_notification_id' => $notification?->id,
+                'user_id'              => $notification?->user_id ?? $pushToken?->user_id,
+                'push_token_id'        => $pushToken?->id,
+                'platform'             => $pushToken?->platform,
+                'token_hash'           => $pushToken?->token_hash ?? (is_string($token) && $token !== '' ? hash('sha256', $token) : null),
+                'status'               => $status,
+                'fcm_status'           => $fcmStatus,
+                'fcm_error_code'       => $fcmErrorCode,
+                'fcm_message_id'       => $fcmMessageId,
+                'error_message'        => $errorMessage,
+                'response'             => $response,
+                'attempted_at'         => now(),
+            ]);
+        } catch (Throwable $exception) {
+            Log::warning('Push notification delivery log could not be saved.', [
+                'status'  => $status,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**
