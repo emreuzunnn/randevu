@@ -27,6 +27,18 @@ const adminConfig = {
     canManageUsers:     meta('admin-can-manage-users') === '1',
 };
 
+const firebaseWebConfig = {
+    apiKey:            meta('firebase-web-api-key'),
+    authDomain:        meta('firebase-web-auth-domain'),
+    projectId:         meta('firebase-web-project-id'),
+    storageBucket:     meta('firebase-web-storage-bucket'),
+    messagingSenderId: meta('firebase-web-sender-id'),
+    appId:             meta('firebase-web-app-id'),
+    measurementId:     meta('firebase-web-measurement-id'),
+};
+
+const firebaseWebVapidKey = meta('firebase-web-vapid-key');
+
 /* ── Durum & rol çevirileri ────────────────────────────────── */
 
 const STATUS_LABELS = {
@@ -1255,7 +1267,65 @@ const pageInitializers = [
     ['[data-admin-shops]',        renderShopsPage],
 ];
 
+const initWebPush = async () => {
+    if (!adminConfig.token || !firebaseWebConfig.apiKey) return;
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+
+    try {
+        const permission = Notification.permission === 'default'
+            ? await Notification.requestPermission()
+            : Notification.permission;
+
+        if (permission !== 'granted') return;
+
+        const [
+            { initializeApp },
+            { getAnalytics, isSupported: isAnalyticsSupported },
+            { getMessaging, getToken, onMessage, isSupported: isMessagingSupported },
+        ] = await Promise.all([
+            import(/* @vite-ignore */ 'https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js'),
+            import(/* @vite-ignore */ 'https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js'),
+            import(/* @vite-ignore */ 'https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging.js'),
+        ]);
+
+        if (!await isMessagingSupported()) return;
+
+        const app = initializeApp(firebaseWebConfig);
+        if (await isAnalyticsSupported()) {
+            getAnalytics(app);
+        }
+
+        const serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const messaging = getMessaging(app);
+        const tokenOptions = {
+            serviceWorkerRegistration,
+            ...(firebaseWebVapidKey ? { vapidKey: firebaseWebVapidKey } : {}),
+        };
+        const token = await getToken(messaging, tokenOptions);
+
+        if (token) {
+            await apiFetch('/push-tokens', {
+                method: 'POST',
+                body: {
+                    token,
+                    platform: 'web',
+                },
+            });
+        }
+
+        onMessage(messaging, (payload) => {
+            const title = payload.notification?.title || 'Yeni bildirim';
+            const body = payload.notification?.body || 'Tattoodesk bildirimi alındı.';
+            showToast(`${title}: ${body}`, 'info');
+        });
+    } catch (error) {
+        console.warn('Firebase web push kaydı yapılamadı.', error);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+    initWebPush();
+
     pageInitializers.forEach(([selector, initializer]) => {
         const root = qs(selector);
         if (!root) return;

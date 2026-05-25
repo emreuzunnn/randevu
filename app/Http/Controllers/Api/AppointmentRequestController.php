@@ -6,9 +6,9 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\AppointmentRequest;
-use App\Models\PushNotification;
 use App\Models\Studio;
 use App\Models\User;
+use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -215,6 +215,21 @@ class AppointmentRequestController extends Controller
             return $appointment;
         });
 
+        $requester = $appointmentRequest->requester;
+        if ($requester instanceof User) {
+            app(FcmService::class)->sendToUser(
+                $requester,
+                'Talep Kabul Edildi',
+                "{$appointmentRequest->requested_at?->format('d.m.Y H:i')} tarihli talebiniz randevuya dönüştürüldü.",
+                'appointment_request_accepted',
+                [
+                    'appointment_request_id' => $appointmentRequest->id,
+                    'appointment_id'         => $appointment->id,
+                    'studio_id'              => $appointment->studio_id,
+                ],
+            );
+        }
+
         return response()->json([
             'message' => 'Talep kabul edildi ve randevu oluşturuldu.',
             'data'    => [
@@ -238,6 +253,21 @@ class AppointmentRequestController extends Controller
             'response_notes' => $validated['response_notes'] ?? null,
             'responded_at'   => now(),
         ])->save();
+
+        $requester = $appointmentRequest->requester;
+        if ($requester instanceof User) {
+            app(FcmService::class)->sendToUser(
+                $requester,
+                'Talep Reddedildi',
+                "{$appointmentRequest->requested_at?->format('d.m.Y H:i')} tarihli talebiniz reddedildi.",
+                'appointment_request_rejected',
+                [
+                    'appointment_request_id' => $appointmentRequest->id,
+                    'studio_id'              => $appointmentRequest->studio_id,
+                    'target_user_id'         => $appointmentRequest->target_user_id,
+                ],
+            );
+        }
 
         return response()->json([
             'message' => 'Talep reddedildi.',
@@ -397,16 +427,17 @@ class AppointmentRequestController extends Controller
 
     private function notifyTarget(User $target, User $requester, AppointmentRequest $appointmentRequest): void
     {
-        PushNotification::query()->create([
-            'user_id' => $target->id,
-            'type'    => 'appointment_request',
-            'title'   => 'Yeni Talep',
-            'body'    => "{$requester->fullName()}, {$appointmentRequest->requested_at?->format('d.m.Y H:i')} için talep gönderdi.",
-            'data'    => [
+        app(FcmService::class)->sendToUser(
+            $target,
+            'Yeni Talep',
+            "{$requester->fullName()}, {$appointmentRequest->requested_at?->format('d.m.Y H:i')} için talep gönderdi.",
+            'appointment_request',
+            [
                 'appointment_request_id' => $appointmentRequest->id,
-                'requester_id' => $requester->id,
+                'requester_id'            => $requester->id,
+                'studio_id'               => $appointmentRequest->studio_id,
             ],
-        ]);
+        );
     }
 
     private function notifyStudio(Studio $studio, User $requester, AppointmentRequest $appointmentRequest): void
@@ -421,17 +452,17 @@ class AppointmentRequestController extends Controller
             ->get(['users.id']);
 
         foreach ($users as $user) {
-            PushNotification::query()->create([
-                'user_id' => $user->id,
-                'type'    => 'appointment_request',
-                'title'   => 'Yeni Stüdyo Talebi',
-                'body'    => "{$requester->fullName()}, {$studio->name} için {$appointmentRequest->requested_at?->format('d.m.Y H:i')} tarihli talep gönderdi.",
-                'data'    => [
+            app(FcmService::class)->sendToUser(
+                $user,
+                'Yeni Stüdyo Talebi',
+                "{$requester->fullName()}, {$studio->name} için {$appointmentRequest->requested_at?->format('d.m.Y H:i')} tarihli talep gönderdi.",
+                'appointment_request',
+                [
                     'appointment_request_id' => $appointmentRequest->id,
-                    'studio_id' => $studio->id,
-                    'requester_id' => $requester->id,
+                    'studio_id'              => $studio->id,
+                    'requester_id'           => $requester->id,
                 ],
-            ]);
+            );
         }
     }
 }

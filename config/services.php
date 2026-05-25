@@ -43,4 +43,22 @@ return [
         'model' => env('OPENAI_VISION_MODEL', 'gpt-4.1-mini'),
     ],
 
+    'firebase' => [
+        'project_id'       => env('FIREBASE_PROJECT_ID', 'tattoodesk-3390d'),
+        'credentials_path' => env('FIREBASE_CREDENTIALS'),
+        'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
+        'client_email'    => env('FIREBASE_CLIENT_EMAIL'),
+        'private_key'     => env('FIREBASE_PRIVATE_KEY'),
+        'web_vapid_key'   => env('FIREBASE_WEB_VAPID_KEY'),
+        'web' => [
+            'apiKey'            => env('FIREBASE_WEB_API_KEY', 'AIzaSyBgzMo3I1MEQ_BlZUQy8rq8rfPl6NIUFTs'),
+            'authDomain'        => env('FIREBASE_WEB_AUTH_DOMAIN', 'tattoodesk-3390d.firebaseapp.com'),
+            'projectId'         => env('FIREBASE_WEB_PROJECT_ID', 'tattoodesk-3390d'),
+            'storageBucket'     => env('FIREBASE_WEB_STORAGE_BUCKET', 'tattoodesk-3390d.firebasestorage.app'),
+            'messagingSenderId' => env('FIREBASE_WEB_MESSAGING_SENDER_ID', '391315089383'),
+            'appId'             => env('FIREBASE_WEB_APP_ID', '1:391315089383:web:9578be319024c273bfff42'),
+            'measurementId'     => env('FIREBASE_WEB_MEASUREMENT_ID', 'G-ME4PNK55YY'),
+        ],
+    ],
+
 ];

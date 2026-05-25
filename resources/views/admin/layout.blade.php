@@ -53,6 +53,14 @@
     <meta name="admin-is-studio-admin"      content="{{ $canManageStudios && ! $canManageShops ? '1' : '0' }}">
     <meta name="admin-is-supervisor"        content="{{ $isSupervisor ? '1' : '0' }}">
     <meta name="admin-can-manage-users"     content="{{ $canManageUsers ? '1' : '0' }}">
+    <meta name="firebase-web-api-key"       content="{{ config('services.firebase.web.apiKey') }}">
+    <meta name="firebase-web-auth-domain"   content="{{ config('services.firebase.web.authDomain') }}">
+    <meta name="firebase-web-project-id"    content="{{ config('services.firebase.web.projectId') }}">
+    <meta name="firebase-web-storage-bucket" content="{{ config('services.firebase.web.storageBucket') }}">
+    <meta name="firebase-web-sender-id"     content="{{ config('services.firebase.web.messagingSenderId') }}">
+    <meta name="firebase-web-app-id"        content="{{ config('services.firebase.web.appId') }}">
+    <meta name="firebase-web-measurement-id" content="{{ config('services.firebase.web.measurementId') }}">
+    <meta name="firebase-web-vapid-key"     content="{{ config('services.firebase.web_vapid_key') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">

@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\Studio;
 use App\Models\User;
 use App\Services\AppointmentService;
+use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -323,6 +324,29 @@ class AppointmentController extends Controller
 
         $appointment->save();
 
+        $appointment->load(['createdBy', 'studio']);
+        if ($appointment->createdBy instanceof User) {
+            $statusLabel = match ($validated['driver_status']) {
+                'picked_up' => 'Şoför müşteriyi aldı.',
+                'dropped_off' => 'Şoför müşteriyi bıraktı ve randevu tamamlandı.',
+                'customer_no_show' => 'Müşteri gelmedi, randevu iptal edildi.',
+                default => 'Şoför randevuyu iptal etti.',
+            };
+
+            app(FcmService::class)->sendToUser(
+                $appointment->createdBy,
+                'Transfer Güncellendi',
+                $statusLabel,
+                'driver_action',
+                [
+                    'appointment_id' => $appointment->id,
+                    'studio_id'      => $appointment->studio_id,
+                    'driver_status'  => $appointment->driver_status,
+                    'status'         => $appointment->status,
+                ],
+            );
+        }
+
         return response()->json([
             'message' => 'Durum güncellendi.',
             'data'    => [
@@ -354,6 +378,19 @@ class AppointmentController extends Controller
         );
 
         $appointment->load('assignedArtist');
+
+        if ($appointment->assignedArtist instanceof User) {
+            app(FcmService::class)->sendToUser(
+                $appointment->assignedArtist,
+                'Yeni Randevu Atandı',
+                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu size atandı.",
+                'artist_assigned',
+                [
+                    'appointment_id' => $appointment->id,
+                    'studio_id'      => $studio->id,
+                ],
+            );
+        }
 
         return response()->json([
             'message' => 'Artist atandı.',
@@ -397,6 +434,21 @@ class AppointmentController extends Controller
         ]);
 
         $appointment = $appointmentService->artistRespond($appointment, $validated['artist_status']);
+
+        $appointment->load('createdBy');
+        if ($appointment->createdBy instanceof User) {
+            app(FcmService::class)->sendToUser(
+                $appointment->createdBy,
+                $validated['artist_status'] === 'accepted' ? 'Artist Randevuyu Kabul Etti' : 'Artist Randevuyu Reddetti',
+                "{$user->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevuya yanıt verdi.",
+                'artist_response',
+                [
+                    'appointment_id' => $appointment->id,
+                    'studio_id'      => $appointment->studio_id,
+                    'artist_status'  => $appointment->artist_status,
+                ],
+            );
+        }
 
         return response()->json([
             'message' => $validated['artist_status'] === 'accepted' ? 'Randevu kabul edildi.' : 'Randevu reddedildi.',
@@ -451,6 +503,32 @@ class AppointmentController extends Controller
             'notes'             => $validated['notes'] ?? null,
             'source_image_path' => $sourceImagePath,
         ]);
+
+        $studioManagers = $studio->users()
+            ->wherePivot('is_active', true)
+            ->wherePivotIn('role', [
+                UserRole::Supervisor->value,
+                UserRole::Yonetici->value,
+                UserRole::Info->value,
+            ])
+            ->get();
+
+        foreach ($studioManagers as $manager) {
+            if ((int) $manager->id === (int) $request->user()?->id) {
+                continue;
+            }
+
+            app(FcmService::class)->sendToUser(
+                $manager,
+                'Yeni Randevu',
+                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu oluşturuldu.",
+                'appointment_created',
+                [
+                    'appointment_id' => $appointment->id,
+                    'studio_id'      => $studio->id,
+                ],
+            );
+        }
 
         return response()->json([
             'message' => 'Randevu oluşturuldu.',

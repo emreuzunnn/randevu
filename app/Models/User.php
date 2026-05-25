@@ -129,6 +129,11 @@ class User extends Authenticatable
         return $this->hasMany(Studio::class, 'owner_user_id');
     }
 
+    public function pushTokens(): HasMany
+    {
+        return $this->hasMany(PushToken::class);
+    }
+
     public function managedShops(): HasMany
     {
         return $this->hasMany(Shop::class, 'manager_user_id');

@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicController;
+use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\StudioController;
@@ -58,6 +60,15 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::patch('/me', [AuthController::class, 'updateProfile']);
     Route::get('/profile', [AuthController::class, 'me']);
     Route::patch('/profile', [AuthController::class, 'updateProfile']);
+
+    // Push bildirim token kaydı ve bildirim merkezi
+    Route::post('/push-tokens', [PushTokenController::class, 'store']);
+    Route::delete('/push-tokens', [PushTokenController::class, 'destroy']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::post('/notifications/test', [NotificationController::class, 'test']);
+    Route::patch('/notifications/{pushNotification}/read', [NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{pushNotification}', [NotificationController::class, 'destroy']);
 
     // Portfolyo — tüm roller erişebilir; şoför/kullanıcı rollerinde has_portfolio: false döner
     Route::get('/me/portfolio', [AuthController::class, 'getPortfolio']);
