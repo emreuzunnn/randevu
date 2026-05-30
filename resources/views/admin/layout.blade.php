@@ -13,14 +13,14 @@
         $u         = auth()->user();
         $userRole  = $u?->role?->value ?? '';
         $roleLabels = [
-            'admin'       => 'Admin',
-            'yonetici'    => 'Yönetici',
-            'supervisor'  => 'Süpervizör',
-            'designer'    => 'Tasarımcı',
-            'artist'      => 'Artist',
-            'info'        => 'Info',
-            'sofor'       => 'Şoför',
-            'calisan'     => 'Çalışan',
+            'admin'      => 'Platform Admin',
+            'yonetici'   => 'Yönetici',
+            'supervisor' => 'Süpervizör',
+            'designer'   => 'Tasarımcı',
+            'artist'     => 'Artist',
+            'info'       => 'Info',
+            'sofor'      => 'Şoför',
+            'calisan'    => 'Çalışan',
         ];
         $roleLabel   = $roleLabels[$userRole] ?? ucfirst($userRole);
         $userName    = $u?->fullName() ?: $u?->name;
@@ -34,13 +34,20 @@
         $canManageUsers   = $canManageStudios;
 
         $roleBadgeClass = match($userRole) {
-            'admin'        => 'badge-pill--danger',
-            'yonetici'     => 'badge-pill--warning',
-            'supervisor'   => 'badge-pill--info',
-            'designer'     => 'badge-pill--teal',
-            'artist'       => 'badge-pill--success',
-            'sofor'        => 'badge-pill--warning',
-            default        => '',
+            'admin'      => 'badge-pill--danger',
+            'yonetici'   => 'badge-pill--warning',
+            'supervisor' => 'badge-pill--info',
+            'designer'   => 'badge-pill--teal',
+            'artist'     => 'badge-pill--success',
+            'sofor'      => 'badge-pill--warning',
+            default      => '',
+        };
+
+        $topbarContext = match(true) {
+            $isAdmin      => 'Platform geneli yönetim',
+            $isYonetici   => 'Şirket operasyon merkezi',
+            $isSupervisor => 'Şube stüdyo yönetimi',
+            default       => 'Operasyon paneli',
         };
     @endphp
     <meta name="admin-api-base"             content="/api">
@@ -63,47 +70,55 @@
     <meta name="firebase-web-vapid-key"     content="{{ config('services.firebase.web_vapid_key') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="admin-stage">
-    <div class="ambient-orb ambient-orb--gold"></div>
-    <div class="ambient-orb ambient-orb--blue"></div>
-    <div class="ambient-orb ambient-orb--orange"></div>
 
     <div class="admin-shell">
-        {{-- ── Sidebar ── --}}
+
+        {{-- ── Sidebar ─────────────────────────────────────────── --}}
         <aside class="admin-sidebar">
+
+            {{-- Brand --}}
             <div class="admin-sidebar__brand">
-                <div class="section-eyebrow">
-                    @if($isAdmin) Platform Admin
-                    @elseif($isYonetici) Operasyon Merkezi
-                    @elseif($isSupervisor) Şube Stüdyo Yönetimi
-                    @else Personel Paneli
-                    @endif
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo__mark">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="sidebar-logo__text">Randevu</div>
+                        <div class="sidebar-logo__sub">
+                            @if($isAdmin) Platform Admin
+                            @elseif($isYonetici) Operasyon Merkezi
+                            @elseif($isSupervisor) Şube Paneli
+                            @else Personel Paneli
+                            @endif
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-2 text-lg font-bold tracking-tight" style="color:var(--text-main)">Randevu Panel</div>
-                <p class="mt-1.5 text-xs leading-5" style="color:var(--text-muted)">
-                    @if($canManageStudios) Stüdyonuzu, ekibinizi ve randevularınızı yönetin.
-                    @else Randevu operasyonunuzu buradan yönetin.
-                    @endif
-                </p>
             </div>
 
+            {{-- Navigation --}}
             <nav class="admin-sidebar__nav">
+
                 <div class="admin-nav-section">Genel</div>
 
                 <a href="{{ route('admin.dashboard') }}"
                    class="admin-nav-link {{ request()->routeIs('admin.dashboard') ? 'is-active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
                     </svg>
-                    Dashboard
+                    Genel Bakış
                 </a>
 
-                {{-- Admin-only: Şirketler --}}
-                @if ($isAdmin)
+                @if($isAdmin)
                     <a href="{{ route('admin.companies.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.companies.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -115,10 +130,8 @@
                     </a>
                 @endif
 
-                {{-- Admin + Yönetici: Yönetim bölümü --}}
-                @if ($canManageShops)
+                @if($canManageShops)
                     <div class="admin-nav-section">Yönetim</div>
-
                     <a href="{{ route('admin.shops.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.shops.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -129,21 +142,18 @@
                     </a>
                 @endif
 
-                {{-- Admin + Yönetici + Supervisor: Stüdyolar & Kullanıcılar --}}
-                @if ($canManageStudios)
-                    @if (! $canManageShops)
+                @if($canManageStudios)
+                    @if(! $canManageShops)
                         <div class="admin-nav-section">Stüdyom</div>
                     @endif
-
                     <a href="{{ route('admin.studios.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.studios.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="23 7 16 12 23 17 23 7"/>
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2"/>
                         </svg>
                         Stüdyolar
                     </a>
-
                     <a href="{{ route('admin.users.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -161,15 +171,17 @@
                 <a href="{{ route('admin.appointments.index') }}"
                    class="admin-nav-link {{ request()->routeIs('admin.appointments.*') ? 'is-active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
                         <line x1="16" y1="2" x2="16" y2="6"/>
                         <line x1="8" y1="2" x2="8" y2="6"/>
                         <line x1="3" y1="10" x2="21" y2="10"/>
+                        <line x1="8" y1="14" x2="8" y2="14" stroke-width="2.5"/>
+                        <line x1="12" y1="14" x2="12" y2="14" stroke-width="2.5"/>
                     </svg>
                     Randevular
                 </a>
 
-                @if ($isAdmin)
+                @if($isAdmin)
                     <a href="{{ route('admin.notifications.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.notifications.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -179,43 +191,44 @@
                         Bildirim Logları
                     </a>
                 @endif
+
             </nav>
 
-            {{-- Sidebar footer --}}
-            <div style="padding: 0 1.1rem 1.1rem;">
-                <div style="border-radius:1rem;border:1px solid rgba(255,255,255,0.07);padding:0.75rem 0.9rem;background:rgba(255,255,255,0.025)">
-                    <div class="text-xs font-semibold" style="color:var(--text-main)">{{ $userName }}</div>
-                    <div class="mt-0.5 text-xs" style="color:var(--text-subtle)">{{ $roleLabel }}</div>
-                </div>
-            </div>
-        </aside>
-
-        {{-- ── Main ── --}}
-        <main class="admin-main">
-            <header class="admin-topbar">
-                <div>
-                    <div class="section-eyebrow">{{ $title ?? 'Admin Panel' }}</div>
-                    <div class="mt-1 text-sm font-medium" style="color:var(--text-muted)">
-                        @if($isAdmin) Tüm şirket, dükkan, stüdyo ve randevu hareketleri.
-                        @elseif($isYonetici) Şirketinize bağlı dükkan, stüdyo ve personel operasyonu.
-                        @elseif($isSupervisor) Şubenize bağlı stüdyo, ekip ve randevu akışı.
-                        @else Randevu ve operasyon hareketleri.
-                        @endif
+            {{-- Sidebar footer: user info --}}
+            <div class="sidebar-user">
+                <div class="sidebar-user__avatar">{{ $userInitial }}</div>
+                <div style="min-width:0;flex:1">
+                    <div class="sidebar-user__name">{{ $userName }}</div>
+                    <div class="sidebar-user__role">
+                        <span class="badge-pill {{ $roleBadgeClass }}" style="font-size:0.58rem;padding:0.15rem 0.5rem">{{ $roleLabel }}</span>
                     </div>
                 </div>
-                <div class="action-row">
+            </div>
+
+        </aside>
+
+        {{-- ── Main ──────────────────────────────────────────────── --}}
+        <main class="admin-main">
+
+            {{-- Topbar --}}
+            <header class="admin-topbar">
+                <div>
+                    <div class="topbar-title">{{ $title ?? 'Admin Panel' }}</div>
+                    <div class="topbar-subtitle">{{ $topbarContext }}</div>
+                </div>
+                <div class="topbar-right">
                     <div class="topbar-user">
                         <div class="topbar-avatar">{{ $userInitial }}</div>
                         <div>
                             <div class="topbar-user-name">{{ $userName }}</div>
                             <div class="topbar-user-role">
-                                <span class="badge-pill {{ $roleBadgeClass }}" style="font-size:0.6rem;padding:0.18rem 0.5rem">{{ $roleLabel }}</span>
+                                <span class="badge-pill {{ $roleBadgeClass }}" style="font-size:0.58rem;padding:0.15rem 0.5rem">{{ $roleLabel }}</span>
                             </div>
                         </div>
                     </div>
                     <form action="{{ route('admin.logout') }}" method="POST">
                         @csrf
-                        <button class="button-ghost" style="font-size:0.78rem;padding:0.48rem 0.9rem">
+                        <button class="button-ghost" style="font-size:0.78rem;padding:0.5rem 0.85rem;gap:0.4rem">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                                 <polyline points="16 17 21 12 16 7"/>
@@ -227,18 +240,21 @@
                 </div>
             </header>
 
+            {{-- Page content --}}
             <div class="page-shell">
-                @if (session('status'))
-                    <div class="toast toast--success" style="position:static;min-width:auto;max-width:none;animation:none;backdrop-filter:none">
-                        <div class="text-sm font-semibold">Bilgi</div>
+                @if(session('status'))
+                    <div class="toast toast--success" style="position:static;min-width:auto;max-width:none;animation:none;backdrop-filter:none;margin-bottom:0">
+                        <div class="text-sm font-semibold" style="color:var(--text-main)">Bilgi</div>
                         <div class="mt-1 text-sm" style="color:var(--text-muted)">{{ session('status') }}</div>
                     </div>
                 @endif
                 @yield('content')
             </div>
 
-            <div class="toast-stack" id="admin-toast-root"></div>
         </main>
     </div>
+
+    <div class="toast-stack" id="admin-toast-root"></div>
+
 </body>
 </html>

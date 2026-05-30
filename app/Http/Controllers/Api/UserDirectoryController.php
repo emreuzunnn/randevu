@@ -12,6 +12,31 @@ use Illuminate\Http\Request;
 
 class UserDirectoryController extends Controller
 {
+    /** Mobil admin paneli için tüm stüdyolardaki çalışanları döndürür */
+    public function adminIndex(): JsonResponse
+    {
+        $studios = Studio::query()
+            ->with(['users' => fn ($query) => $query->orderBy('users.name')])
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'data' => $studios->flatMap(fn (Studio $studio) => $studio->users->map(
+                fn (User $user): array => [
+                    'id'            => $user->id,
+                    'name'          => $user->fullName(),
+                    'email'         => $user->email,
+                    'phone'         => $user->phone,
+                    'role'          => $user->pivot->role,
+                    'profile_image' => $user->profile_image,
+                    'studio_id'     => $studio->id,
+                    'status'        => $user->pivot->work_status,
+                    'is_active'     => (bool) $user->pivot->is_active,
+                ]
+            ))->values(),
+        ]);
+    }
+
     public function userOptions(Request $request): JsonResponse
     {
         $authUser = $request->user();

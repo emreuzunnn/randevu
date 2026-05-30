@@ -1,6 +1,6 @@
 import './bootstrap';
 
-/* ── Yardımcı fonksiyonlar ─────────────────────────────────── */
+/* ── Yardımcılar ────────────────────────────────────────────── */
 
 const qs = (selector, scope = document) => scope.querySelector(selector);
 
@@ -39,7 +39,7 @@ const firebaseWebConfig = {
 
 const firebaseWebVapidKey = meta('firebase-web-vapid-key');
 
-/* ── Durum & rol çevirileri ────────────────────────────────── */
+/* ── Sabit çeviriler ────────────────────────────────────────── */
 
 const STATUS_LABELS = {
     completed:   'Tamamlandı',
@@ -54,16 +54,16 @@ const STATUS_LABELS = {
 };
 
 const ROLE_LABELS = {
-    admin:          'Admin',
-    yonetici:       'Yönetici',
-    supervisor:     'Süpervizör',
-    designer:       'Tasarımcı',
-    artist:         'Artist',
-    info:           'Info',
-    sofor:          'Şoför',
-    calisan:        'Çalışan',
-    kullanici_rol:  'Kullanıcı (Rol)',
-    kullanici:      'Kullanıcı',
+    admin:         'Platform Admin',
+    yonetici:      'Yönetici',
+    supervisor:    'Süpervizör',
+    designer:      'Tasarımcı',
+    artist:        'Artist',
+    info:          'Info',
+    sofor:         'Şoför',
+    calisan:       'Çalışan',
+    kullanici_rol: 'Kullanıcı (Rol)',
+    kullanici:     'Kullanıcı',
 };
 
 const APPOINTMENT_TYPE_LABELS = {
@@ -72,10 +72,10 @@ const APPOINTMENT_TYPE_LABELS = {
     tattoo:   'Dövme Randevusu',
 };
 
-const statusLabel = (status) => STATUS_LABELS[status] ?? status;
-const roleLabel   = (role)   => ROLE_LABELS[role]   ?? role;
+const statusLabel = (s) => STATUS_LABELS[s] ?? s;
+const roleLabel   = (r) => ROLE_LABELS[r]   ?? r;
 
-/* ── Toast ─────────────────────────────────────────────────── */
+/* ── Toast ──────────────────────────────────────────────────── */
 
 const toastRoot = () => qs('#admin-toast-root');
 
@@ -83,37 +83,43 @@ const showToast = (message, type = 'info') => {
     const root = toastRoot();
     if (!root) return;
 
+    const icons = {
+        success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#86EFB0;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>',
+        error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#FCA5A5;flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#BAD7FE;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    };
+
     const toast = document.createElement('div');
     toast.className = `toast toast--${type}`;
     toast.innerHTML = `
-        <div class="text-sm font-semibold">${type === 'error' ? 'İşlem Başarısız' : 'Bilgi'}</div>
-        <div class="mt-1 text-sm text-slate-300">${escapeHtml(message)}</div>
+        <div style="display:flex;align-items:flex-start;gap:0.6rem">
+            ${icons[type] || icons.info}
+            <div>
+                <div style="font-size:0.8rem;font-weight:600;color:var(--text-main)">${type === 'error' ? 'İşlem Başarısız' : type === 'success' ? 'Başarılı' : 'Bilgi'}</div>
+                <div style="margin-top:0.2rem;font-size:0.78rem;color:var(--text-muted)">${escapeHtml(message)}</div>
+            </div>
+        </div>
     `;
-
     root.appendChild(toast);
 
     window.setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-6px)';
         toast.style.transition = 'opacity 200ms ease, transform 200ms ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(6px)';
         window.setTimeout(() => toast.remove(), 220);
-    }, 3400);
+    }, 3600);
 };
 
-/* ── API yardımcısı ────────────────────────────────────────── */
+/* ── API yardımcısı ─────────────────────────────────────────── */
 
 const apiFetch = async (path, options = {}) => {
-    const url = `${adminConfig.apiBase}${path}`;
+    const url     = `${adminConfig.apiBase}${path}`;
     const headers = new Headers(options.headers || {});
 
     headers.set('Accept', 'application/json');
-
-    if (adminConfig.token) {
-        headers.set('Authorization', `Bearer ${adminConfig.token}`);
-    }
+    if (adminConfig.token) headers.set('Authorization', `Bearer ${adminConfig.token}`);
 
     const isFormData = options.body instanceof FormData;
-
     if (!isFormData && options.body && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
     }
@@ -137,14 +143,13 @@ const apiFetch = async (path, options = {}) => {
             payload?.error ||
             Object.values(payload?.errors || {})?.flat?.()?.[0] ||
             'Beklenmeyen bir hata oluştu.';
-
         throw new Error(errorMessage);
     }
 
     return payload;
 };
 
-/* ── Tarih formatı ─────────────────────────────────────────── */
+/* ── Tarih formatları ───────────────────────────────────────── */
 
 const formatDate = (value) => {
     if (!value) return '—';
@@ -159,32 +164,38 @@ const formatDateTime = (value) => {
     }).format(new Date(value));
 };
 
-/* ── Durum CSS sınıfı ──────────────────────────────────────── */
+/* ── Durum badge CSS ────────────────────────────────────────── */
 
-const statusClass = (status) => {
-    const map = {
-        completed:   'badge-pill badge-pill--success',
-        confirmed:   'badge-pill badge-pill--info',
-        pending:     'badge-pill badge-pill--warning',
-        cancelled:   'badge-pill badge-pill--danger',
-        rescheduled: 'badge-pill badge-pill--warning',
-        working:     'badge-pill badge-pill--success',
-        break:       'badge-pill badge-pill--warning',
-        transfer:    'badge-pill badge-pill--info',
-        active:      'badge-pill badge-pill--success',
-    };
-    return map[status] || 'badge-pill';
-};
+const statusClass = (status) => ({
+    completed:   'badge-pill badge-pill--success',
+    confirmed:   'badge-pill badge-pill--info',
+    pending:     'badge-pill badge-pill--warning',
+    cancelled:   'badge-pill badge-pill--danger',
+    rescheduled: 'badge-pill badge-pill--warning',
+    working:     'badge-pill badge-pill--success',
+    break:       'badge-pill badge-pill--warning',
+    transfer:    'badge-pill badge-pill--info',
+    active:      'badge-pill badge-pill--success',
+}[status] || 'badge-pill');
 
-/* ── Yardımcı render ───────────────────────────────────────── */
+const roleBadgeClass = (role) => ({
+    admin:      'badge-pill--danger',
+    yonetici:   'badge-pill--warning',
+    supervisor: 'badge-pill--info',
+    designer:   'badge-pill--teal',
+    artist:     'badge-pill--success',
+    sofor:      'badge-pill--warning',
+}[role] || '');
+
+/* ── Yardımcı render ────────────────────────────────────────── */
 
 const skeletonGrid = (count = 4) =>
-    Array.from({ length: count }, () => '<div class="skeleton"></div>').join('');
+    `<div style="display:grid;gap:0.75rem">${Array.from({ length: count }, () => '<div class="skeleton" style="height:4.5rem"></div>').join('')}</div>`;
 
 const animateCounters = (scope = document) => {
     scope.querySelectorAll('[data-counter]').forEach((node) => {
         const target   = Number(node.getAttribute('data-counter') || '0');
-        const duration = 700;
+        const duration = 650;
         const startTime = performance.now();
 
         const tick = (time) => {
@@ -193,7 +204,6 @@ const animateCounters = (scope = document) => {
             node.textContent = Math.round(target * eased).toLocaleString('tr-TR');
             if (progress < 1) requestAnimationFrame(tick);
         };
-
         requestAnimationFrame(tick);
     });
 };
@@ -206,153 +216,158 @@ const handleAsync = async (fn, fallbackMessage = 'İşlem tamamlanamadı.') => {
     }
 };
 
-/* ── Dashboard ─────────────────────────────────────────────── */
+/* ── Paylaşılan bileşenler ──────────────────────────────────── */
+
+const pageHeader = (eyebrow, title, desc, badgeHtml = '') => `
+    <div class="hero-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div>
+                <div class="section-eyebrow" style="margin-bottom:0.5rem">${eyebrow}</div>
+                <h1 class="page-hero-title">${title}</h1>
+                ${desc ? `<p class="page-hero-desc" style="margin-top:0.5rem">${desc}</p>` : ''}
+            </div>
+            ${badgeHtml ? `<div style="align-self:flex-start">${badgeHtml}</div>` : ''}
+        </div>
+    </div>
+`;
+
+const metricCard = (label, value, helper, accentColor = '', delay = '') => `
+    <article class="metric-card${delay ? ` animate-stagger-${delay}` : ''}">
+        <div class="section-eyebrow"${accentColor ? ` style="color:${accentColor}"` : ''}>${label}</div>
+        <div style="margin-top:0.6rem;font-size:2rem;font-weight:800;letter-spacing:-0.025em;color:var(--text-main)" data-counter="${value}">0</div>
+        <div style="margin-top:0.35rem;font-size:0.72rem;color:var(--text-subtle)">${helper}</div>
+    </article>
+`;
+
+const statBlock = (label, content) => `
+    <div class="stat-block">
+        <div class="stat-label">${label}</div>
+        <div style="margin-top:0.4rem;font-weight:600;font-size:0.845rem;color:var(--text-main)">${content}</div>
+    </div>
+`;
+
+/* ── Dashboard ──────────────────────────────────────────────── */
 
 const renderDashboard = async (root) => {
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Merkez Panorama</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6 pb-2">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Operasyonun nabzını tek bakışta yakala.</h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Canlı metrikler, dönemsel raporlar ve sahadaki hareketler tek akışta birleşir.
-                        Doğru anda doğru kararı vermek için tüm tablo tek yerde toplanır.
-                    </p>
-                </div>
-                <div class="badge-pill badge-pill--info">Anlık Operasyon Takibi</div>
-            </div>
-        </section>
-        ${adminConfig.isAdmin ? `<section class="panel-card" data-dashboard-companies>${skeletonGrid(3)}</section>` : ''}
-        <section class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</section>
-        <section class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</section>
-        <section class="panel-card" data-dashboard-staff-reports>${skeletonGrid(4)}</section>
-        <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        ${pageHeader('Genel Bakış', 'Operasyon Özeti', 'Canlı metrikler, dönemsel raporlar ve sahadaki hareketler tek akışta.', '<span class="badge-pill badge-pill--info">Canlı</span>')}
+        ${adminConfig.isAdmin ? `<div class="panel-card" data-dashboard-companies>${skeletonGrid(2)}</div>` : ''}
+        <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</div>
+        <div class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</div>
+        <div class="panel-card" data-dashboard-staff-reports>${skeletonGrid(3)}</div>
+        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-dashboard-studios>${skeletonGrid(1)}</div>
             <div class="panel-card" data-dashboard-appointments>${skeletonGrid(1)}</div>
-        </section>
+        </div>
     `;
 
     const payload = await apiFetch('/home');
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [
-        ['Toplam Randevu',  data.summary.total_appointments,    'Tüm dönem'],
-        ['İptal',           data.summary.cancelled_appointments, 'Risk takibi'],
-        ['Aktif Ekip',      data.summary.active_staff_count,    'Canlı personel'],
-        ['Transfer',        data.summary.transfer_count,        'Sürücü görevleri'],
-    ].map(([label, value, helper], index) => `
-        <article class="metric-card animate-stagger-${(index % 3) + 1}">
-            <div class="text-xs font-semibold" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.10em">${label}</div>
-            <div class="mt-3 text-4xl font-bold" data-counter="${value}">0</div>
-            <div class="mt-2 text-xs" style="color:var(--text-muted)">${helper}</div>
-        </article>
-    `).join('');
+        ['Toplam Randevu',  data.summary.total_appointments,    'Tüm dönem',       '',                '1'],
+        ['İptal',           data.summary.cancelled_appointments,'Risk takibi',     'var(--danger)',   '2'],
+        ['Aktif Ekip',      data.summary.active_staff_count,    'Canlı personel',  'var(--success)',  '3'],
+        ['Transfer',        data.summary.transfer_count,        'Sürücü görevleri','var(--info)',     '1'],
+    ].map(([label, value, helper, color, delay]) => metricCard(label, value, helper, color, delay)).join('');
 
-    qs('[data-dashboard-reports]', root).innerHTML = Object.values(data.reports || {}).map((report, index) => `
-        <article class="data-card animate-stagger-${(index % 3) + 1}">
-            <div class="flex items-start justify-between gap-4">
+    qs('[data-dashboard-reports]', root).innerHTML = Object.values(data.reports || {}).map((report, i) => `
+        <article class="data-card animate-stagger-${(i % 3) + 1}">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                 <div>
-                    <div class="section-title">${escapeHtml(report.label)} Rapor</div>
-                    <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(report.date_from)} — ${escapeHtml(report.date_to)}</div>
+                    <div class="section-title">${escapeHtml(report.label)}</div>
+                    <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(report.date_from)} — ${escapeHtml(report.date_to)}</div>
                 </div>
-                <span class="badge-pill badge-pill--info">Dönem</span>
+                <span class="badge-pill">Dönem Raporu</span>
             </div>
-            <div class="mt-5 grid grid-cols-2 gap-2.5 text-sm">
-                <div class="list-card">
-                    <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Toplam</div>
-                    <div class="mt-2 text-2xl font-bold" data-counter="${report.total_appointments}">0</div>
-                </div>
-                <div class="list-card">
-                    <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Tamamlandı</div>
-                    <div class="mt-2 text-2xl font-bold" data-counter="${report.completed_appointments}">0</div>
-                </div>
-                <div class="list-card">
-                    <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">İptal</div>
-                    <div class="mt-2 text-2xl font-bold" data-counter="${report.cancelled_appointments}">0</div>
-                </div>
-                <div class="list-card">
-                    <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Bekliyor</div>
-                    <div class="mt-2 text-2xl font-bold" data-counter="${report.pending_appointments}">0</div>
-                </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+                ${[
+                    ['Toplam',     report.total_appointments,     ''],
+                    ['Tamamlandı', report.completed_appointments, 'var(--success)'],
+                    ['İptal',      report.cancelled_appointments,  'var(--danger)'],
+                    ['Bekliyor',   report.pending_appointments,   'var(--warning)'],
+                ].map(([lbl, val, color]) => `
+                    <div class="stat-block">
+                        <div class="stat-label">${lbl}</div>
+                        <div style="margin-top:0.4rem;font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;color:${color || 'var(--text-main)'}" data-counter="${val}">0</div>
+                    </div>
+                `).join('')}
             </div>
         </article>
     `).join('');
 
     const staffReports = data.staff_reports || [];
     qs('[data-dashboard-staff-reports]', root).innerHTML = `
-        <div class="flex items-center justify-between gap-4">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
-                <div class="section-eyebrow">Personel Raporları</div>
-                <h2 class="mt-2 section-title">Ekip Bazlı Grafikler</h2>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Personel</div>
+                <div class="section-title">Ekip Bazlı Raporlar</div>
             </div>
-            <span class="badge-pill badge-pill--info">${staffReports.length} personel</span>
+            <span class="badge-pill">${staffReports.length} personel</span>
         </div>
-        <div class="mt-5 data-grid">
-            ${staffReports.map((staff, index) => {
-                const stats = staff.stats || {};
+        <div class="data-grid">
+            ${staffReports.map((staff, i) => {
+                const stats  = staff.stats || {};
                 const weekly = staff.weekly_data || [];
-                const maxValue = Math.max(1, ...weekly.map((day) => Number(day.value || 0)));
-
+                const maxVal = Math.max(1, ...weekly.map((d) => Number(d.value || 0)));
                 return `
-                    <article class="data-card animate-stagger-${(index % 3) + 1}">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="font-semibold">${escapeHtml(staff.name)}</div>
-                                <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(staff.role || 'Personel')}</div>
+                    <article class="data-card animate-stagger-${(i % 3) + 1}" style="padding:1.1rem 1.25rem">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:1rem">
+                            <div style="display:flex;align-items:center;gap:0.6rem">
+                                <div style="width:2rem;height:2rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-lo));display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#0C1220;flex-shrink:0">
+                                    ${escapeHtml((staff.name || '?').charAt(0).toUpperCase())}
+                                </div>
+                                <div>
+                                    <div style="font-size:0.845rem;font-weight:600;color:var(--text-main)">${escapeHtml(staff.name)}</div>
+                                    <div style="font-size:0.72rem;color:var(--text-muted)">${escapeHtml(staff.role || 'Personel')}</div>
+                                </div>
                             </div>
-                            <span class="badge-pill">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
+                            <span class="badge-pill" style="font-size:0.62rem">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
                         </div>
-                        <div class="mt-5 grid grid-cols-4 gap-2 text-sm">
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle)">Toplam</div>
-                                <div class="mt-1 text-xl font-bold" data-counter="${stats.total_appointments || 0}">0</div>
-                            </div>
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle)">Tamam</div>
-                                <div class="mt-1 text-xl font-bold" data-counter="${stats.completed || 0}">0</div>
-                            </div>
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle)">İptal</div>
-                                <div class="mt-1 text-xl font-bold" data-counter="${stats.cancelled || 0}">0</div>
-                            </div>
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle)">Hafta</div>
-                                <div class="mt-1 text-xl font-bold" data-counter="${stats.this_week || 0}">0</div>
-                            </div>
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem">
+                            ${[
+                                ['Toplam', stats.total_appointments || 0],
+                                ['Tamam',  stats.completed || 0],
+                                ['İptal',  stats.cancelled || 0],
+                                ['Hafta',  stats.this_week || 0],
+                            ].map(([lbl, val]) => `
+                                <div class="stat-block" style="padding:0.55rem 0.65rem">
+                                    <div class="stat-label" style="font-size:0.58rem">${lbl}</div>
+                                    <div style="margin-top:0.3rem;font-size:1.1rem;font-weight:700;color:var(--text-main)" data-counter="${val}">0</div>
+                                </div>
+                            `).join('')}
                         </div>
-                        <div class="mt-5 flex items-end gap-2" style="height:96px">
+                        <div style="display:flex;align-items:flex-end;gap:3px;height:72px">
                             ${weekly.map((day) => {
-                                const value = Number(day.value || 0);
-                                const height = Math.max(10, Math.round((value / maxValue) * 86));
-
+                                const val = Number(day.value || 0);
+                                const h   = Math.max(8, Math.round((val / maxVal) * 62));
                                 return `
-                                    <div class="flex-1 text-center">
-                                        <div title="${escapeHtml(day.day)}: ${value}" style="height:${height}px;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#4ECDC4,#001B5E)"></div>
-                                        <div class="mt-2 text-xs" style="color:var(--text-muted)">${escapeHtml(day.day)}</div>
+                                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+                                        <div title="${escapeHtml(day.day)}: ${val}" style="width:100%;height:${h}px;border-radius:3px 3px 2px 2px;background:linear-gradient(180deg,var(--accent),var(--accent-lo));opacity:${val > 0 ? 0.85 : 0.2}"></div>
+                                        <div style="font-size:0.58rem;color:var(--text-subtle)">${escapeHtml(day.day)}</div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </article>
                 `;
-            }).join('') || '<div class="empty-state" style="padding:1.5rem">Bu kapsamda personel raporu bulunmuyor.</div>'}
+            }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bu kapsamda personel raporu bulunmuyor.</div>'}
         </div>
     `;
 
     qs('[data-dashboard-studios]', root).innerHTML = `
-        <div class="flex items-center justify-between gap-4">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
-                <div class="section-eyebrow">Stüdyo Özeti</div>
-                <h2 class="mt-2 section-title">Stüdyo Performansı</h2>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Stüdyo</div>
+                <div class="section-title">Stüdyo Performansı</div>
             </div>
             <span class="badge-pill">${data.studios.length} lokasyon</span>
         </div>
-        <div class="mt-5 table-shell">
+        <div class="table-shell">
             <table>
                 <thead>
                     <tr>
-                        <th>Stüdyo</th>
+                        <th>Stüdyo Adı</th>
                         <th>Konum</th>
                         <th>Aktif Ekip</th>
                         <th>Randevu</th>
@@ -361,57 +376,57 @@ const renderDashboard = async (root) => {
                 <tbody>
                     ${data.studios.map((studio) => `
                         <tr>
-                            <td class="font-semibold">${escapeHtml(studio.name)}</td>
+                            <td style="font-weight:600">${escapeHtml(studio.name)}</td>
                             <td style="color:var(--text-muted)">${escapeHtml(studio.location || '—')}</td>
-                            <td>${studio.active_staff_count}</td>
-                            <td>${studio.appointments_count}</td>
+                            <td><span class="badge-pill badge-pill--success" style="font-size:0.65rem">${studio.active_staff_count}</span></td>
+                            <td style="font-weight:600">${studio.appointments_count}</td>
                         </tr>
-                    `).join('') || '<tr><td colspan="4" style="color:var(--text-muted)">Stüdyo bulunamadı.</td></tr>'}
+                    `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Stüdyo bulunamadı.</td></tr>'}
                 </tbody>
             </table>
         </div>
     `;
 
     qs('[data-dashboard-appointments]', root).innerHTML = `
-        <div class="flex items-center justify-between gap-4">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
-                <div class="section-eyebrow">Günlük Akış</div>
-                <h2 class="mt-2 section-title">Bugünün Randevuları</h2>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Günlük</div>
+                <div class="section-title">Bugünün Randevuları</div>
             </div>
             <span class="badge-pill badge-pill--warning">${data.today_appointments.length} kayıt</span>
         </div>
-        <div class="mt-5 list-stack">
-            ${data.today_appointments.map((appointment) => `
-                <div class="list-card">
-                    <div class="flex items-start justify-between gap-3">
+        <div class="list-stack">
+            ${data.today_appointments.map((apt) => `
+                <div class="list-card" style="padding:0.7rem 0.85rem">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem">
                         <div>
-                            <div class="font-semibold">${escapeHtml(`${appointment.customer.first_name} ${appointment.customer.last_name}`)}</div>
-                            <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(appointment.customer.hotel_name || appointment.studio || '—')}</div>
-                            <div class="mt-1.5 text-xs" style="color:var(--text-subtle)">${formatDateTime(appointment.appointment_at)}</div>
+                            <div style="font-weight:600;font-size:0.845rem;color:var(--text-main)">${escapeHtml(`${apt.customer.first_name} ${apt.customer.last_name}`)}</div>
+                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(apt.customer.hotel_name || apt.studio || '—')}</div>
+                            <div style="margin-top:0.2rem;font-size:0.7rem;color:var(--text-subtle)">${formatDateTime(apt.appointment_at)}</div>
                         </div>
-                        <span class="${statusClass(appointment.status)}">${statusLabel(appointment.status)}</span>
+                        <span class="${statusClass(apt.status)}" style="font-size:0.65rem;flex-shrink:0">${statusLabel(apt.status)}</span>
                     </div>
                 </div>
-            `).join('') || '<div class="empty-state" style="padding:1.5rem">Bugün için randevu bulunmuyor.</div>'}
+            `).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bugün için randevu bulunmuyor.</div>'}
         </div>
     `;
 
     if (adminConfig.isAdmin) {
         const compPayload = await apiFetch('/companies').catch(() => ({ data: [] }));
-        const companies = compPayload.data || [];
+        const companies   = compPayload.data || [];
         qs('[data-dashboard-companies]', root).innerHTML = `
-            <div class="flex items-center justify-between gap-4">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
                 <div>
-                    <div class="section-eyebrow">Şirket Panorama</div>
-                    <h2 class="mt-2 section-title">Şirket Randevu Hacimleri</h2>
+                    <div class="section-eyebrow" style="margin-bottom:0.3rem">Platform</div>
+                    <div class="section-title">Şirket Randevu Hacimleri</div>
                 </div>
                 <span class="badge-pill">${companies.length} şirket</span>
             </div>
-            <div class="mt-5 table-shell">
+            <div class="table-shell">
                 <table>
                     <thead>
                         <tr>
-                            <th>Şirket</th>
+                            <th>Şirket Adı</th>
                             <th>Dükkan</th>
                             <th>Stüdyo</th>
                             <th>Randevu</th>
@@ -420,12 +435,12 @@ const renderDashboard = async (root) => {
                     <tbody>
                         ${companies.map((company) => `
                             <tr>
-                                <td class="font-semibold">${escapeHtml(company.name)}</td>
-                                <td>${company.shop_count} / ${company.max_shop_count === 0 ? '∞' : company.max_shop_count}</td>
-                                <td>${company.studio_count} / ${company.max_studio_count === 0 ? '∞' : company.max_studio_count}</td>
-                                <td><strong data-counter="${company.appointment_count}">0</strong></td>
+                                <td style="font-weight:600">${escapeHtml(company.name)}</td>
+                                <td style="color:var(--text-muted)">${company.shop_count} / ${company.max_shop_count === 0 ? '∞' : company.max_shop_count}</td>
+                                <td style="color:var(--text-muted)">${company.studio_count} / ${company.max_studio_count === 0 ? '∞' : company.max_studio_count}</td>
+                                <td style="font-weight:700" data-counter="${company.appointment_count}">0</td>
                             </tr>
-                        `).join('') || '<tr><td colspan="4" style="color:var(--text-muted)">Şirket bulunamadı.</td></tr>'}
+                        `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Şirket bulunamadı.</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -435,7 +450,7 @@ const renderDashboard = async (root) => {
     animateCounters(root);
 };
 
-/* ── Kullanıcılar ──────────────────────────────────────────── */
+/* ── Kullanıcılar ───────────────────────────────────────────── */
 
 const renderUsersPage = async (root) => {
     const roles = adminConfig.isAdmin
@@ -451,35 +466,24 @@ const renderUsersPage = async (root) => {
     };
 
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Ekip Yönetimi</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Doğru ekibi doğru stüdyoya hızla yerleştir.</h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Personel listesi, roller ve durum bilgileri tek panelde görünür. Ban yönetimi ve rol ataması tek yerden yapılır.
-                    </p>
-                </div>
-                <span class="badge-pill badge-pill--purple">Ekip Yönetimi</span>
-            </div>
-        </section>
-        <section class="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+        ${pageHeader('Ekip Yönetimi', 'Personel & Kullanıcılar', 'Personel listesi, roller ve stüdyo atamaları tek panelde.', '<span class="badge-pill badge-pill--purple">Ekip</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1fr 1fr">
             <div class="panel-card">
-                <div class="action-row">
-                    <div class="field-wrap min-w-[240px] flex-1">
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+                    <div class="field-wrap" style="flex:1;min-width:0">
                         <label class="field-label">Stüdyo Seç</label>
                         <select class="field-select" data-users-studio-select></select>
                     </div>
-                    <button class="button-secondary" data-users-refresh>Yenile</button>
+                    <button class="button-secondary" data-users-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                 </div>
-                <div class="mt-5 list-stack" data-users-list>${skeletonGrid(4)}</div>
+                <div class="list-stack" data-users-list>${skeletonGrid(4)}</div>
             </div>
             ${adminConfig.canManageUsers ? `
-            <div class="form-shell">
-                <div class="section-eyebrow">Personel Ekle / Ata</div>
-                <h2 class="mt-2 section-title">Kullanıcı Oluştur</h2>
-                <p class="mt-1 text-xs" style="color:var(--text-muted)">Kayıtlı e-posta girilirse mevcut kullanıcı stüdyoya atanır.</p>
-                <form class="mt-5 form-grid" data-users-create-form>
+            <div class="form-shell" style="align-self:start">
+                <div class="section-eyebrow" style="margin-bottom:0.4rem">Personel Ekle</div>
+                <div class="section-title" style="margin-bottom:0.3rem">Kullanıcı Oluştur / Ata</div>
+                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem">Kayıtlı e-posta girilirse mevcut kullanıcı stüdyoya atanır.</p>
+                <form class="form-grid" data-users-create-form>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">İsim</label><input class="field-input" name="name" required></div>
                         <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="surname" required></div>
@@ -499,22 +503,22 @@ const renderUsersPage = async (root) => {
                         </div>
                     </div>
                     <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(mevcut kullanıcıda opsiyonel)</span></label><input class="field-input" name="password" type="password"></div>
+                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="password" type="password"></div>
                         <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password"></div>
                     </div>
-                    <button class="button-primary mt-1" type="submit">Kullanıcı Oluştur / Ata</button>
+                    <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Kullanıcı Oluştur / Ata</button>
                 </form>
             </div>
             ` : `
-            <div class="form-shell" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-subtle);margin-bottom:1rem">
+            <div class="form-shell" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;align-self:start">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-subtle);margin-bottom:0.75rem">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 </svg>
                 <div class="section-title">Personel Listesi</div>
-                <p class="mt-2 text-sm" style="color:var(--text-muted)">Stüdyo yöneticisi veya üstü rol gerekli.</p>
+                <p style="margin-top:0.4rem;font-size:0.8rem;color:var(--text-muted)">Stüdyo yöneticisi veya üstü rol gerekli.</p>
             </div>
             `}
-        </section>
+        </div>
     `;
 
     const studioSelect       = qs('[data-users-studio-select]', root);
@@ -530,13 +534,11 @@ const renderUsersPage = async (root) => {
     }
 
     const loadStudios = async () => {
-        const payload = await apiFetch('/studios/options');
-        const studios = payload.data || [];
-        const options = studios.map((studio) =>
-            `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
-        ).join('');
-        studioSelect.innerHTML   = options;
-        createStudioSelect.innerHTML = options;
+        const payload  = await apiFetch('/studios/options');
+        const studios  = payload.data || [];
+        const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        studioSelect.innerHTML = options;
+        if (createStudioSelect) createStudioSelect.innerHTML = options;
         return studios;
     };
 
@@ -545,86 +547,75 @@ const renderUsersPage = async (root) => {
             listNode.innerHTML = '<div class="empty-state">Önce bir stüdyo seçin.</div>';
             return;
         }
-
         listNode.innerHTML = skeletonGrid(4);
         const payload = await apiFetch(`/studios/${studioSelect.value}/users`);
         const users   = payload.data || [];
 
-        const roleBadge = (role) => {
-            const map = {
-                admin: 'badge-pill--danger', yonetici: 'badge-pill--warning',
-                supervisor: 'badge-pill--info',
-                designer: 'badge-pill--teal', artist: 'badge-pill--success',
-                info: 'badge-pill--info', sofor: 'badge-pill--warning', calisan: '',
-            };
-            return `<span class="badge-pill ${map[role] || ''}" style="font-size:0.62rem">${roleLabel(role)}</span>`;
-        };
-
         listNode.innerHTML = users.length
-            ? users.map((user, index) => {
-                const canEditUser = adminConfig.canManageUsers && canEditRole(user.role);
+            ? users.map((user, i) => {
+                const canEdit = adminConfig.canManageUsers && canEditRole(user.role);
                 return `
-                <article class="data-card animate-stagger-${(index % 3) + 1}" data-user-card data-user-id="${user.id}" style="${! user.is_active ? 'opacity:0.6' : ''}">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="flex items-center gap-3">
-                            <div style="width:2rem;height:2rem;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-strong));display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#0c1324;flex-shrink:0">
+                <article class="list-card animate-stagger-${(i % 3) + 1}" data-user-card data-user-id="${user.id}" style="${!user.is_active ? 'opacity:0.55' : ''}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem">
+                        <div style="display:flex;align-items:center;gap:0.65rem;min-width:0">
+                            <div style="width:1.85rem;height:1.85rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-lo));display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#0C1220;flex-shrink:0">
                                 ${escapeHtml((user.name || '?').charAt(0).toUpperCase())}
                             </div>
-                            <div>
-                                <div class="text-sm font-semibold">${escapeHtml(user.name)}</div>
-                                <div class="text-xs" style="color:var(--text-muted)">${escapeHtml(user.email)}</div>
-                                ${user.phone ? `<div class="text-xs" style="color:var(--text-subtle)">${escapeHtml(user.phone)}</div>` : ''}
+                            <div style="min-width:0">
+                                <div style="font-size:0.845rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(user.name)}</div>
+                                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.1rem">${escapeHtml(user.email)}</div>
+                                ${user.phone ? `<div style="font-size:0.7rem;color:var(--text-subtle)">${escapeHtml(user.phone)}</div>` : ''}
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1">
-                            ${roleBadge(user.role)}
-                            ${! user.is_active ? '<span class="badge-pill badge-pill--danger" style="font-size:0.58rem">Banlı</span>' : ''}
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;flex-shrink:0">
+                            <span class="badge-pill ${roleBadgeClass(user.role)}" style="font-size:0.62rem">${roleLabel(user.role)}</span>
+                            ${!user.is_active ? '<span class="badge-pill badge-pill--danger" style="font-size:0.58rem">Banlı</span>' : ''}
                         </div>
                     </div>
-                    ${canEditUser ? `
-                    <div class="mt-4 form-grid form-grid--split">
-                        <div class="field-wrap">
-                            <label class="field-label">Rol</label>
-                            <select class="field-select" data-user-role>
-                                ${roles.map((r) => `<option value="${r}" ${user.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}
-                            </select>
+                    ${canEdit ? `
+                    <div style="margin-top:0.85rem;padding-top:0.85rem;border-top:1px solid var(--border)">
+                        <div class="form-grid form-grid--split" style="gap:0.6rem;margin-bottom:0.65rem">
+                            <div class="field-wrap">
+                                <label class="field-label">Rol</label>
+                                <select class="field-select" data-user-role style="font-size:0.78rem;padding:0.45rem 0.65rem">
+                                    ${roles.map((r) => `<option value="${r}" ${user.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="field-wrap">
+                                <label class="field-label">Durum</label>
+                                <select class="field-select" data-user-status style="font-size:0.78rem;padding:0.45rem 0.65rem">
+                                    ${['working', 'break', 'transfer'].map((s) => `<option value="${s}" ${user.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
+                                </select>
+                            </div>
                         </div>
-                        <div class="field-wrap">
-                            <label class="field-label">Çalışma Durumu</label>
-                            <select class="field-select" data-user-status>
-                                ${['working', 'break', 'transfer'].map((s) => `<option value="${s}" ${user.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
-                            </select>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+                            <label style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.75rem;color:var(--text-muted);cursor:pointer">
+                                <input type="checkbox" data-user-active ${user.is_active ? 'checked' : ''} style="accent-color:var(--accent)">
+                                <span>${user.is_active ? 'Aktif' : 'Banlı / Pasif'}</span>
+                            </label>
+                            <button class="button-primary" data-user-save style="padding:0.4rem 0.85rem;font-size:0.75rem">Kaydet</button>
                         </div>
-                    </div>
-                    <div class="mt-3 action-row">
-                        <label class="inline-flex items-center gap-2 text-xs cursor-pointer" style="color:var(--text-muted)">
-                            <input type="checkbox" data-user-active ${user.is_active ? 'checked' : ''}>
-                            <span>${user.is_active ? 'Aktif' : 'Banlı / Pasif'}</span>
-                        </label>
-                        <button class="button-primary" data-user-save style="padding:0.42rem 0.9rem;font-size:0.76rem">Kaydet</button>
                     </div>
                     ` : adminConfig.canManageUsers ? `
-                    <div class="mt-4 text-xs" style="color:var(--text-muted)">Bu rolü yalnızca daha üst yetkili hesaplar yönetebilir.</div>
+                    <div style="margin-top:0.7rem;font-size:0.72rem;color:var(--text-subtle)">Bu rolü yalnızca daha üst yetkili hesaplar yönetebilir.</div>
                     ` : ''}
                 </article>
             `;
             }).join('')
             : '<div class="empty-state">Bu stüdyoda kullanıcı bulunmuyor.</div>';
 
-        listNode.querySelectorAll('[data-user-save]').forEach((button) => {
-            button.addEventListener('click', () => handleAsync(async () => {
-                const card   = button.closest('[data-user-card]');
+        listNode.querySelectorAll('[data-user-save]').forEach((btn) => {
+            btn.addEventListener('click', () => handleAsync(async () => {
+                const card   = btn.closest('[data-user-card]');
                 const userId = card?.getAttribute('data-user-id');
-
                 await apiFetch(`/studios/${studioSelect.value}/users/${userId}`, {
                     method: 'PATCH',
                     body: {
-                        role:      qs('[data-user-role]', card)?.value,
+                        role:      qs('[data-user-role]',   card)?.value,
                         status:    qs('[data-user-status]', card)?.value,
                         is_active: qs('[data-user-active]', card)?.checked,
                     },
                 });
-
                 showToast('Kullanıcı güncellendi.', 'success');
                 await renderUsers();
             }));
@@ -638,14 +629,11 @@ const renderUsersPage = async (root) => {
     qs('[data-users-refresh]', root)?.addEventListener('click', () => handleAsync(renderUsers));
 
     if (form) {
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
             handleAsync(async () => {
-                const formData = new FormData(form);
-                await apiFetch('/users', {
-                    method: 'POST',
-                    body: Object.fromEntries(formData.entries()),
-                });
+                const data = Object.fromEntries(new FormData(form).entries());
+                await apiFetch('/users', { method: 'POST', body: data });
                 form.reset();
                 if (createStudioSelect) createStudioSelect.value = studioSelect.value;
                 showToast('Kullanıcı oluşturuldu / atandı.', 'success');
@@ -655,39 +643,28 @@ const renderUsersPage = async (root) => {
     }
 };
 
-/* ── Randevular ────────────────────────────────────────────── */
+/* ── Randevular ─────────────────────────────────────────────── */
 
 const renderAppointmentsPage = async (root) => {
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Randevu Akışı</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Her randevuyu düzenli, hızlı ve kontrollü ilerlet.</h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Liste, oluşturma ve durum güncelleme akışlarını tek merkezde toplar. Ekibin bir sonraki adımı her an net görünür.
-                    </p>
-                </div>
-                <div class="badge-pill badge-pill--warning">Canlı Operasyon Akışı</div>
-            </div>
-        </section>
-        <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        ${pageHeader('Randevu Akışı', 'Randevu Yönetimi', 'Liste, oluşturma ve durum güncellemeleri tek merkezde.', '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card">
-                <div class="action-row">
-                    <div class="field-wrap min-w-[240px] flex-1">
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+                    <div class="field-wrap" style="flex:1;min-width:0">
                         <label class="field-label">Stüdyo Seç</label>
                         <select class="field-select" data-appointments-studio-select></select>
                     </div>
-                    <button class="button-secondary" data-appointments-refresh>Yenile</button>
+                    <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                 </div>
-                <div class="mt-5 list-stack" data-appointments-list>${skeletonGrid(4)}</div>
+                <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
             </div>
-            <div class="form-shell">
-                <div class="section-eyebrow">Yeni Randevu</div>
-                <h2 class="mt-2 section-title">Randevu Oluştur</h2>
-                <form class="mt-5 form-grid" data-appointment-form>
+            <div class="form-shell" style="align-self:start">
+                <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Randevu</div>
+                <div class="section-title" style="margin-bottom:1.25rem">Randevu Oluştur</div>
+                <form class="form-grid" data-appointment-form>
                     <div class="field-wrap"><label class="field-label">Stüdyo</label><select class="field-select" name="studio_id" data-appointment-studio></select></div>
-                    <div class="field-wrap"><label class="field-label">Fiş / Görsel Yolu</label><input class="field-input" name="source_image_path"></div>
+                    <div class="field-wrap"><label class="field-label">Fiş / Görsel Yolu</label><input class="field-input" name="source_image_path" placeholder="https://..."></div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="first_name" required></div>
                         <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="last_name" required></div>
@@ -706,8 +683,8 @@ const renderAppointmentsPage = async (root) => {
                             <label class="field-label">Randevu Tipi</label>
                             <select class="field-select" name="appointment_type">
                                 <option value="standard">Standart</option>
-                                <option value="designer">Tasarımcı Randevusu</option>
-                                <option value="tattoo">Dövme Randevusu</option>
+                                <option value="designer">Tasarımcı</option>
+                                <option value="tattoo">Dövme</option>
                             </select>
                         </div>
                     </div>
@@ -717,10 +694,10 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                     <div class="field-wrap"><label class="field-label">Yer</label><input class="field-input" name="place"></div>
                     <div class="field-wrap"><label class="field-label">Notlar</label><textarea class="field-textarea" rows="3" name="notes"></textarea></div>
-                    <button class="button-primary mt-1" type="submit">Randevuyu Kaydet</button>
+                    <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Randevuyu Kaydet</button>
                 </form>
             </div>
-        </section>
+        </div>
     `;
 
     const studioSelect       = qs('[data-appointments-studio-select]', root);
@@ -729,11 +706,9 @@ const renderAppointmentsPage = async (root) => {
     const form               = qs('[data-appointment-form]', root);
 
     const loadStudios = async () => {
-        const payload = await apiFetch('/studios/options');
-        const studios = payload.data || [];
-        const options = studios.map((studio) =>
-            `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
-        ).join('');
+        const payload  = await apiFetch('/studios/options');
+        const studios  = payload.data || [];
+        const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         studioSelect.innerHTML       = options;
         createStudioSelect.innerHTML = options;
     };
@@ -751,62 +726,61 @@ const renderAppointmentsPage = async (root) => {
             listNode.innerHTML = '<div class="empty-state">Randevuları görüntülemek için bir stüdyo seçin.</div>';
             return;
         }
-
         listNode.innerHTML = skeletonGrid(4);
         const payload      = await apiFetch(`/studios/${studioSelect.value}/appointments`);
         const appointments = payload.data || [];
 
         listNode.innerHTML = appointments.length
-            ? appointments.map((appointment, index) => `
-                <article class="data-card animate-stagger-${(index % 3) + 1}" data-appointment-id="${appointment.id}">
-                    <div class="flex items-start justify-between gap-4">
+            ? appointments.map((apt, i) => `
+                <article class="list-card animate-stagger-${(i % 3) + 1}" data-appointment-id="${apt.id}" style="padding:0.85rem 1rem">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                         <div>
-                            <div class="text-base font-semibold">${escapeHtml(`${appointment.customer.first_name} ${appointment.customer.last_name}`)}</div>
-                            <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(appointment.customer.hotel_name || appointment.studio || '—')}</div>
-                            <div class="mt-1.5 text-xs" style="color:var(--text-subtle)">${formatDateTime(appointment.appointment_at)}</div>
+                            <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(`${apt.customer.first_name} ${apt.customer.last_name}`)}</div>
+                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(apt.customer.hotel_name || apt.studio || '—')}</div>
+                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">${formatDateTime(apt.appointment_at)}</div>
                         </div>
-                        <div class="flex flex-col items-end gap-1">
-                            <span class="${statusClass(appointment.status)}">${statusLabel(appointment.status)}</span>
-                            ${appointment.appointment_type && appointment.appointment_type !== 'standard'
-                                ? `<span class="badge-pill badge-pill--teal" style="font-size:0.62rem">${APPOINTMENT_TYPE_LABELS[appointment.appointment_type] ?? appointment.appointment_type}</span>`
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
+                            <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
+                            ${apt.appointment_type && apt.appointment_type !== 'standard'
+                                ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>`
                                 : ''}
                         </div>
                     </div>
-                    <div class="mt-4 grid gap-3 md:grid-cols-2">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
                         <div class="field-wrap">
                             <label class="field-label">Durum</label>
-                            <select class="field-select" data-appointment-status>
-                                ${['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'].map((s) => `
-                                    <option value="${s}" ${appointment.status === s ? 'selected' : ''}>${statusLabel(s)}</option>
-                                `).join('')}
+                            <select class="field-select" data-appointment-status style="font-size:0.78rem;padding:0.42rem 0.65rem">
+                                ${['pending','confirmed','completed','cancelled','rescheduled'].map((s) =>
+                                    `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`
+                                ).join('')}
                             </select>
                         </div>
                         <div class="field-wrap">
-                            <label class="field-label">Randevu Tipi</label>
-                            <select class="field-select" data-appointment-type>
-                                ${['standard', 'designer', 'tattoo'].map((t) => `
-                                    <option value="${t}" ${appointment.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>
-                                `).join('')}
+                            <label class="field-label">Tip</label>
+                            <select class="field-select" data-appointment-type style="font-size:0.78rem;padding:0.42rem 0.65rem">
+                                ${['standard','designer','tattoo'].map((t) =>
+                                    `<option value="${t}" ${apt.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>`
+                                ).join('')}
                             </select>
                         </div>
                     </div>
-                    <div class="mt-4 action-row">
-                        <a href="/admin/appointments/${appointment.id}" class="button-ghost">Detay</a>
-                        <button class="button-secondary" data-appointment-save>Kaydet</button>
+                    <div style="display:flex;gap:0.5rem">
+                        <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.4rem 0.75rem;font-size:0.75rem">Detay</a>
+                        <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
                     </div>
                 </article>
             `).join('')
             : '<div class="empty-state">Bu stüdyoda randevu bulunmuyor.</div>';
 
-        listNode.querySelectorAll('[data-appointment-save]').forEach((button) => {
-            button.addEventListener('click', () => handleAsync(async () => {
-                const card          = button.closest('[data-appointment-id]');
-                const appointmentId = card?.getAttribute('data-appointment-id');
-                await apiFetch(`/studios/${studioSelect.value}/appointments/${appointmentId}`, {
+        listNode.querySelectorAll('[data-appointment-save]').forEach((btn) => {
+            btn.addEventListener('click', () => handleAsync(async () => {
+                const card = btn.closest('[data-appointment-id]');
+                const id   = card?.getAttribute('data-appointment-id');
+                await apiFetch(`/studios/${studioSelect.value}/appointments/${id}`, {
                     method: 'PATCH',
                     body: {
                         status:           qs('[data-appointment-status]', card)?.value,
-                        appointment_type: qs('[data-appointment-type]', card)?.value || 'standard',
+                        appointment_type: qs('[data-appointment-type]',   card)?.value || 'standard',
                     },
                 });
                 showToast('Randevu güncellendi.', 'success');
@@ -833,31 +807,28 @@ const renderAppointmentsPage = async (root) => {
 
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
 
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
         handleAsync(async () => {
-            const formData = new FormData(form);
-            const body = {
-                customer: {
-                    first_name:         formData.get('first_name'),
-                    last_name:          formData.get('last_name'),
-                    phone_country_code: formData.get('phone_country_code') || null,
-                    phone_number:       formData.get('phone_number') || null,
-                    hotel_name:         formData.get('hotel_name') || null,
-                    room_number:        formData.get('room_number') || null,
-                },
-                pax:               Number(formData.get('pax')),
-                appointment_at:    `${formData.get('date')} ${formData.get('time')}:00`,
-                appointment_type:  formData.get('appointment_type') || 'standard',
-                notes:             formData.get('notes') || null,
-                source_image_path: formData.get('source_image_path') || null,
-            };
-
-            await apiFetch(`/studios/${formData.get('studio_id')}/appointments`, {
+            const fd = new FormData(form);
+            await apiFetch(`/studios/${fd.get('studio_id')}/appointments`, {
                 method: 'POST',
-                body,
+                body: {
+                    customer: {
+                        first_name:         fd.get('first_name'),
+                        last_name:          fd.get('last_name'),
+                        phone_country_code: fd.get('phone_country_code') || null,
+                        phone_number:       fd.get('phone_number') || null,
+                        hotel_name:         fd.get('hotel_name') || null,
+                        room_number:        fd.get('room_number') || null,
+                    },
+                    pax:               Number(fd.get('pax')),
+                    appointment_at:    `${fd.get('date')} ${fd.get('time')}:00`,
+                    appointment_type:  fd.get('appointment_type') || 'standard',
+                    notes:             fd.get('notes') || null,
+                    source_image_path: fd.get('source_image_path') || null,
+                },
             });
-
             showToast('Randevu oluşturuldu.', 'success');
             form.reset();
             await renderAppointments();
@@ -865,27 +836,21 @@ const renderAppointmentsPage = async (root) => {
     });
 };
 
-/* ── Stüdyolar ─────────────────────────────────────────────── */
+/* ── Stüdyolar ──────────────────────────────────────────────── */
 
 const renderStudiosPage = async (root) => {
     const isStudioAdminOnly = adminConfig.canManageStudios && !adminConfig.canManageShops;
 
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Stüdyo Yönetimi</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">
-                        ${isStudioAdminOnly ? 'Stüdyonuzu yönetin ve ekibinizi organize edin.' : 'Her stüdyoyu net hedeflerle ve güçlü bir görünümle yönet.'}
-                    </h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        ${isStudioAdminOnly ? 'Logo, isim, konum ve bildirim ayarlarını bu ekrandan yapılandırabilirsiniz.' : 'Lokasyon, ekip yoğunluğu ve ayar bilgileri tek kartta toplanır.'}
-                    </p>
-                </div>
-                <span class="badge-pill badge-pill--purple">Stüdyo Ayarları</span>
-            </div>
-        </section>
-        <section class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</section>
+        ${pageHeader(
+            'Stüdyo Yönetimi',
+            isStudioAdminOnly ? 'Stüdyonuzu Yönetin' : 'Stüdyo Ağı',
+            isStudioAdminOnly
+                ? 'Logo, isim, konum ve bildirim ayarlarını bu ekrandan yapılandırın.'
+                : 'Lokasyon, ekip yoğunluğu ve yapılandırma bilgileri tek kartta.',
+            '<span class="badge-pill badge-pill--purple">Stüdyo Ayarları</span>'
+        )}
+        <div class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</div>
     `;
 
     const grid    = qs('[data-studios-grid]', root);
@@ -893,46 +858,39 @@ const renderStudiosPage = async (root) => {
     const studios = payload.data || [];
 
     grid.innerHTML = studios.length
-        ? studios.map((studio, index) => `
-            <article class="data-card animate-stagger-${(index % 3) + 1}">
-                <div class="flex items-start justify-between gap-4">
+        ? studios.map((studio, i) => `
+            <article class="data-card animate-stagger-${(i % 3) + 1}">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:1rem">
                     <div>
-                        <div class="section-eyebrow">${escapeHtml(studio.shop?.name || 'Dükkan bilgisi yok')}</div>
-                        <h2 class="mt-2 text-xl font-bold">${escapeHtml(studio.name)}</h2>
+                        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.10em;color:var(--text-muted);margin-bottom:0.3rem">${escapeHtml(studio.shop?.name || 'Dükkan bilgisi yok')}</div>
+                        <div class="section-title">${escapeHtml(studio.name)}</div>
                     </div>
-                    <span class="badge-pill badge-pill--info">${studio.appointments_count} randevu</span>
+                    <span class="badge-pill badge-pill--info" style="font-size:0.65rem;flex-shrink:0">${studio.appointments_count} randevu</span>
                 </div>
-                <div class="mt-4 grid grid-cols-2 gap-2.5 text-sm">
-                    <div class="list-card">
-                        <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Konum</div>
-                        <div class="mt-2 font-semibold text-sm">${escapeHtml(studio.location || '—')}</div>
-                    </div>
-                    <div class="list-card">
-                        <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Aktif Ekip</div>
-                        <div class="mt-2 font-semibold text-sm">${studio.active_staff_count}</div>
-                    </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1.25rem">
+                    ${statBlock('Konum', escapeHtml(studio.location || '—'))}
+                    ${statBlock('Aktif Ekip', String(studio.active_staff_count))}
                 </div>
-                <form class="mt-5 form-grid" data-studio-form data-studio-id="${studio.id}">
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" value="${escapeHtml(studio.name)}"></div>
-                        <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
-                    </div>
-                    <div class="field-wrap"><label class="field-label">Logo URL</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}" placeholder="https://..."></div>
-                    <button class="button-primary mt-1" type="submit">Ayarları Kaydet</button>
-                </form>
+                <div style="padding-top:1.1rem;border-top:1px solid var(--border)">
+                    <form class="form-grid" data-studio-form data-studio-id="${studio.id}">
+                        <div class="form-grid form-grid--split">
+                            <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" value="${escapeHtml(studio.name)}"></div>
+                            <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
+                        </div>
+                        <div class="field-wrap"><label class="field-label">Logo URL</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}" placeholder="https://..."></div>
+                        <button class="button-primary" type="submit" style="justify-content:center">Ayarları Kaydet</button>
+                    </form>
+                </div>
             </article>
         `).join('')
         : '<div class="empty-state">Erişilebilir stüdyo bulunmuyor.</div>';
 
     grid.querySelectorAll('[data-studio-form]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
             handleAsync(async () => {
-                const formData = new FormData(form);
-                await apiFetch(`/studios/${form.getAttribute('data-studio-id')}`, {
-                    method: 'PATCH',
-                    body: Object.fromEntries(formData.entries()),
-                });
+                const data = Object.fromEntries(new FormData(form).entries());
+                await apiFetch(`/studios/${form.getAttribute('data-studio-id')}`, { method: 'PATCH', body: data });
                 showToast('Stüdyo kaydı güncellendi.', 'success');
                 await renderStudiosPage(root);
             });
@@ -940,41 +898,29 @@ const renderStudiosPage = async (root) => {
     });
 };
 
-/* ── Dükkanlar ─────────────────────────────────────────────── */
+/* ── Dükkanlar ──────────────────────────────────────────────── */
 
 const renderShopsPage = async (root) => {
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Dükkan Yönetimi</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Dükkanlarını tek markanın güçlü şubeleri gibi konumlandır.</h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Dükkan kartları, yönetici eşleştirmesi ve büyüme planı aynı yerde buluşur. Yapını büyütürken kontrolü elinde tutarsın.
-                    </p>
-                </div>
-                <div class="badge-pill badge-pill--success">Dükkan Yönetimi</div>
-            </div>
-        </section>
-        <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        ${pageHeader('Dükkan Yönetimi', 'Dükkan Ağı', 'Dükkan kartları, yönetici eşleştirmesi ve yapılandırma aynı yerde.', '<span class="badge-pill badge-pill--success">Şube Yönetimi</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-shops-list>${skeletonGrid(3)}</div>
-            <div class="form-shell" data-shops-create></div>
-        </section>
+            <div class="form-shell" data-shops-create style="align-self:start"></div>
+        </div>
     `;
 
-    const listNode   = qs('[data-shops-list]', root);
-    const createNode = qs('[data-shops-create]', root);
+    const listNode   = qs('[data-shops-list]',   root);
+    const createNode = qs('[data-shops-create]',  root);
 
     const [shopsPayload, companiesPayload] = await Promise.all([
         apiFetch('/shops'),
         adminConfig.isAdmin ? apiFetch('/companies') : Promise.resolve({ data: [] }),
     ]);
 
-    const shops     = shopsPayload.data || [];
-    const companies = companiesPayload.data || [];
+    const shops      = shopsPayload.data    || [];
+    const companies  = companiesPayload.data || [];
     const companyMap = Object.fromEntries(companies.map((c) => [String(c.id), c.name]));
 
-    // Mevcut şubelerin şirket ID'lerine göre yöneticileri paralel olarak yükle
     const uniqueCompanyIds = [...new Set(shops.map((s) => s.company_id).filter(Boolean))];
     const managersByCompany = {};
     if (adminConfig.isAdmin && uniqueCompanyIds.length) {
@@ -990,9 +936,7 @@ const renderShopsPage = async (root) => {
     const buildManagerOptions = (companyId, selectedId = null) => {
         const list = managersByCompany[String(companyId)] || [];
         return `<option value="">Yönetici seçin (opsiyonel)</option>${list.map((m) =>
-            `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>
-                ${escapeHtml(m.name)} — ${roleLabel(m.role)}
-            </option>`
+            `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(m.name)} — ${roleLabel(m.role)}</option>`
         ).join('')}`;
     };
 
@@ -1002,48 +946,44 @@ const renderShopsPage = async (root) => {
         ).join('')}`;
 
     listNode.innerHTML = `
-        <div class="flex items-center justify-between gap-4">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
-                <div class="section-eyebrow">Dükkan Ağı</div>
-                <h2 class="mt-2 section-title">Aktif Dükkanlar</h2>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Dükkan Ağı</div>
+                <div class="section-title">Aktif Dükkanlar</div>
             </div>
             <span class="badge-pill">${shops.length} dükkan</span>
         </div>
-        <div class="mt-5 list-stack">
-            ${shops.map((shop, index) => `
-                <article class="data-card animate-stagger-${(index % 3) + 1}">
-                    <div class="flex items-start justify-between gap-4">
+        <div class="list-stack">
+            ${shops.map((shop, i) => `
+                <article class="list-card animate-stagger-${(i % 3) + 1}" style="padding:0.9rem 1rem">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                         <div>
-                            <div class="text-base font-semibold">${escapeHtml(shop.name)}</div>
-                            <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(shop.location || '—')}${companyMap[String(shop.company_id)] ? ` · ${escapeHtml(companyMap[String(shop.company_id)])}` : ''}</div>
+                            <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(shop.name)}</div>
+                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(shop.location || '—')}${companyMap[String(shop.company_id)] ? ` · ${escapeHtml(companyMap[String(shop.company_id)])}` : ''}</div>
                         </div>
-                        <span class="${shop.is_active ? 'badge-pill badge-pill--success' : 'badge-pill badge-pill--danger'}">
+                        <span class="${shop.is_active ? 'badge-pill badge-pill--success' : 'badge-pill badge-pill--danger'}" style="font-size:0.62rem;flex-shrink:0">
                             ${shop.is_active ? 'Aktif' : 'Pasif'}
                         </span>
                     </div>
-                    <div class="mt-4 grid gap-2.5 text-sm md:grid-cols-2">
-                        <div class="list-card">
-                            <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Yönetici</div>
-                            <div class="mt-2 font-semibold text-sm">${escapeHtml(shop.manager?.name || '—')}</div>
-                        </div>
-                        <div class="list-card">
-                            <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Bağlı Stüdyolar</div>
-                            <div class="mt-2 font-semibold text-sm">${shop.studios.map((s) => escapeHtml(s.name)).join(', ') || '—'}</div>
-                        </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem">
+                        ${statBlock('Yönetici', escapeHtml(shop.manager?.name || '—'))}
+                        ${statBlock('Bağlı Stüdyolar', shop.studios.map((s) => escapeHtml(s.name)).join(', ') || '—')}
                     </div>
-                    <form class="mt-5 form-grid" data-shop-form data-shop-id="${shop.id}">
-                        <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" value="${escapeHtml(shop.name)}"></div>
-                        <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(shop.location || '')}"></div>
-                        ${adminConfig.isAdmin ? `
-                            <div class="field-wrap">
-                                <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(şirket çalışanları)</span></label>
-                                <select class="field-select" name="manager_user_id">
-                                    ${buildManagerOptions(shop.company_id, shop.manager?.id ?? null)}
-                                </select>
-                            </div>
-                        ` : ''}
-                        <button class="button-primary mt-1" type="submit">Kaydet</button>
-                    </form>
+                    <div style="padding-top:0.85rem;border-top:1px solid var(--border)">
+                        <form class="form-grid" data-shop-form data-shop-id="${shop.id}" style="gap:0.6rem">
+                            <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" value="${escapeHtml(shop.name)}"></div>
+                            <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(shop.location || '')}"></div>
+                            ${adminConfig.isAdmin ? `
+                                <div class="field-wrap">
+                                    <label class="field-label">Yönetici</label>
+                                    <select class="field-select" name="manager_user_id">
+                                        ${buildManagerOptions(shop.company_id, shop.manager?.id ?? null)}
+                                    </select>
+                                </div>
+                            ` : ''}
+                            <button class="button-primary" type="submit" style="justify-content:center;padding:0.5rem">Kaydet</button>
+                        </form>
+                    </div>
                 </article>
             `).join('') || '<div class="empty-state">Dükkan bulunamadı.</div>'}
         </div>
@@ -1051,9 +991,9 @@ const renderShopsPage = async (root) => {
 
     createNode.innerHTML = adminConfig.isAdmin
         ? `
-            <div class="section-eyebrow">Yeni Lokasyon</div>
-            <h2 class="mt-2 section-title">Yeni Dükkan Oluştur</h2>
-            <form class="mt-5 form-grid" data-shop-create-form>
+            <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Lokasyon</div>
+            <div class="section-title" style="margin-bottom:1.25rem">Yeni Dükkan Oluştur</div>
+            <form class="form-grid" data-shop-create-form>
                 <div class="field-wrap">
                     <label class="field-label">Şirket</label>
                     <select class="field-select" name="company_id" required data-company-select>${buildCompanyOptions()}</select>
@@ -1061,22 +1001,21 @@ const renderShopsPage = async (root) => {
                 <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" required></div>
                 <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
                 <div class="field-wrap">
-                    <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(şirket çalışanları · opsiyonel)</span></label>
+                    <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(opsiyonel)</span></label>
                     <select class="field-select" name="manager_user_id" data-manager-select>
                         <option value="">Önce şirket seçin</option>
                     </select>
                 </div>
-                <button class="button-primary mt-1" type="submit">Dükkan Oluştur</button>
+                <button class="button-primary" type="submit" style="justify-content:center">Dükkan Oluştur</button>
             </form>
         `
         : `
             <div class="empty-state">
-                <div class="section-title">Dükkan bilgileri senkronize.</div>
-                <div class="mt-3 text-sm" style="color:var(--text-muted)">Bu alanda yalnızca size ait dükkan kartları listelenir.</div>
+                <div class="section-title">Dükkan bilgileri senkronize</div>
+                <p style="margin-top:0.4rem;font-size:0.8rem;color:var(--text-muted)">Size ait dükkan kartları listelenir.</p>
             </div>
         `;
 
-    // Yeni dükkan formunda şirket seçilince yöneticileri yükle
     const createForm = qs('[data-shop-create-form]', root);
     if (createForm) {
         const companySelect = qs('[data-company-select]', createForm);
@@ -1084,10 +1023,7 @@ const renderShopsPage = async (root) => {
 
         companySelect?.addEventListener('change', async () => {
             const cid = companySelect.value;
-            if (!cid) {
-                managerSelect.innerHTML = '<option value="">Önce şirket seçin</option>';
-                return;
-            }
+            if (!cid) { managerSelect.innerHTML = '<option value="">Önce şirket seçin</option>'; return; }
             managerSelect.innerHTML = '<option value="">Yükleniyor...</option>';
             managerSelect.disabled = true;
             try {
@@ -1099,8 +1035,8 @@ const renderShopsPage = async (root) => {
             }
         });
 
-        createForm.addEventListener('submit', (event) => {
-            event.preventDefault();
+        createForm.addEventListener('submit', (e) => {
+            e.preventDefault();
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(createForm).entries());
                 if (!body.manager_user_id) delete body.manager_user_id;
@@ -1112,8 +1048,8 @@ const renderShopsPage = async (root) => {
     }
 
     listNode.querySelectorAll('[data-shop-form]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(form).entries());
                 if (!body.manager_user_id) delete body.manager_user_id;
@@ -1125,28 +1061,17 @@ const renderShopsPage = async (root) => {
     });
 };
 
-/* ── Şirketler ─────────────────────────────────────────────── */
+/* ── Şirketler ──────────────────────────────────────────────── */
 
 const renderCompaniesPage = async (root) => {
     root.innerHTML = `
-        <section class="hero-card">
-            <div class="section-eyebrow">Şirket Yönetimi</div>
-            <div class="mt-3 flex flex-wrap items-start justify-between gap-6">
-                <div class="max-w-2xl">
-                    <h1 class="text-4xl font-bold tracking-tight">Tüm şirketleri tek merkezden yönet ve takip et.</h1>
-                    <p class="mt-3 max-w-xl text-base leading-7 text-muted">
-                        Şirket bazlı dükkan, stüdyo ve randevu verilerini anlık görün. Büyüme sınırlarını belirle, operasyonun tamamını denetle.
-                    </p>
-                </div>
-                <div class="badge-pill badge-pill--info">Platform Yönetimi</div>
-            </div>
-        </section>
-        <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        ${pageHeader('Şirket Yönetimi', 'Şirket Ağı', 'Şirket bazlı dükkan, stüdyo ve randevu verilerini anlık görün.', '<span class="badge-pill badge-pill--info">Platform Yönetimi</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-companies-list>${skeletonGrid(3)}</div>
-            <div class="form-shell">
-                <div class="section-eyebrow">Yeni Şirket</div>
-                <h2 class="mt-2 section-title">Şirket Oluştur</h2>
-                <form class="mt-5 form-grid" data-company-create-form>
+            <div class="form-shell" style="align-self:start">
+                <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Şirket</div>
+                <div class="section-title" style="margin-bottom:1.25rem">Şirket Oluştur</div>
+                <form class="form-grid" data-company-create-form>
                     <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" required></div>
                     <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address"></div>
                     <div class="form-grid form-grid--split">
@@ -1154,13 +1079,13 @@ const renderCompaniesPage = async (root) => {
                         <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email"></div>
                     </div>
                     <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Max Dükkan <span style="color:var(--text-muted)">(0 = sınırsız)</span></label><input class="field-input" type="number" min="0" name="max_shop_count" value="0"></div>
-                        <div class="field-wrap"><label class="field-label">Max Stüdyo <span style="color:var(--text-muted)">(0 = sınırsız)</span></label><input class="field-input" type="number" min="0" name="max_studio_count" value="0"></div>
+                        <div class="field-wrap"><label class="field-label">Max Dükkan <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_shop_count" value="0"></div>
+                        <div class="field-wrap"><label class="field-label">Max Stüdyo <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_studio_count" value="0"></div>
                     </div>
-                    <button class="button-primary mt-1" type="submit">Şirket Oluştur</button>
+                    <button class="button-primary" type="submit" style="justify-content:center">Şirket Oluştur</button>
                 </form>
             </div>
-        </section>
+        </div>
     `;
 
     const listNode = qs('[data-companies-list]', root);
@@ -1168,7 +1093,7 @@ const renderCompaniesPage = async (root) => {
     const limitBadge = (current, max) => {
         const text = max === 0 ? `${current} / ∞` : `${current} / ${max}`;
         const cls  = max > 0 && current >= max ? 'danger' : 'success';
-        return `<span class="badge-pill badge-pill--${cls}">${text}</span>`;
+        return `<span class="badge-pill badge-pill--${cls}" style="font-size:0.65rem">${text}</span>`;
     };
 
     const renderCompanies = async () => {
@@ -1177,50 +1102,52 @@ const renderCompaniesPage = async (root) => {
         const companies = payload.data || [];
 
         listNode.innerHTML = `
-            <div class="flex items-center justify-between gap-4">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
                 <div>
-                    <div class="section-eyebrow">Şirket Ağı</div>
-                    <h2 class="mt-2 section-title">Kayıtlı Şirketler</h2>
+                    <div class="section-eyebrow" style="margin-bottom:0.3rem">Şirket Ağı</div>
+                    <div class="section-title">Kayıtlı Şirketler</div>
                 </div>
                 <span class="badge-pill">${companies.length} şirket</span>
             </div>
-            <div class="mt-5 list-stack">
-                ${companies.length ? companies.map((company, index) => `
-                    <article class="data-card animate-stagger-${(index % 3) + 1}">
-                        <div class="flex items-start justify-between gap-4">
+            <div class="list-stack">
+                ${companies.length ? companies.map((company, i) => `
+                    <article class="list-card animate-stagger-${(i % 3) + 1}" style="padding:0.9rem 1rem">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                             <div>
-                                <div class="text-base font-semibold">${escapeHtml(company.name)}</div>
-                                <div class="mt-1 text-xs" style="color:var(--text-muted)">${escapeHtml(company.address || '—')}</div>
+                                <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(company.name)}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(company.address || '—')}</div>
                             </div>
-                            <span class="badge-pill badge-pill--info">${company.appointment_count} randevu</span>
+                            <span class="badge-pill badge-pill--info" style="font-size:0.62rem;flex-shrink:0">${company.appointment_count} randevu</span>
                         </div>
-                        <div class="mt-4 grid grid-cols-3 gap-2.5 text-sm">
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Randevu</div>
-                                <div class="mt-2 font-bold text-lg" data-counter="${company.appointment_count}">0</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem">
+                            <div class="stat-block">
+                                <div class="stat-label">Randevu</div>
+                                <div style="margin-top:0.4rem;font-size:1.35rem;font-weight:800;letter-spacing:-0.02em;color:var(--text-main)" data-counter="${company.appointment_count}">0</div>
                             </div>
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Dükkan</div>
-                                <div class="mt-2">${limitBadge(company.shop_count, company.max_shop_count)}</div>
+                            <div class="stat-block">
+                                <div class="stat-label">Dükkan</div>
+                                <div style="margin-top:0.5rem">${limitBadge(company.shop_count, company.max_shop_count)}</div>
                             </div>
-                            <div class="list-card">
-                                <div class="text-xs" style="color:var(--text-subtle);text-transform:uppercase;letter-spacing:0.08em">Stüdyo</div>
-                                <div class="mt-2">${limitBadge(company.studio_count, company.max_studio_count)}</div>
+                            <div class="stat-block">
+                                <div class="stat-label">Stüdyo</div>
+                                <div style="margin-top:0.5rem">${limitBadge(company.studio_count, company.max_studio_count)}</div>
                             </div>
                         </div>
-                        <form class="mt-5 form-grid" data-company-edit-form data-company-id="${company.id}">
-                            <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" value="${escapeHtml(company.name)}"></div>
-                            <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address" value="${escapeHtml(company.address || '')}"></div>
-                            <div class="form-grid form-grid--split">
-                                <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" value="${escapeHtml(company.phone || '')}"></div>
-                                <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email" value="${escapeHtml(company.email || '')}"></div>
-                            </div>
-                            <div class="form-grid form-grid--split">
-                                <div class="field-wrap"><label class="field-label">Max Dükkan <span style="color:var(--text-muted)">(0 = sınırsız)</span></label><input class="field-input" type="number" min="0" name="max_shop_count" value="${company.max_shop_count}"></div>
-                                <div class="field-wrap"><label class="field-label">Max Stüdyo <span style="color:var(--text-muted)">(0 = sınırsız)</span></label><input class="field-input" type="number" min="0" name="max_studio_count" value="${company.max_studio_count}"></div>
-                            </div>
-                            <button class="button-primary mt-1" type="submit">Kaydet</button>
-                        </form>
+                        <div style="padding-top:0.85rem;border-top:1px solid var(--border)">
+                            <form class="form-grid" data-company-edit-form data-company-id="${company.id}" style="gap:0.6rem">
+                                <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" value="${escapeHtml(company.name)}"></div>
+                                <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address" value="${escapeHtml(company.address || '')}"></div>
+                                <div class="form-grid form-grid--split">
+                                    <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" value="${escapeHtml(company.phone || '')}"></div>
+                                    <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email" value="${escapeHtml(company.email || '')}"></div>
+                                </div>
+                                <div class="form-grid form-grid--split">
+                                    <div class="field-wrap"><label class="field-label">Max Dükkan</label><input class="field-input" type="number" min="0" name="max_shop_count" value="${company.max_shop_count}"></div>
+                                    <div class="field-wrap"><label class="field-label">Max Stüdyo</label><input class="field-input" type="number" min="0" name="max_studio_count" value="${company.max_studio_count}"></div>
+                                </div>
+                                <button class="button-primary" type="submit" style="justify-content:center;padding:0.5rem">Kaydet</button>
+                            </form>
+                        </div>
                     </article>
                 `).join('') : '<div class="empty-state">Kayıtlı şirket bulunamadı.</div>'}
             </div>
@@ -1229,8 +1156,8 @@ const renderCompaniesPage = async (root) => {
         animateCounters(listNode);
 
         listNode.querySelectorAll('[data-company-edit-form]').forEach((form) => {
-            form.addEventListener('submit', (event) => {
-                event.preventDefault();
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
                 handleAsync(async () => {
                     const body = Object.fromEntries(new FormData(form).entries());
                     await apiFetch(`/companies/${form.getAttribute('data-company-id')}`, { method: 'PATCH', body });
@@ -1243,10 +1170,10 @@ const renderCompaniesPage = async (root) => {
 
     await renderCompanies();
 
-    qs('[data-company-create-form]', root)?.addEventListener('submit', (event) => {
-        event.preventDefault();
+    qs('[data-company-create-form]', root)?.addEventListener('submit', (e) => {
+        e.preventDefault();
         handleAsync(async () => {
-            const form = event.target;
+            const form = e.target;
             const body = Object.fromEntries(new FormData(form).entries());
             await apiFetch('/companies', { method: 'POST', body });
             showToast('Şirket oluşturuldu.', 'success');
@@ -1256,7 +1183,7 @@ const renderCompaniesPage = async (root) => {
     });
 };
 
-/* ── Sayfa yönlendirici ────────────────────────────────────── */
+/* ── Sayfa yönlendirici ─────────────────────────────────────── */
 
 const pageInitializers = [
     ['[data-admin-dashboard]',    renderDashboard],
@@ -1266,6 +1193,8 @@ const pageInitializers = [
     ['[data-admin-studios]',      renderStudiosPage],
     ['[data-admin-shops]',        renderShopsPage],
 ];
+
+/* ── Firebase Web Push ──────────────────────────────────────── */
 
 const initWebPush = async () => {
     if (!adminConfig.token || !firebaseWebConfig.apiKey) return;
@@ -1291,37 +1220,30 @@ const initWebPush = async () => {
         if (!await isMessagingSupported()) return;
 
         const app = initializeApp(firebaseWebConfig);
-        if (await isAnalyticsSupported()) {
-            getAnalytics(app);
-        }
+        if (await isAnalyticsSupported()) getAnalytics(app);
 
-        const serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const swReg     = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         const messaging = getMessaging(app);
-        const tokenOptions = {
-            serviceWorkerRegistration,
+        const token     = await getToken(messaging, {
+            serviceWorkerRegistration: swReg,
             ...(firebaseWebVapidKey ? { vapidKey: firebaseWebVapidKey } : {}),
-        };
-        const token = await getToken(messaging, tokenOptions);
+        });
 
         if (token) {
-            await apiFetch('/push-tokens', {
-                method: 'POST',
-                body: {
-                    token,
-                    platform: 'web',
-                },
-            });
+            await apiFetch('/push-tokens', { method: 'POST', body: { token, platform: 'web' } });
         }
 
         onMessage(messaging, (payload) => {
             const title = payload.notification?.title || 'Yeni bildirim';
-            const body = payload.notification?.body || 'Tattoodesk bildirimi alındı.';
+            const body  = payload.notification?.body  || 'Randevu bildirimi alındı.';
             showToast(`${title}: ${body}`, 'info');
         });
     } catch (error) {
         console.warn('Firebase web push kaydı yapılamadı.', error);
     }
 };
+
+/* ── Başlat ─────────────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', () => {
     initWebPush();

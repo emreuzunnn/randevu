@@ -146,6 +146,10 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 |--------------------------------------------------------------------------
 */
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    // Mobil admin paneli: tüm stüdyolardaki randevu ve çalışan listeleri.
+    Route::get('/admin/appointments', [AppointmentController::class, 'adminIndex']);
+    Route::get('/admin/users', [UserDirectoryController::class, 'adminIndex']);
+
     // Tüm yorumları listele / uygunsuz yorumu sil.
     Route::get('/reviews', [PublicController::class, 'reviews']);
     Route::delete('/reviews/{review}', [PublicController::class, 'destroyReview']);

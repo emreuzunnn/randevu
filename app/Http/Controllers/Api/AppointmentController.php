@@ -20,6 +20,43 @@ class AppointmentController extends Controller
     // Randevu türü sabit listesi
     public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
 
+    /** Mobil admin paneli için tüm stüdyolardaki randevuları döndürür */
+    public function adminIndex(): JsonResponse
+    {
+        $appointments = Appointment::query()
+            ->with(['createdBy', 'assignedArtist', 'studio'])
+            ->orderBy('appointment_at')
+            ->get();
+
+        return response()->json([
+            'data' => $appointments->map(fn ($appointment): array => [
+                'id'               => $appointment->id,
+                'customer'         => $this->formatCustomer($appointment),
+                'pax'              => $appointment->pax,
+                'price'            => $appointment->price,
+                'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
+                'appointment_type' => $appointment->appointment_type,
+                'status'           => $appointment->status,
+                'artist_status'    => $appointment->artist_status,
+                'notes'            => $appointment->notes,
+                'source_image_path' => $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
+                'artist' => $appointment->assignedArtist ? [
+                    'id'            => $appointment->assignedArtist->id,
+                    'name'          => $appointment->assignedArtist->fullName(),
+                    'profile_image' => $appointment->assignedArtist->profile_image,
+                    'rating'        => $appointment->assignedArtist->rating,
+                ] : null,
+                'studio' => $appointment->studio ? [
+                    'id'   => $appointment->studio->id,
+                    'name' => $appointment->studio->name,
+                ] : null,
+                'created_at' => optional($appointment->created_at)->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+
     /** Şoförün bağlı olduğu şubedeki TÜM randevuları döndürür */
     public function myAppointments(Request $request): JsonResponse
     {
