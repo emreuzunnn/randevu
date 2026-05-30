@@ -15,6 +15,8 @@ class AppointmentRequest extends Model
         'request_type',
         'requested_at',
         'image_path',
+        'tattoo_image_paths',
+        'pickup_required',
         'notes',
         'first_name',
         'last_name',
@@ -37,6 +39,8 @@ class AppointmentRequest extends Model
             'responded_at' => 'datetime',
             'pax' => 'integer',
             'price' => 'decimal:2',
+            'tattoo_image_paths' => 'array',
+            'pickup_required' => 'boolean',
         ];
     }
 

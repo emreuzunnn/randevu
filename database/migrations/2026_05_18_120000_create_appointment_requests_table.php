@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('request_type')->default('designer');
             $table->timestamp('requested_at');
             $table->string('image_path')->nullable();
+            $table->json('tattoo_image_paths')->nullable();
+            $table->boolean('pickup_required')->default(false);
             $table->text('notes')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();

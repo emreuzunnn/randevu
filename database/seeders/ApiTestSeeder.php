@@ -568,6 +568,14 @@ class ApiTestSeeder extends Seeder
 
         foreach ($appointments1 as $data) {
             $data['price'] ??= fake()->numberBetween(2500, 18000);
+            $data['pickup_required'] ??= $data['assigned_driver_user_id'] !== null;
+            $data['tattoo_image_paths'] ??= [
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
+            ];
+            if ($data['status'] === 'completed' && $data['appointment_type'] === 'tattoo') {
+                $data['completed_tattoo_image_path'] ??= 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80';
+            }
             Appointment::create(array_merge($data, ['studio_id' => $studio1->id]));
         }
 
@@ -697,6 +705,15 @@ class ApiTestSeeder extends Seeder
 
         foreach ($appointments2 as $data) {
             $data['price'] ??= fake()->numberBetween(3000, 22000);
+            $data['pickup_required'] ??= $data['assigned_driver_user_id'] !== null;
+            $data['tattoo_image_paths'] ??= [
+                'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=900&q=80',
+            ];
+            if ($data['status'] === 'completed' && $data['appointment_type'] === 'tattoo') {
+                $data['completed_tattoo_image_path'] ??= 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80';
+            }
             Appointment::create(array_merge($data, ['studio_id' => $studio2->id]));
         }
 
@@ -745,6 +762,11 @@ class ApiTestSeeder extends Seeder
 
         foreach ($appointments3 as $data) {
             $data['price'] ??= fake()->numberBetween(2000, 14000);
+            $data['pickup_required'] ??= false;
+            $data['tattoo_image_paths'] ??= [];
+            if ($data['status'] === 'completed' && $data['appointment_type'] === 'tattoo') {
+                $data['completed_tattoo_image_path'] ??= 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80';
+            }
             Appointment::create(array_merge($data, ['studio_id' => $studio3->id]));
         }
 
@@ -766,6 +788,10 @@ class ApiTestSeeder extends Seeder
             'pax'                => 1,
             'price'              => 4500,
             'image_path'         => 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
+            ],
+            'pickup_required'    => true,
             'status'             => 'pending',
         ]);
 
@@ -786,6 +812,11 @@ class ApiTestSeeder extends Seeder
             'pax'                => 2,
             'price'              => 12000,
             'image_path'         => 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
+            ],
+            'pickup_required'    => true,
             'status'             => 'pending',
         ]);
 
@@ -806,6 +837,10 @@ class ApiTestSeeder extends Seeder
             'pax'                => 1,
             'price'              => 8500,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=900&q=80',
+            ],
+            'pickup_required'    => false,
             'status'             => 'pending',
         ]);
 
@@ -826,6 +861,10 @@ class ApiTestSeeder extends Seeder
             'pax'                => 1,
             'price'              => 6500,
             'image_path'         => 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
+            ],
+            'pickup_required'    => true,
             'status'             => 'pending',
         ]);
 
@@ -846,6 +885,10 @@ class ApiTestSeeder extends Seeder
             'pax'                => 1,
             'price'              => 9000,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
+            ],
+            'pickup_required'    => false,
             'status'             => 'pending',
         ]);
     }

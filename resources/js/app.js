@@ -665,6 +665,8 @@ const renderAppointmentsPage = async (root) => {
                 <form class="form-grid" data-appointment-form>
                     <div class="field-wrap"><label class="field-label">Stüdyo</label><select class="field-select" name="studio_id" data-appointment-studio></select></div>
                     <div class="field-wrap"><label class="field-label">Fiş / Görsel Yolu</label><input class="field-input" name="source_image_path" placeholder="https://..."></div>
+                    <div class="field-wrap"><label class="field-label">Dövme Görselleri</label><input class="field-input" name="tattoo_image_path_1" placeholder="Görsel URL 1"><input class="field-input" name="tattoo_image_path_2" placeholder="Görsel URL 2" style="margin-top:0.45rem"><input class="field-input" name="tattoo_image_path_3" placeholder="Görsel URL 3" style="margin-top:0.45rem"></div>
+                    <label style="display:flex;align-items:center;gap:0.55rem;font-size:0.82rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required"> Pick up gerekli, şoför transferlerinde göster</label>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="first_name" required></div>
                         <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="last_name" required></div>
@@ -736,8 +738,9 @@ const renderAppointmentsPage = async (root) => {
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                         <div>
                             <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(`${apt.customer.first_name} ${apt.customer.last_name}`)}</div>
-                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(apt.customer.hotel_name || apt.studio || '—')}</div>
-                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">${formatDateTime(apt.appointment_at)}</div>
+                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">Otel: ${escapeHtml(apt.customer.hotel_name || '—')}</div>
+                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Oda: ${escapeHtml(apt.customer.room_number || '—')}</div>
+                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Tarih: ${formatDateTime(apt.appointment_at)}</div>
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
                             <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
@@ -766,6 +769,7 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                     <div style="display:flex;gap:0.5rem">
                         <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.4rem 0.75rem;font-size:0.75rem">Detay</a>
+                        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>
                         <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
                     </div>
                 </article>
@@ -781,6 +785,7 @@ const renderAppointmentsPage = async (root) => {
                     body: {
                         status:           qs('[data-appointment-status]', card)?.value,
                         appointment_type: qs('[data-appointment-type]',   card)?.value || 'standard',
+                        pickup_required:  qs('[data-appointment-pickup]', card)?.checked || false,
                     },
                 });
                 showToast('Randevu güncellendi.', 'success');
@@ -827,6 +832,12 @@ const renderAppointmentsPage = async (root) => {
                     appointment_type:  fd.get('appointment_type') || 'standard',
                     notes:             fd.get('notes') || null,
                     source_image_path: fd.get('source_image_path') || null,
+                    tattoo_image_paths: [
+                        fd.get('tattoo_image_path_1'),
+                        fd.get('tattoo_image_path_2'),
+                        fd.get('tattoo_image_path_3'),
+                    ].filter(Boolean),
+                    pickup_required: fd.get('pickup_required') === 'on',
                 },
             });
             showToast('Randevu oluşturuldu.', 'success');

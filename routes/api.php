@@ -278,9 +278,9 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::patch('/studios/{studio}/appointments/{appointment}/assign-artist', [AppointmentController::class, 'assignArtist']);
 });
 
-// Şoför şubesindeki TÜM randevuları görür ve durum güncelleyebilir.
+// Şoför şubesindeki pick up gereken randevuları görür ve durum güncelleyebilir.
 Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
-    // Şoförün bağlı olduğu şubedeki tüm randevuları listeler.
+    // Şoförün bağlı olduğu şubedeki pick up gereken randevuları listeler.
     Route::get('/my-appointments', [AppointmentController::class, 'myAppointments']);
     // driver_status: picked_up (aldım) | dropped_off (bıraktım) | cancelled (iptal ettim)
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
@@ -302,6 +302,8 @@ Route::middleware(['api.auth', 'role:artist,designer,kullanici_rol'])->group(fun
     Route::get('/my-artist-appointments', [AppointmentController::class, 'myArtistAppointments']);
     // artist_status: accepted (kabul) | rejected (red)
     Route::patch('/studios/{studio}/appointments/{appointment}/artist-response', [AppointmentController::class, 'artistResponse']);
+    // Artist tamamlanan dövmenin fotoğrafını yükler; fiyat bundan sonra görünür.
+    Route::post('/appointments/{appointment}/artist-complete', [AppointmentController::class, 'artistComplete']);
 });
 
 /*

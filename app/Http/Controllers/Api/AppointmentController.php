@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -41,6 +42,9 @@ class AppointmentController extends Controller
                 'notes'            => $appointment->notes,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                'pickup_required'   => (bool) $appointment->pickup_required,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -70,6 +74,7 @@ class AppointmentController extends Controller
         $appointments = Appointment::query()
             ->with(['studio', 'createdBy'])
             ->whereIn('studio_id', $branchStudioIds)
+            ->where('pickup_required', true)
             ->orderBy('appointment_at')
             ->get();
 
@@ -90,6 +95,9 @@ class AppointmentController extends Controller
                 'driver_status'     => $appointment->driver_status,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                'pickup_required'   => (bool) $appointment->pickup_required,
                 'notes'             => $appointment->notes,
                 'created_by'        => $appointment->createdBy ? [
                     'id'   => $appointment->createdBy->id,
@@ -165,7 +173,9 @@ class AppointmentController extends Controller
                 'customer'         => $this->formatCustomer($appointment),
                 'place'            => $appointment->place,
                 'pax'              => $appointment->pax,
-                'price'            => $appointment->price,
+                'price'            => $appointment->appointment_type === 'tattoo' && $appointment->status !== 'completed'
+                    ? null
+                    : $appointment->price,
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -173,6 +183,9 @@ class AppointmentController extends Controller
                 'notes'            => $appointment->notes,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                'pickup_required'   => (bool) $appointment->pickup_required,
                 'created_at'       => optional($appointment->created_at)->toIso8601String(),
             ])->values(),
         ]);
@@ -221,7 +234,7 @@ class AppointmentController extends Controller
             (int) $appointment->created_by_user_id === (int) $user->id ||
             (int) $appointment->assigned_artist_user_id === (int) $user->id ||
             ($appointment->studio && $user->canManageStudioAppointments($appointment->studio)) ||
-            ($appointment->studio && $this->driverCanAccessStudio($appointment->studio, $request));
+            ($appointment->pickup_required && $appointment->studio && $this->driverCanAccessStudio($appointment->studio, $request));
 
         abort_unless($canAccess, 403);
 
@@ -242,13 +255,16 @@ class AppointmentController extends Controller
                 'time'             => optional($appointment->appointment_at)->format('H:i'),
                 'place'            => $appointment->place,
                 'pax'              => $appointment->pax,
-                'price'            => $appointment->price,
+                'price'            => $this->visiblePriceFor($appointment),
                 'status'           => $appointment->status,
                 'driver_status'    => $appointment->driver_status,
                 'artist_status'    => $appointment->artist_status,
                 'notes'            => $appointment->notes,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                'pickup_required'   => (bool) $appointment->pickup_required,
                 'is_old_customer'  => $appointment->is_old_customer,
                 'studio'           => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
@@ -314,6 +330,9 @@ class AppointmentController extends Controller
                 'notes'            => $appointment->notes,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                'pickup_required'   => (bool) $appointment->pickup_required,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -334,6 +353,7 @@ class AppointmentController extends Controller
     public function driverAction(Request $request, Studio $studio, Appointment $appointment): JsonResponse
     {
         abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
+        abort_unless($appointment->pickup_required, 403);
 
         $user = $request->user();
 
@@ -496,6 +516,56 @@ class AppointmentController extends Controller
         ]);
     }
 
+    /** Artist bitmiş dövme fotoğrafını yükleyerek randevuyu tamamlar. */
+    public function artistComplete(Request $request, Appointment $appointment): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+        abort_unless((int) $appointment->assigned_artist_user_id === (int) $user->id, 403);
+        abort_unless($appointment->appointment_type === 'tattoo', 422);
+        abort_unless(
+            $user->hasRole(UserRole::KullaniciRol)
+                || ($appointment->studio_id !== null && $user->hasStudioRole((int) $appointment->studio_id, [UserRole::Artist])),
+            403
+        );
+        abort_unless($appointment->artist_status === 'accepted', 422);
+        abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
+
+        $request->validate([
+            'completed_tattoo_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+        ]);
+
+        $appointment->fill([
+            'completed_tattoo_image_path' => $this->storeCompletedTattooImage($request, $appointment),
+            'status' => 'completed',
+        ])->save();
+
+        $appointment->load('createdBy');
+        if ($appointment->createdBy instanceof User) {
+            app(FcmService::class)->sendToUser(
+                $appointment->createdBy,
+                'Dövme Randevusu Tamamlandı',
+                "{$user->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli dövme randevusunu tamamladı.",
+                'appointment_completed',
+                [
+                    'appointment_id' => $appointment->id,
+                    'studio_id'      => $appointment->studio_id,
+                    'status'         => $appointment->status,
+                ],
+            );
+        }
+
+        return response()->json([
+            'message' => 'Dövme fotoğrafı yüklendi ve randevu tamamlandı.',
+            'data' => [
+                'id' => $appointment->id,
+                'status' => $appointment->status,
+                'price' => $appointment->price,
+                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+            ],
+        ]);
+    }
+
     public function store(Request $request, Studio $studio, AppointmentService $appointmentService): JsonResponse
     {
         $validated = $request->validate([
@@ -514,12 +584,18 @@ class AppointmentController extends Controller
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
             'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'tattoo_image_paths'           => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths.*'         => ['string', 'max:2048'],
+            'tattoo_images'                => ['nullable', 'array', 'max:3'],
+            'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'pickup_required'              => ['sometimes', 'boolean'],
         ]);
 
         $sourceImagePath = $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null;
         if ($request->hasFile('image')) {
             $sourceImagePath = $this->storeAppointmentImage($request, $studio);
         }
+        $tattooImagePaths = $this->resolveTattooImagePaths($request, $studio, $validated['tattoo_image_paths'] ?? []);
 
         $appointment = $appointmentService->create($studio, $request->user(), [
             'customer' => [
@@ -539,6 +615,8 @@ class AppointmentController extends Controller
             'appointment_at'    => $validated['appointment_at'],
             'notes'             => $validated['notes'] ?? null,
             'source_image_path' => $sourceImagePath,
+            'tattoo_image_paths' => $tattooImagePaths,
+            'pickup_required'   => $validated['pickup_required'] ?? false,
         ]);
 
         $studioManagers = $studio->users()
@@ -595,10 +673,22 @@ class AppointmentController extends Controller
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
             'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'tattoo_image_paths'           => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths.*'         => ['string', 'max:2048'],
+            'tattoo_images'                => ['nullable', 'array', 'max:3'],
+            'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'pickup_required'              => ['sometimes', 'boolean'],
         ]);
 
         if ($request->hasFile('image')) {
             $validated['source_image_path'] = $this->storeAppointmentImage($request, $studio);
+        }
+        if ($request->hasFile('tattoo_images') || array_key_exists('tattoo_image_paths', $validated)) {
+            $validated['tattoo_image_paths'] = $this->resolveTattooImagePaths(
+                $request,
+                $studio,
+                $validated['tattoo_image_paths'] ?? []
+            );
         }
 
         $appointment = $appointmentService->update($studio, $appointment, $validated);
@@ -641,6 +731,9 @@ class AppointmentController extends Controller
     {
         $user = $request->user();
         if (! $user?->hasRole(UserRole::Sofor)) {
+            return false;
+        }
+        if (! $appointment->pickup_required) {
             return false;
         }
 
@@ -688,6 +781,33 @@ class AppointmentController extends Controller
     }
 
     /**
+     * @param  array<int, string>|null  $paths
+     * @return array<int, string>
+     */
+    private function imageUrls(?array $paths): array
+    {
+        return collect($paths ?? [])
+            ->map(fn (string $path): ?string => $this->imageUrl($path))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function visiblePriceFor(Appointment $appointment): mixed
+    {
+        $user = request()->user();
+        $isAssignedArtist = $user instanceof User
+            && (int) $appointment->assigned_artist_user_id === (int) $user->id
+            && $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]);
+
+        return $isAssignedArtist
+            && $appointment->appointment_type === 'tattoo'
+            && $appointment->status !== 'completed'
+            ? null
+            : $appointment->price;
+    }
+
+    /**
      * @return array<int, int>
      */
     private function activeStudioIdsForRole(User $user, UserRole $role): array
@@ -717,5 +837,38 @@ class AppointmentController extends Controller
         $path = $file->storeAs('appointments/' . $studio->id, $name, 'public');
 
         return Storage::disk('public')->url($path);
+    }
+
+    private function storeCompletedTattooImage(Request $request, Appointment $appointment): string
+    {
+        $file = $request->file('completed_tattoo_image');
+        $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $folder = $appointment->studio_id ?? 'freelancers';
+        $path = $file->storeAs('appointments/' . $folder . '/completed-tattoos', $name, 'public');
+
+        return Storage::disk('public')->url($path);
+    }
+
+    /**
+     * @param  array<int, string>  $existingPaths
+     * @return array<int, string>
+     */
+    private function resolveTattooImagePaths(Request $request, Studio $studio, array $existingPaths): array
+    {
+        $paths = array_values($existingPaths);
+
+        foreach ($request->file('tattoo_images', []) as $file) {
+            $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('appointments/' . $studio->id . '/tattoo-images', $name, 'public');
+            $paths[] = Storage::disk('public')->url($path);
+        }
+
+        if (count($paths) > 3) {
+            throw ValidationException::withMessages([
+                'tattoo_images' => ['En fazla 3 dövme görseli ekleyebilirsiniz.'],
+            ]);
+        }
+
+        return $paths;
     }
 }

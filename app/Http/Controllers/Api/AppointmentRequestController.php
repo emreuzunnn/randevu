@@ -88,6 +88,11 @@ class AppointmentRequestController extends Controller
             'price'              => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'image'              => ['required_without:image_path', 'nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'         => ['required_without:image', 'nullable', 'string', 'max:2048'],
+            'tattoo_image_paths' => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths.*' => ['string', 'max:2048'],
+            'tattoo_images'      => ['nullable', 'array', 'max:3'],
+            'tattoo_images.*'    => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'pickup_required'    => ['sometimes', 'boolean'],
         ]);
 
         $target = ! empty($validated['artist_id'])
@@ -107,6 +112,12 @@ class AppointmentRequestController extends Controller
         if ($request->hasFile('image')) {
             $imagePath = $this->storeRequestImage($request, $target, $studio);
         }
+        $tattooImagePaths = $this->resolveTattooImagePaths(
+            $request,
+            $target,
+            $studio,
+            $validated['tattoo_image_paths'] ?? []
+        );
 
         $appointmentRequest = AppointmentRequest::query()->create([
             'requester_user_id'  => $authUser->id,
@@ -115,6 +126,8 @@ class AppointmentRequestController extends Controller
             'request_type'       => $type,
             'requested_at'       => $requestedAt,
             'image_path'         => $imagePath,
+            'tattoo_image_paths' => $tattooImagePaths,
+            'pickup_required'    => $validated['pickup_required'] ?? false,
             'notes'              => $validated['notes'] ?? null,
             'first_name'         => $validated['first_name'] ?? ($authUser->name ?: null),
             'last_name'          => $validated['last_name'] ?? ($authUser->surname ?: null),
@@ -191,6 +204,8 @@ class AppointmentRequestController extends Controller
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
                 'notes'                   => null,
                 'source_image_path'       => $appointmentRequest->image_path,
+                'tattoo_image_paths'      => $appointmentRequest->tattoo_image_paths ?? [],
+                'pickup_required'         => $appointmentRequest->pickup_required,
                 'is_old_customer'         => false,
                 'pax'                     => $validated['pax'] ?? $appointmentRequest->pax ?? 1,
                 'price'                   => $validated['price'] ?? $appointmentRequest->price,
@@ -358,6 +373,8 @@ class AppointmentRequestController extends Controller
             'request_type'   => $appointmentRequest->request_type,
             'requested_at'   => optional($appointmentRequest->requested_at)->toIso8601String(),
             'image_path'     => $this->imageUrl($appointmentRequest->image_path),
+            'tattoo_image_paths' => $this->imageUrls($appointmentRequest->tattoo_image_paths),
+            'pickup_required' => (bool) $appointmentRequest->pickup_required,
             'notes'          => $appointmentRequest->notes,
             'response_notes' => $appointmentRequest->response_notes,
             'customer'       => [
@@ -423,6 +440,47 @@ class AppointmentRequestController extends Controller
         return str_starts_with($path, 'storage/') || str_starts_with($path, '/storage/')
             ? url($path)
             : url('storage/' . $path);
+    }
+
+    /**
+     * @param  array<int, string>|null  $paths
+     * @return array<int, string>
+     */
+    private function imageUrls(?array $paths): array
+    {
+        return collect($paths ?? [])
+            ->map(fn (string $path): ?string => $this->imageUrl($path))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, string>  $existingPaths
+     * @return array<int, string>
+     */
+    private function resolveTattooImagePaths(
+        Request $request,
+        ?User $target,
+        ?Studio $studio,
+        array $existingPaths
+    ): array {
+        $paths = array_values($existingPaths);
+        $folder = $target !== null ? 'user-' . $target->id : 'studio-' . $studio?->id;
+
+        foreach ($request->file('tattoo_images', []) as $file) {
+            $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('appointment-requests/' . $folder . '/tattoo-images', $name, 'public');
+            $paths[] = Storage::disk('public')->url($path);
+        }
+
+        if (count($paths) > 3) {
+            throw ValidationException::withMessages([
+                'tattoo_images' => ['En fazla 3 dövme görseli ekleyebilirsiniz.'],
+            ]);
+        }
+
+        return $paths;
     }
 
     private function notifyTarget(User $target, User $requester, AppointmentRequest $appointmentRequest): void

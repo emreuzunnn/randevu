@@ -49,6 +49,8 @@ class AppointmentService
                 'is_old_customer'   => $status['is_old_customer'],
                 'notes'             => $attributes['notes'] ?? null,
                 'source_image_path' => $attributes['source_image_path'] ?? null,
+                'tattoo_image_paths' => $attributes['tattoo_image_paths'] ?? [],
+                'pickup_required'   => $attributes['pickup_required'] ?? false,
             ]);
         })->load(['createdBy']);
     }
@@ -88,6 +90,12 @@ class AppointmentService
                 'is_old_customer'   => $status['is_old_customer'],
                 'notes'             => array_key_exists('notes', $attributes) ? $attributes['notes'] : $appointment->notes,
                 'source_image_path' => $attributes['source_image_path'] ?? $appointment->source_image_path,
+                'tattoo_image_paths' => array_key_exists('tattoo_image_paths', $attributes)
+                    ? $attributes['tattoo_image_paths']
+                    : $appointment->tattoo_image_paths,
+                'pickup_required'   => array_key_exists('pickup_required', $attributes)
+                    ? $attributes['pickup_required']
+                    : $appointment->pickup_required,
             ])->save();
 
             return $appointment->fresh(['createdBy', 'assignedArtist']);

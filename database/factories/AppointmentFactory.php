@@ -39,6 +39,9 @@ class AppointmentFactory extends Factory
             'is_old_customer' => false,
             'notes' => null,
             'source_image_path' => null,
+            'tattoo_image_paths' => [],
+            'completed_tattoo_image_path' => null,
+            'pickup_required' => false,
         ];
     }
 }

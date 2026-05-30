@@ -44,6 +44,9 @@ return new class extends Migration
             $table->boolean('is_old_customer')->default(false);
             $table->text('notes')->nullable();
             $table->string('source_image_path')->nullable();
+            $table->json('tattoo_image_paths')->nullable();
+            $table->string('completed_tattoo_image_path')->nullable();
+            $table->boolean('pickup_required')->default(false);
             $table->timestamps();
 
             $table->index(['studio_id', 'appointment_at']);

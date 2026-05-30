@@ -56,6 +56,9 @@ class AppointmentController extends Controller
             'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
             'place'            => ['nullable', 'string', 'max:255'],
             'notes'            => ['nullable', 'string'],
+            'tattoo_image_paths' => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths.*' => ['nullable', 'string', 'max:2048'],
+            'pickup_required'   => ['sometimes', 'boolean'],
         ]);
 
         $studio = Studio::query()->findOrFail($validated['studio_id']);
@@ -78,6 +81,8 @@ class AppointmentController extends Controller
             'appointment_at'    => $validated['date'].' '.$validated['time'].':00',
             'notes'             => $validated['notes'] ?? null,
             'source_image_path' => $validated['slip_image_path'] ?? null,
+            'tattoo_image_paths' => array_values(array_filter($validated['tattoo_image_paths'] ?? [])),
+            'pickup_required'   => $validated['pickup_required'] ?? false,
         ]);
 
         return redirect()

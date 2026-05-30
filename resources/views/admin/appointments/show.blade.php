@@ -89,6 +89,10 @@
                         <span class="badge-pill {{ $statusInfo['class'] }}" style="font-size:0.68rem">{{ $statusInfo['label'] }}</span>
                     </span>
                 </div>
+                <div class="detail-row">
+                    <span class="detail-label">Pick up</span>
+                    <span class="detail-value">{{ $appointment->pickup_required ? 'Gerekli' : 'Gerekli değil' }}</span>
+                </div>
                 @if($appointment->driver_status)
                     @php
                         $driverStatusMap = [
@@ -190,6 +194,26 @@
                     <div class="list-card" style="font-size:0.845rem;line-height:1.6;color:var(--text-muted)">
                         {{ $appointment->notes }}
                     </div>
+                </div>
+            @endif
+            @if(!empty($appointment->tattoo_image_paths))
+                <div style="margin-top:1rem">
+                    <div class="field-label" style="margin-bottom:0.5rem">Dövme Görselleri</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:0.65rem">
+                        @foreach($appointment->tattoo_image_paths as $imagePath)
+                            <a href="{{ $imagePath }}" target="_blank" rel="noopener noreferrer">
+                                <img src="{{ $imagePath }}" alt="Dövme görseli" style="width:88px;height:88px;object-fit:cover;border-radius:0.65rem;border:1px solid var(--border)">
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+            @if($appointment->completed_tattoo_image_path)
+                <div style="margin-top:1rem">
+                    <div class="field-label" style="margin-bottom:0.5rem">Tamamlanan Dövme</div>
+                    <a href="{{ $appointment->completed_tattoo_image_path }}" target="_blank" rel="noopener noreferrer">
+                        <img src="{{ $appointment->completed_tattoo_image_path }}" alt="Tamamlanan dövme" style="width:120px;height:120px;object-fit:cover;border-radius:0.65rem;border:1px solid var(--border)">
+                    </a>
                 </div>
             @endif
         </div>

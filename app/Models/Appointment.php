@@ -36,6 +36,9 @@ class Appointment extends Model
         'is_old_customer',
         'notes',
         'source_image_path',
+        'tattoo_image_paths',
+        'completed_tattoo_image_path',
+        'pickup_required',
     ];
 
     protected function casts(): array
@@ -45,6 +48,8 @@ class Appointment extends Model
             'is_old_customer' => 'boolean',
             'pax' => 'integer',
             'price' => 'decimal:2',
+            'tattoo_image_paths' => 'array',
+            'pickup_required' => 'boolean',
         ];
     }
 
