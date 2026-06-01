@@ -14,6 +14,7 @@ class AdminPanelAccessMiddleware
         $user = $request->user();
 
         abort_if($user === null, Response::HTTP_UNAUTHORIZED);
+        abort_if($user->banned_at !== null, Response::HTTP_FORBIDDEN, 'Hesabınız banlanmıştır.');
         abort_unless($user->hasAnyRole([
             UserRole::Admin,
             UserRole::Yonetici,

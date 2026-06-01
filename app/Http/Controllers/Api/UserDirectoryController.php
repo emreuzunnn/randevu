@@ -32,6 +32,8 @@ class UserDirectoryController extends Controller
                     'studio_id'     => $studio->id,
                     'status'        => $user->pivot->work_status,
                     'is_active'     => (bool) $user->pivot->is_active,
+                    'is_banned'     => $user->banned_at !== null,
+                    'ban_reason'    => $user->ban_reason,
                 ]
             ))->values(),
         ]);
@@ -53,6 +55,7 @@ class UserDirectoryController extends Controller
             : $authUser->accessibleStudioIds();
 
         $users = User::query()
+            ->whereNull('banned_at')
             ->when($roles->isNotEmpty(), fn ($q) => $q->whereIn('role', $roles->all()))
             ->when(
                 ! $authUser?->hasRole(UserRole::Admin),
@@ -173,6 +176,8 @@ class UserDirectoryController extends Controller
                 'studio_id' => $studio->id,
                 'status' => $user->pivot->work_status,
                 'is_active' => (bool) $user->pivot->is_active,
+                'is_banned' => $user->banned_at !== null,
+                'ban_reason' => $user->ban_reason,
             ])->values(),
         ]);
     }

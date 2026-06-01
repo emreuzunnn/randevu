@@ -164,30 +164,35 @@ class AppointmentController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $appointments->map(fn ($appointment): array => [
-                'id'     => $appointment->id,
-                'studio' => $appointment->studio ? [
-                    'id'   => $appointment->studio->id,
-                    'name' => $appointment->studio->name,
-                ] : null,
-                'customer'         => $this->formatCustomer($appointment),
-                'place'            => $appointment->place,
-                'pax'              => $appointment->pax,
-                'price'            => $appointment->appointment_type === 'tattoo' && $appointment->status !== 'completed'
-                    ? null
-                    : $appointment->price,
-                'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
-                'appointment_type' => $appointment->appointment_type,
-                'status'           => $appointment->status,
-                'artist_status'    => $appointment->artist_status,
-                'notes'            => $appointment->notes,
-                'source_image_path' => $this->imageUrl($appointment->source_image_path),
-                'photo_path'        => $this->imageUrl($appointment->photo_path),
-                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
-                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
-                'pickup_required'   => (bool) $appointment->pickup_required,
-                'created_at'       => optional($appointment->created_at)->toIso8601String(),
-            ])->values(),
+            'data' => $appointments->map(function ($appointment): array {
+                $limitedView = $this->artistLimitedView($appointment);
+
+                return [
+                    'id'     => $appointment->id,
+                    'studio' => $appointment->studio ? [
+                        'id'   => $appointment->studio->id,
+                        'name' => $appointment->studio->name,
+                    ] : null,
+                    'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
+                    'place'            => $limitedView ? null : $appointment->place,
+                    'pax'              => $limitedView ? null : $appointment->pax,
+                    'price'            => $appointment->appointment_type === 'tattoo' && $appointment->status !== 'completed'
+                        ? null
+                        : $appointment->price,
+                    'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
+                    'appointment_type' => $appointment->appointment_type,
+                    'status'           => $appointment->status,
+                    'artist_status'    => $appointment->artist_status,
+                    'notes'            => $limitedView ? null : $appointment->notes,
+                    'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
+                    'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                    'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                    'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                    'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
+                    'artist_limited_view' => $limitedView,
+                    'created_at'       => optional($appointment->created_at)->toIso8601String(),
+                ];
+            })->values(),
         ]);
     }
 
@@ -196,6 +201,7 @@ class AppointmentController extends Controller
         abort_unless($request->user()?->canManageStudioAppointments($studio), 403);
 
         $artists = $studio->users()
+            ->whereNull('users.banned_at')
             ->wherePivot('role', \App\Enums\UserRole::Artist->value)
             ->wherePivot('is_active', true)
             ->orderBy('users.name')
@@ -244,28 +250,30 @@ class AppointmentController extends Controller
     private function appointmentDetailResponse(Appointment $appointment): JsonResponse
     {
         $appointment->load(['createdBy', 'assignedArtist', 'studio']);
+        $limitedView = $this->artistLimitedView($appointment);
 
         return response()->json([
             'data' => [
                 'id'               => $appointment->id,
                 'appointment_type' => $appointment->appointment_type,
-                'full_name'        => trim($appointment->first_name.' '.$appointment->last_name),
-                'customer'         => $this->formatCustomer($appointment),
+                'full_name'        => $limitedView ? null : trim($appointment->first_name.' '.$appointment->last_name),
+                'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
                 'date'             => optional($appointment->appointment_at)->format('Y-m-d'),
                 'time'             => optional($appointment->appointment_at)->format('H:i'),
-                'place'            => $appointment->place,
-                'pax'              => $appointment->pax,
+                'place'            => $limitedView ? null : $appointment->place,
+                'pax'              => $limitedView ? null : $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
                 'status'           => $appointment->status,
-                'driver_status'    => $appointment->driver_status,
+                'driver_status'    => $limitedView ? null : $appointment->driver_status,
                 'artist_status'    => $appointment->artist_status,
-                'notes'            => $appointment->notes,
-                'source_image_path' => $this->imageUrl($appointment->source_image_path),
-                'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'notes'            => $limitedView ? null : $appointment->notes,
+                'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
-                'pickup_required'   => (bool) $appointment->pickup_required,
-                'is_old_customer'  => $appointment->is_old_customer,
+                'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
+                'is_old_customer'  => $limitedView ? null : $appointment->is_old_customer,
+                'artist_limited_view' => $limitedView,
                 'studio'           => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
@@ -276,7 +284,7 @@ class AppointmentController extends Controller
                     'profile_image' => $appointment->assignedArtist->profile_image,
                     'rating'        => $appointment->assignedArtist->rating,
                 ] : null,
-                'created_by' => $appointment->createdBy ? [
+                'created_by' => ! $limitedView && $appointment->createdBy ? [
                     'id'   => $appointment->createdBy->id,
                     'name' => $appointment->createdBy->fullName(),
                 ] : null,
@@ -291,20 +299,34 @@ class AppointmentController extends Controller
         AppointmentService $appointmentService
     ): JsonResponse {
         $validated = $request->validate([
-            'customer.first_name'         => ['required', 'string', 'max:255'],
-            'customer.last_name'          => ['required', 'string', 'max:255'],
+            'customer.first_name'         => ['nullable', 'string', 'max:255'],
+            'customer.last_name'          => ['nullable', 'string', 'max:255'],
             'customer.phone_country_code' => ['nullable', 'string', 'max:10'],
             'customer.phone_number'       => ['nullable', 'string', 'max:30'],
             'customer.hotel_name'         => ['nullable', 'string', 'max:255'],
         ]);
 
         $status = $appointmentService->checkCustomerStatus($studio, $validated['customer']);
+        $matchedAppointment = $status['matched_appointment'];
 
         return response()->json([
             'data' => [
                 'is_old_customer'     => $status['is_old_customer'],
-                'last_appointment_id' => $status['matched_appointment']?->id,
-                'customer_notes'      => $status['matched_appointment']?->customer_notes,
+                'last_appointment_id' => $matchedAppointment?->id,
+                'customer'            => $matchedAppointment ? $this->formatCustomer($matchedAppointment) : null,
+                'previous_appointments' => $status['appointments']->map(fn (Appointment $appointment): array => [
+                    'id'               => $appointment->id,
+                    'appointment_type' => $appointment->appointment_type,
+                    'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
+                    'status'           => $appointment->status,
+                    'hotel_name'       => $appointment->hotel_name,
+                    'room_number'      => $appointment->room_number,
+                    'place'            => $appointment->place,
+                    'pax'              => $appointment->pax,
+                    'price'            => $appointment->price,
+                    'notes'            => $appointment->notes,
+                    'customer_notes'   => $appointment->customer_notes,
+                ])->values(),
             ],
         ]);
     }
@@ -318,21 +340,25 @@ class AppointmentController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $appointments->map(fn ($appointment): array => [
+            'data' => $appointments->map(function ($appointment) use ($studio): array {
+                $limitedView = $this->artistLimitedView($appointment);
+
+                return [
                 'id'               => $appointment->id,
-                'customer'         => $this->formatCustomer($appointment),
-                'pax'              => $appointment->pax,
+                'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
+                'pax'              => $limitedView ? null : $appointment->pax,
                 'price'            => $appointment->price,
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
                 'artist_status'    => $appointment->artist_status,
-                'notes'            => $appointment->notes,
-                'source_image_path' => $this->imageUrl($appointment->source_image_path),
-                'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'notes'            => $limitedView ? null : $appointment->notes,
+                'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
+                'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
-                'pickup_required'   => (bool) $appointment->pickup_required,
+                'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
+                'artist_limited_view' => $limitedView,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -345,7 +371,8 @@ class AppointmentController extends Controller
                     'name' => $studio->name,
                 ],
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
-            ])->values(),
+                ];
+            })->values(),
         ]);
     }
 
@@ -805,6 +832,15 @@ class AppointmentController extends Controller
             && $appointment->status !== 'completed'
             ? null
             : $appointment->price;
+    }
+
+    private function artistLimitedView(Appointment $appointment): bool
+    {
+        $user = request()->user();
+
+        return $user instanceof User
+            && $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol])
+            && $appointment->appointment_type === 'tattoo';
     }
 
     /**

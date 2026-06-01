@@ -13,6 +13,7 @@ class ApiTokenMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->user() !== null) {
+            abort_if($request->user()->banned_at !== null, Response::HTTP_FORBIDDEN, 'Hesabınız banlanmıştır.');
             return $next($request);
         }
 
@@ -31,6 +32,8 @@ class ApiTokenMiddleware
         if ($user === null) {
             abort(Response::HTTP_UNAUTHORIZED, 'Token gecersiz.');
         }
+
+        abort_if($user->banned_at !== null, Response::HTTP_FORBIDDEN, 'Hesabınız banlanmıştır.');
 
         Auth::setUser($user);
         $request->setUserResolver(static fn (): User => $user);

@@ -28,6 +28,13 @@ class AuthController extends Controller
             ])->onlyInput('email');
         }
 
+        if ($request->user()?->banned_at !== null) {
+            Auth::logout();
+            return back()->withErrors([
+                'email' => 'Hesabınız banlanmıştır.',
+            ])->onlyInput('email');
+        }
+
         $request->session()->regenerate();
 
         return redirect()->route('admin.dashboard');

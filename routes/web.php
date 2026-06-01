@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
+use App\Http\Controllers\Admin\ContentReportController as AdminContentReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLogController;
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
@@ -33,6 +34,10 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
 
     Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');
+    Route::get('/content-reports', [AdminContentReportController::class, 'index'])->name('content-reports.index');
+    Route::post('/content-reports/{contentReport}/resolve', [AdminContentReportController::class, 'resolve'])->name('content-reports.resolve');
+    Route::post('/content-reports/users/{user}/ban', [AdminContentReportController::class, 'ban'])->name('content-reports.ban');
+    Route::post('/content-reports/users/{user}/unban', [AdminContentReportController::class, 'unban'])->name('content-reports.unban');
 
     Route::get('/studios', [AdminStudioController::class, 'index'])->name('studios.index');
     Route::post('/studios/{studio}', [AdminStudioController::class, 'update'])->name('studios.update');

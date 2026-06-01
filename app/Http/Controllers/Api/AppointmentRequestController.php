@@ -98,6 +98,7 @@ class AppointmentRequestController extends Controller
         $target = ! empty($validated['artist_id'])
             ? User::query()->findOrFail($validated['artist_id'])
             : null;
+        abort_if($target?->banned_at !== null, 422, 'Banlı kullanıcıya talep gönderilemez.');
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
 

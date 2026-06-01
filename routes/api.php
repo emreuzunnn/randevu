@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AppointmentRequestController;
 use App\Http\Controllers\Api\AppointmentSlipOcrController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\ContentModerationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
@@ -58,8 +59,13 @@ Route::middleware(['api.auth'])->group(function (): void {
     // Profil
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me', [AuthController::class, 'updateProfile']);
+    Route::delete('/me', [AuthController::class, 'destroyAccount']);
     Route::get('/profile', [AuthController::class, 'me']);
     Route::patch('/profile', [AuthController::class, 'updateProfile']);
+
+    // İçerik ve kullanıcı şikayeti
+    Route::post('/users/{user}/report', [ContentModerationController::class, 'reportUser']);
+    Route::post('/reviews/{review}/report', [ContentModerationController::class, 'reportReview']);
 
     // Push bildirim token kaydı ve bildirim merkezi
     Route::post('/push-tokens', [PushTokenController::class, 'store']);
@@ -134,7 +140,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 
     // Stüdyodaki tüm kullanıcıları listeler.
     Route::get('/studios/{studio}/users', [UserDirectoryController::class, 'indexByStudio']);
-    // Kullanıcıya stüdyo rolü güncelle / ban / aktif-pasif yap.
+    // Kullanıcının stüdyo rolünü ve aktif-pasif üyelik durumunu güncelle.
     Route::patch('/studios/{studio}/users/{user}', [UserDirectoryController::class, 'update']);
     // Yeni kullanıcı oluşturur ve stüdyoya atar.
     Route::post('/users', [UserDirectoryController::class, 'store']);
@@ -153,6 +159,10 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     // Tüm yorumları listele / uygunsuz yorumu sil.
     Route::get('/reviews', [PublicController::class, 'reviews']);
     Route::delete('/reviews/{review}', [PublicController::class, 'destroyReview']);
+    Route::get('/content-reports', [ContentModerationController::class, 'reports']);
+    Route::patch('/content-reports/{contentReport}/resolve', [ContentModerationController::class, 'resolveReport']);
+    Route::post('/users/{user}/ban', [ContentModerationController::class, 'banUser']);
+    Route::delete('/users/{user}/ban', [ContentModerationController::class, 'unbanUser']);
 
     // Şirket yönetimi
     Route::get('/companies', [CompanyController::class, 'index']);

@@ -190,6 +190,14 @@
                         </svg>
                         Bildirim Logları
                     </a>
+                    <a href="{{ route('admin.content-reports.index') }}"
+                       class="admin-nav-link {{ request()->routeIs('admin.content-reports.*') ? 'is-active' : '' }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 9v4"/><path d="M12 17h.01"/>
+                            <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"/>
+                        </svg>
+                        Şikayetler
+                    </a>
                 @endif
 
             </nav>

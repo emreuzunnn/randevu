@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\Studio;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -13,15 +14,17 @@ class AppointmentService
 {
     /**
      * @param  array<string, mixed>  $customer
-     * @return array{is_old_customer:bool,matched_appointment:?Appointment}
+     * @return array{is_old_customer:bool,matched_appointment:?Appointment,appointments:Collection<int, Appointment>}
      */
     public function checkCustomerStatus(Studio $studio, array $customer): array
     {
-        $matchedAppointment = $this->findExistingAppointment($studio, $customer);
+        $appointments = $this->findCustomerAppointments($studio, $customer);
+        $matchedAppointment = $appointments->first();
 
         return [
             'is_old_customer' => $matchedAppointment !== null,
             'matched_appointment' => $matchedAppointment,
+            'appointments' => $appointments,
         ];
     }
 
@@ -118,6 +121,11 @@ class AppointmentService
                     'assigned_artist_user_id' => ['Kullanıcı bulunamadı.'],
                 ]);
             }
+            if ($artist->banned_at !== null) {
+                throw ValidationException::withMessages([
+                    'assigned_artist_user_id' => ['Banlı kullanıcı randevuya atanamaz.'],
+                ]);
+            }
 
             $assignableRoles = $appointment->appointment_type === 'designer'
                 ? [UserRole::Designer]
@@ -167,30 +175,59 @@ class AppointmentService
      */
     private function findExistingAppointment(Studio $studio, array $customer): ?Appointment
     {
-        $query = Appointment::query()->where('studio_id', $studio->id);
+        return $this->findCustomerAppointments($studio, $customer)->first();
+    }
 
-        $phoneCountryCode = $customer['phone_country_code'] ?? null;
-        $phoneNumber = $customer['phone_number'] ?? null;
+    /**
+     * @param  array<string, mixed>  $customer
+     * @return Collection<int, Appointment>
+     */
+    private function findCustomerAppointments(Studio $studio, array $customer): Collection
+    {
+        $query = Appointment::query()
+            ->where('studio_id', $studio->id)
+            ->latest('appointment_at');
 
-        if (filled($phoneNumber)) {
-            return $query
-                ->where('phone_number', $phoneNumber)
-                ->when(
-                    filled($phoneCountryCode),
-                    fn ($q) => $q->where(function ($cq) use ($phoneCountryCode) {
-                        $cq->where('phone_country_code', $phoneCountryCode)->orWhereNull('phone_country_code');
-                    })
-                )
-                ->latest('appointment_at')
-                ->first();
+        $phoneCountryCode = trim((string) ($customer['phone_country_code'] ?? ''));
+        $phoneNumber = trim((string) ($customer['phone_number'] ?? ''));
+        $firstName = trim((string) ($customer['first_name'] ?? ''));
+        $lastName = trim((string) ($customer['last_name'] ?? ''));
+
+        $hasPhone = filled($phoneNumber);
+        $hasFullName = filled($firstName) && filled($lastName);
+        if (! $hasPhone && ! $hasFullName) {
+            return new Collection();
         }
 
         return $query
-            ->where('first_name', $customer['first_name'])
-            ->where('last_name', $customer['last_name'])
-            ->where('hotel_name', $customer['hotel_name'] ?? null)
-            ->latest('appointment_at')
-            ->first();
+            ->where(function ($customerQuery) use ($hasPhone, $phoneNumber, $phoneCountryCode, $hasFullName, $firstName, $lastName): void {
+                if ($hasPhone) {
+                    $customerQuery->where(function ($phoneQuery) use ($phoneNumber, $phoneCountryCode): void {
+                        $phoneQuery
+                            ->where('phone_number', $phoneNumber)
+                            ->when(
+                                filled($phoneCountryCode),
+                                fn ($phoneWithCountryQuery) => $phoneWithCountryQuery
+                                    ->where(function ($countryQuery) use ($phoneCountryCode): void {
+                                        $countryQuery
+                                            ->where('phone_country_code', $phoneCountryCode)
+                                            ->orWhereNull('phone_country_code');
+                                    })
+                            );
+                    });
+                }
+
+                if ($hasFullName) {
+                    $method = $hasPhone ? 'orWhere' : 'where';
+                    $customerQuery->{$method}(function ($nameQuery) use ($firstName, $lastName): void {
+                        $nameQuery
+                            ->whereRaw('LOWER(first_name) = ?', [mb_strtolower($firstName)])
+                            ->whereRaw('LOWER(last_name) = ?', [mb_strtolower($lastName)]);
+                    });
+                }
+            })
+            ->limit(5)
+            ->get();
     }
 
     /**

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
+use App\Models\Review;
 use App\Models\Studio;
 use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -23,6 +25,7 @@ class AuthController extends Controller
             'phone'    => ['required', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'bio'      => ['nullable', 'string', 'max:1000'],
+            'accepted_terms' => ['accepted'],
         ]);
 
         $user = User::query()->create([
@@ -66,6 +69,8 @@ class AuthController extends Controller
         if ($user === null || ! Hash::check($validated['password'], $user->password)) {
             return response()->json(['message' => 'Email veya şifre hatalı.'], 422);
         }
+
+        abort_if($user->banned_at !== null, 403, 'Hesabınız banlanmıştır.');
 
         $token = $user->issueApiToken();
         $primaryStudio = $this->resolvePrimaryStudio($user);
@@ -362,6 +367,47 @@ class AuthController extends Controller
     {
         $request->user()?->revokeApiToken();
         return response()->json(['message' => 'Çıkış yapıldı.']);
+    }
+
+    public function destroyAccount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+        abort_unless(
+            $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
+            403,
+            'Personel hesapları uygulama içinden silinemez.'
+        );
+
+        $userId = $user->id;
+        $reviewImagePaths = Review::query()
+            ->where('user_id', $userId)
+            ->orWhere('artist_id', $userId)
+            ->pluck('image_path')
+            ->filter()
+            ->values();
+
+        $user->delete();
+
+        Storage::disk('public')->deleteDirectory('avatars/' . $userId);
+        Storage::disk('public')->deleteDirectory('portfolio/' . $userId);
+        Storage::disk('public')->deleteDirectory('reviews/' . $userId);
+        $reviewImagePaths->each(fn (string $path) => $this->deletePublicFile($path));
+
+        return response()->json(['message' => 'Hesabınız kalıcı olarak silindi.']);
+    }
+
+    private function deletePublicFile(string $path): void
+    {
+        if (str_starts_with($path, 'http')) {
+            $urlPath = parse_url($path, PHP_URL_PATH);
+            if (! is_string($urlPath) || ! str_starts_with($urlPath, '/storage/')) {
+                return;
+            }
+            $path = Str::after($urlPath, '/storage/');
+        }
+
+        Storage::disk('public')->delete(ltrim(Str::after($path, 'storage/'), '/'));
     }
 
     private function resolvePrimaryStudio(User $user): ?Studio

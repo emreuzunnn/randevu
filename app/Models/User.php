@@ -38,6 +38,8 @@ class User extends Authenticatable
         'password',
         'role',
         'can_open_multiple_studios',
+        'banned_at',
+        'ban_reason',
     ];
 
     protected $hidden = [
@@ -53,6 +55,7 @@ class User extends Authenticatable
             'password'                  => 'hashed',
             'role'                      => UserRole::class,
             'can_open_multiple_studios' => 'boolean',
+            'banned_at'                 => 'datetime',
             'portfolio'                 => 'array',
             'specializations'           => 'array',
             'experience_years'   => 'integer',

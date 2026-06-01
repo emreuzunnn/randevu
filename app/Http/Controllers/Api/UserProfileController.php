@@ -83,6 +83,8 @@ class UserProfileController extends Controller
                 'profile_image'       => $user->profile_image,
                 'rating'              => $user->rating,
                 'role'                => $user->role?->value,
+                'is_banned'           => $user->banned_at !== null,
+                'ban_reason'          => $user->ban_reason,
                 'has_portfolio'       => $hasPortfolio,
                 'portfolio'           => $hasPortfolio ? ($user->portfolio ?? []) : null,
                 'appointment_stats'  => $appointmentStats,

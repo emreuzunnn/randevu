@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\ContentReport;
 use App\Models\Review;
 use App\Models\Shop;
 use App\Models\Studio;
@@ -24,6 +25,7 @@ class PublicController extends Controller
         $studio->load(['shop.company']);
 
         $artists = $studio->users()
+            ->whereNull('users.banned_at')
             ->wherePivotIn('role', [UserRole::Artist->value, UserRole::Designer->value])
             ->wherePivot('is_active', true)
             ->orderBy('users.name')
@@ -68,6 +70,7 @@ class PublicController extends Controller
 
         $reviewStats = Review::query()
             ->where('studio_id', $studio->id)
+            ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
             ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
             ->first();
 
@@ -122,6 +125,7 @@ class PublicController extends Controller
     /** Artist / rol sahibi kullanıcı herkese açık profil */
     public function artist(User $user): JsonResponse
     {
+        abort_if($user->banned_at !== null, 404);
         abort_unless(
             $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
             404
@@ -142,6 +146,7 @@ class PublicController extends Controller
 
         $reviewStats = Review::query()
             ->where('artist_id', $user->id)
+            ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
             ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
             ->first();
 
@@ -192,6 +197,7 @@ class PublicController extends Controller
     /** Artist müsaitlik takvimi — önümüzdeki 7 gün */
     public function artistAvailability(User $user): JsonResponse
     {
+        abort_if($user->banned_at !== null, 404);
         abort_unless(
             $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
             404
@@ -242,6 +248,7 @@ class PublicController extends Controller
     /** Artist değerlendirmeleri */
     public function artistReviews(User $user): JsonResponse
     {
+        abort_if($user->banned_at !== null, 404);
         abort_unless(
             $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
             404
@@ -250,6 +257,7 @@ class PublicController extends Controller
         $reviews = Review::query()
             ->with('reviewer:id,name,surname')
             ->where('artist_id', $user->id)
+            ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
             ->orderByDesc('created_at')
             ->get();
 
@@ -262,6 +270,7 @@ class PublicController extends Controller
         $reviews = Review::query()
             ->with('reviewer:id,name,surname')
             ->where('studio_id', $studio->id)
+            ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
             ->orderByDesc('created_at')
             ->get();
 
@@ -294,6 +303,7 @@ class PublicController extends Controller
 
     public function storeArtistReview(Request $request, User $user): JsonResponse
     {
+        abort_if($user->banned_at !== null, 404);
         abort_unless(
             $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
             404
@@ -333,6 +343,7 @@ class PublicController extends Controller
 
         $average = Review::query()
             ->where('artist_id', $user->id)
+            ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
             ->avg('rating');
 
         $user->forceFill([
@@ -398,10 +409,12 @@ class PublicController extends Controller
 
         $reviews = Review::query()
             ->with([
-                'reviewer:id,name,surname,email',
+                'reviewer:id,name,surname,email,banned_at',
                 'artist:id,name,surname,role',
                 'studio:id,name,location',
+                'contentReports.reporter:id,name,surname,email',
             ])
+            ->withCount('contentReports')
             ->orderByDesc('created_at')
             ->paginate((int) $request->integer('per_page', 50));
 
@@ -429,6 +442,7 @@ class PublicController extends Controller
         if ($artist !== null) {
             $average = Review::query()
                 ->where('artist_id', $artist->id)
+                ->whereHas('reviewer', fn ($query) => $query->whereNull('banned_at'))
                 ->avg('rating');
 
             $artist->forceFill([
@@ -445,6 +459,7 @@ class PublicController extends Controller
     {
         return [
             'id' => $review->id,
+            'user_id' => $review->reviewer?->id,
             'user_name' => $review->reviewer ? $review->reviewer->fullName() : 'Anonim',
             'rating' => $review->rating,
             'comment' => $review->comment,
@@ -457,10 +472,20 @@ class PublicController extends Controller
     {
         return [
             ...$this->reviewResource($review),
+            'report_count' => (int) ($review->content_reports_count ?? 0),
+            'reports' => $review->contentReports->map(fn (ContentReport $report): array => [
+                'id' => $report->id,
+                'reason' => $report->reason,
+                'details' => $report->details,
+                'status' => $report->status,
+                'reporter_name' => $report->reporter?->fullName(),
+                'created_at' => $report->created_at?->toIso8601String(),
+            ])->values(),
             'reviewer' => $review->reviewer ? [
                 'id' => $review->reviewer->id,
                 'name' => $review->reviewer->fullName(),
                 'email' => $review->reviewer->email,
+                'is_banned' => $review->reviewer->banned_at !== null,
             ] : null,
             'target_type' => $review->studio_id !== null ? 'studio' : 'user',
             'target' => $review->studio_id !== null ? [
@@ -587,6 +612,7 @@ class PublicController extends Controller
     {
         $artists = User::query()
             ->whereIn('role', [UserRole::Artist->value, UserRole::Designer->value, UserRole::KullaniciRol->value])
+            ->whereNull('banned_at')
             ->with(['studios' => fn ($query) => $query
                 ->where('studio_user.is_active', true)
                 ->select('studios.id', 'studios.name', 'studios.location')])
