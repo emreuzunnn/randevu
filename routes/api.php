@@ -83,6 +83,7 @@ Route::middleware(['api.auth'])->group(function (): void {
 
     // Freelancer çalışanlık davetleri: kullanıcı kabul ettiğinde stüdyo üyeliği açılır.
     Route::get('/staff-invitations', [StudioStaffInvitationController::class, 'index']);
+    Route::post('/users/{user}/staff-invitations', [StudioStaffInvitationController::class, 'store']);
     Route::patch('/staff-invitations/{studioStaffInvitation}/accept', [StudioStaffInvitationController::class, 'accept']);
     Route::patch('/staff-invitations/{studioStaffInvitation}/reject', [StudioStaffInvitationController::class, 'reject']);
 

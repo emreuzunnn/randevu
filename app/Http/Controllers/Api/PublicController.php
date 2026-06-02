@@ -172,6 +172,7 @@ class PublicController extends Controller
                 'rating'              => $user->rating,
                 'review_count'        => (int) ($reviewStats->total ?? 0),
                 'response_time_hours' => $user->response_time_hours,
+                'is_freelancer'       => $studioMemberships->isEmpty(),
                 'appointment_stats'   => [
                     'completed' => (int) ($appointmentStats['completed'] ?? 0),
                     'cancelled' => (int) ($appointmentStats['cancelled'] ?? 0),

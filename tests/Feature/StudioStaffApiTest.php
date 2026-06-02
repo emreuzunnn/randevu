@@ -216,6 +216,115 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
+    public function test_supervisor_can_invite_freelancer_from_profile_for_branch_studio(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $freelancer = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Artist,
+        ]);
+
+        $this->actingAs($supervisor)
+            ->postJson("/api/users/{$freelancer->id}/staff-invitations", [
+                'studio_id' => $studio->id,
+                'role' => UserRole::Artist->value,
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('data.studio_id', $studio->id)
+            ->assertJsonPath('data.user_id', $freelancer->id)
+            ->assertJsonPath('data.role', UserRole::Artist->value);
+
+        $this->assertDatabaseHas('studio_staff_invitations', [
+            'studio_id' => $studio->id,
+            'user_id' => $freelancer->id,
+            'invited_by_user_id' => $supervisor->id,
+            'role' => UserRole::Artist->value,
+            'status' => 'pending',
+        ]);
+
+        $this->assertDatabaseHas('push_notifications', [
+            'user_id' => $freelancer->id,
+            'type' => 'studio_staff_invitation',
+        ]);
+    }
+
+    public function test_supervisor_cannot_invite_freelancer_for_other_branch(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        Studio::factory()->create(['shop_id' => $shop->id]);
+        $outsideStudio = Studio::factory()->create();
+        $freelancer = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Artist,
+        ]);
+
+        $this->actingAs($supervisor)
+            ->postJson("/api/users/{$freelancer->id}/staff-invitations", [
+                'studio_id' => $outsideStudio->id,
+                'role' => UserRole::Artist->value,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_manager_can_invite_freelancer_for_company_studio(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Yonetici]);
+        $company = \App\Models\Company::query()->create([
+            'name' => 'Manager Company',
+            'manager_user_id' => $manager->id,
+        ]);
+        $shop = \App\Models\Shop::factory()->create([
+            'company_id' => $company->id,
+            'manager_user_id' => null,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $freelancer = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Designer,
+        ]);
+
+        $this->actingAs($manager)
+            ->postJson("/api/users/{$freelancer->id}/staff-invitations", [
+                'studio_id' => $studio->id,
+                'role' => UserRole::Designer->value,
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('data.role', UserRole::Designer->value);
+    }
+
+    public function test_profile_invitation_rejects_user_who_already_works_for_studio(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $artist = User::factory()->create(['role' => UserRole::Artist]);
+        $studio->users()->attach($artist->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($supervisor)
+            ->postJson("/api/users/{$artist->id}/staff-invitations", [
+                'studio_id' => $studio->id,
+                'role' => UserRole::Artist->value,
+            ])
+            ->assertUnprocessable();
+    }
+
     /**
      * @return array{0:User,1:Studio}
      */
