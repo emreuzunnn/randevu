@@ -133,6 +133,9 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 });
 
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+    // Yönetici yalnızca sahibi olduğu şirkete bağlı şubeleri oluşturabilir.
+    Route::get('/companies', [CompanyController::class, 'index']);
+    Route::post('/shops', [ShopController::class, 'store']);
     // Dükkan güncelleme.
     Route::patch('/shops/{shop}', [ShopController::class, 'update']);
 });
@@ -175,12 +178,10 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     Route::delete('/users/{user}/ban', [ContentModerationController::class, 'unbanUser']);
 
     // Şirket yönetimi
-    Route::get('/companies', [CompanyController::class, 'index']);
     Route::post('/companies', [CompanyController::class, 'store']);
     Route::patch('/companies/{company}', [CompanyController::class, 'update']);
 
-    // Dükkan oluştur / sil
-    Route::post('/shops', [ShopController::class, 'store']);
+    // Dükkan sil
     Route::delete('/shops/{shop}', [ShopController::class, 'destroy']);
 
     // Yönetici (yonetici) atamaları

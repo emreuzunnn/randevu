@@ -118,42 +118,8 @@ class AppointmentReportService
      */
     private function reportStudioIds(User $user): array
     {
-        if ($user->hasRole(UserRole::Admin)) {
-            return Studio::query()->pluck('id')->map(fn ($id): int => (int) $id)->all();
-        }
-
-        if ($user->hasRole(UserRole::Yonetici)) {
-            $companyIds = $user->managedShops()
-                ->whereNotNull('company_id')
-                ->pluck('company_id');
-
-            if ($companyIds->isNotEmpty()) {
-                return Studio::query()
-                    ->whereHas('shop', fn ($query) => $query->whereIn('company_id', $companyIds))
-                    ->pluck('id')
-                    ->map(fn ($id): int => (int) $id)
-                    ->all();
-            }
-        }
-
-        if ($user->hasRole(UserRole::Supervisor)) {
-            $shopIds = $user->managedShops()->pluck('id');
-
-            if ($shopIds->isEmpty()) {
-                $shopIds = $user->studios()
-                    ->wherePivot('role', UserRole::Supervisor->value)
-                    ->wherePivot('is_active', true)
-                    ->pluck('studios.shop_id')
-                    ->filter();
-            }
-
-            if ($shopIds->isNotEmpty()) {
-                return Studio::query()
-                    ->whereIn('shop_id', $shopIds)
-                    ->pluck('id')
-                    ->map(fn ($id): int => (int) $id)
-                    ->all();
-            }
+        if ($user->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor])) {
+            return $user->staffScopeStudioIds();
         }
 
         return $user->accessibleStudioIds();

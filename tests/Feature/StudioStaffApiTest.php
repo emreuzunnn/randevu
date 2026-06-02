@@ -158,6 +158,64 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
+    public function test_supervisor_can_deactivate_employee_in_assigned_branch(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $employee = User::factory()->create(['role' => UserRole::Calisan]);
+
+        $studio->users()->attach($employee->id, [
+            'role' => UserRole::Calisan->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($supervisor)
+            ->deleteJson("/api/studios/{$studio->id}/employees/{$employee->id}")
+            ->assertOk();
+
+        $this->assertDatabaseHas('studio_user', [
+            'studio_id' => $studio->id,
+            'user_id' => $employee->id,
+            'is_active' => 0,
+        ]);
+    }
+
+    public function test_legacy_freelancer_can_receive_artist_invitation(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $freelancer = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => null,
+            'email' => 'legacy.freelancer@example.com',
+        ]);
+
+        $this->actingAs($supervisor)
+            ->postJson("/api/studios/{$studio->id}/artists", [
+                'name' => 'Legacy Freelancer',
+                'email' => $freelancer->email,
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('data.action', 'invited_existing_freelancer');
+
+        $this->assertDatabaseHas('studio_staff_invitations', [
+            'studio_id' => $studio->id,
+            'user_id' => $freelancer->id,
+            'role' => UserRole::Artist->value,
+            'status' => 'pending',
+        ]);
+    }
+
     /**
      * @return array{0:User,1:Studio}
      */

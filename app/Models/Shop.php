@@ -23,6 +23,7 @@ class Shop extends Model
         'closing_time',
         'gallery_images',
         'manager_user_id',
+        'supervisor_user_id',
         'is_active',
     ];
 
@@ -47,5 +48,10 @@ class Shop extends Model
     public function studios(): HasMany
     {
         return $this->hasMany(Studio::class);
+    }
+
+    public function supervisor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_user_id');
     }
 }

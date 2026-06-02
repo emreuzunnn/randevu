@@ -273,6 +273,7 @@ class ApiTestSeeder extends Seeder
 
         // ── 5. ŞİRKET ─────────────────────────────────────────────────────
         $company = Company::create([
+            'manager_user_id'  => $yonetici->id,
             'name'             => 'Ink Empire Group',
             'address'          => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
             'phone'            => '02125550000',
@@ -296,7 +297,7 @@ class ApiTestSeeder extends Seeder
                 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             ],
-            'manager_user_id' => $yonetici->id,
+            'supervisor_user_id' => $supervisor1->id,
             'is_active'       => true,
         ]);
 
@@ -311,7 +312,7 @@ class ApiTestSeeder extends Seeder
                 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
             ],
-            'manager_user_id' => $yonetici->id,
+            'supervisor_user_id' => $supervisor2->id,
             'is_active'       => true,
         ]);
 

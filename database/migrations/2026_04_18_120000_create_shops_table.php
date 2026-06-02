@@ -18,6 +18,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
+            $table->foreignId('supervisor_user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             $table->string('name');
             $table->string('location')->nullable();
             $table->string('logo_path', 2048)->nullable();

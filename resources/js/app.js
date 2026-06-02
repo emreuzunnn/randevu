@@ -934,7 +934,7 @@ const renderStudiosPage = async (root) => {
 
 const renderShopsPage = async (root) => {
     root.innerHTML = `
-        ${pageHeader('Dükkan Yönetimi', 'Dükkan Ağı', 'Dükkan kartları, yönetici eşleştirmesi ve yapılandırma aynı yerde.', '<span class="badge-pill badge-pill--success">Şube Yönetimi</span>')}
+        ${pageHeader('Dükkan Yönetimi', 'Dükkan Ağı', 'Dükkan kartları, supervisor eşleştirmesi ve yapılandırma aynı yerde.', '<span class="badge-pill badge-pill--success">Şube Yönetimi</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-shops-list>${skeletonGrid(3)}</div>
             <div class="form-shell" data-shops-create style="align-self:start"></div>
@@ -946,7 +946,7 @@ const renderShopsPage = async (root) => {
 
     const [shopsPayload, companiesPayload] = await Promise.all([
         apiFetch('/shops'),
-        adminConfig.isAdmin ? apiFetch('/companies') : Promise.resolve({ data: [] }),
+        adminConfig.canManageShops ? apiFetch('/companies') : Promise.resolve({ data: [] }),
     ]);
 
     const shops      = shopsPayload.data    || [];
@@ -954,20 +954,20 @@ const renderShopsPage = async (root) => {
     const companyMap = Object.fromEntries(companies.map((c) => [String(c.id), c.name]));
 
     const uniqueCompanyIds = [...new Set(shops.map((s) => s.company_id).filter(Boolean))];
-    const managersByCompany = {};
-    if (adminConfig.isAdmin && uniqueCompanyIds.length) {
+    const supervisorsByCompany = {};
+    if (adminConfig.canManageShops && uniqueCompanyIds.length) {
         const results = await Promise.all(
             uniqueCompanyIds.map((cid) =>
-                apiFetch(`/users/options?roles=yonetici,supervisor&company_id=${cid}`)
+                apiFetch(`/users/options?roles=supervisor&company_id=${cid}`)
                     .then((p) => [String(cid), p.data || []])
             )
         );
-        results.forEach(([cid, users]) => { managersByCompany[cid] = users; });
+        results.forEach(([cid, users]) => { supervisorsByCompany[cid] = users; });
     }
 
-    const buildManagerOptions = (companyId, selectedId = null) => {
-        const list = managersByCompany[String(companyId)] || [];
-        return `<option value="">Yönetici seçin (opsiyonel)</option>${list.map((m) =>
+    const buildSupervisorOptions = (companyId, selectedId = null) => {
+        const list = supervisorsByCompany[String(companyId)] || [];
+        return `<option value="">Supervisor seçin (opsiyonel)</option>${list.map((m) =>
             `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(m.name)} — ${roleLabel(m.role)}</option>`
         ).join('')}`;
     };
@@ -998,18 +998,18 @@ const renderShopsPage = async (root) => {
                         </span>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem">
-                        ${statBlock('Yönetici', escapeHtml(shop.manager?.name || '—'))}
+                        ${statBlock('Supervisor', escapeHtml(shop.supervisor?.name || shop.manager?.name || '—'))}
                         ${statBlock('Bağlı Stüdyolar', shop.studios.map((s) => escapeHtml(s.name)).join(', ') || '—')}
                     </div>
                     <div style="padding-top:0.85rem;border-top:1px solid var(--border)">
                         <form class="form-grid" data-shop-form data-shop-id="${shop.id}" style="gap:0.6rem">
                             <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" value="${escapeHtml(shop.name)}"></div>
                             <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(shop.location || '')}"></div>
-                            ${adminConfig.isAdmin ? `
+                            ${adminConfig.canManageShops ? `
                                 <div class="field-wrap">
-                                    <label class="field-label">Yönetici</label>
-                                    <select class="field-select" name="manager_user_id">
-                                        ${buildManagerOptions(shop.company_id, shop.manager?.id ?? null)}
+                                    <label class="field-label">Supervisor</label>
+                                    <select class="field-select" name="supervisor_user_id">
+                                        ${buildSupervisorOptions(shop.company_id, shop.supervisor?.id ?? shop.manager?.id ?? null)}
                                     </select>
                                 </div>
                             ` : ''}
@@ -1021,7 +1021,7 @@ const renderShopsPage = async (root) => {
         </div>
     `;
 
-    createNode.innerHTML = adminConfig.isAdmin
+    createNode.innerHTML = adminConfig.canManageShops
         ? `
             <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Lokasyon</div>
             <div class="section-title" style="margin-bottom:1.25rem">Yeni Dükkan Oluştur</div>
@@ -1033,8 +1033,8 @@ const renderShopsPage = async (root) => {
                 <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" required></div>
                 <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
                 <div class="field-wrap">
-                    <label class="field-label">Yönetici <span style="color:var(--text-subtle)">(opsiyonel)</span></label>
-                    <select class="field-select" name="manager_user_id" data-manager-select>
+                    <label class="field-label">Supervisor <span style="color:var(--text-subtle)">(opsiyonel)</span></label>
+                    <select class="field-select" name="supervisor_user_id" data-supervisor-select>
                         <option value="">Önce şirket seçin</option>
                     </select>
                 </div>
@@ -1051,19 +1051,19 @@ const renderShopsPage = async (root) => {
     const createForm = qs('[data-shop-create-form]', root);
     if (createForm) {
         const companySelect = qs('[data-company-select]', createForm);
-        const managerSelect = qs('[data-manager-select]', createForm);
+        const supervisorSelect = qs('[data-supervisor-select]', createForm);
 
         companySelect?.addEventListener('change', async () => {
             const cid = companySelect.value;
-            if (!cid) { managerSelect.innerHTML = '<option value="">Önce şirket seçin</option>'; return; }
-            managerSelect.innerHTML = '<option value="">Yükleniyor...</option>';
-            managerSelect.disabled = true;
+            if (!cid) { supervisorSelect.innerHTML = '<option value="">Önce şirket seçin</option>'; return; }
+            supervisorSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+            supervisorSelect.disabled = true;
             try {
-                const { data } = await apiFetch(`/users/options?roles=yonetici,supervisor&company_id=${cid}`);
-                managersByCompany[String(cid)] = data || [];
-                managerSelect.innerHTML = buildManagerOptions(cid);
+                const { data } = await apiFetch(`/users/options?roles=supervisor&company_id=${cid}`);
+                supervisorsByCompany[String(cid)] = data || [];
+                supervisorSelect.innerHTML = buildSupervisorOptions(cid);
             } finally {
-                managerSelect.disabled = false;
+                supervisorSelect.disabled = false;
             }
         });
 
@@ -1071,7 +1071,7 @@ const renderShopsPage = async (root) => {
             e.preventDefault();
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(createForm).entries());
-                if (!body.manager_user_id) delete body.manager_user_id;
+                if (!body.supervisor_user_id) delete body.supervisor_user_id;
                 await apiFetch('/shops', { method: 'POST', body });
                 showToast('Yeni dükkan eklendi.', 'success');
                 await renderShopsPage(root);
@@ -1084,7 +1084,7 @@ const renderShopsPage = async (root) => {
             e.preventDefault();
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(form).entries());
-                if (!body.manager_user_id) delete body.manager_user_id;
+                if (!body.supervisor_user_id) delete body.supervisor_user_id;
                 await apiFetch(`/shops/${form.getAttribute('data-shop-id')}`, { method: 'PATCH', body });
                 showToast('Dükkan güncellendi.', 'success');
                 await renderShopsPage(root);
@@ -1096,6 +1096,13 @@ const renderShopsPage = async (root) => {
 /* ── Şirketler ──────────────────────────────────────────────── */
 
 const renderCompaniesPage = async (root) => {
+    const managerPayload = await apiFetch('/users/options?roles=yonetici');
+    const managers = managerPayload.data || [];
+    const buildManagerOptions = (selectedId = null) =>
+        `<option value="">Yönetici seçin (opsiyonel)</option>${managers.map((manager) =>
+            `<option value="${manager.id}" ${String(manager.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(manager.name)}</option>`
+        ).join('')}`;
+
     root.innerHTML = `
         ${pageHeader('Şirket Yönetimi', 'Şirket Ağı', 'Şirket bazlı dükkan, stüdyo ve randevu verilerini anlık görün.', '<span class="badge-pill badge-pill--info">Platform Yönetimi</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
@@ -1105,6 +1112,7 @@ const renderCompaniesPage = async (root) => {
                 <div class="section-title" style="margin-bottom:1.25rem">Şirket Oluştur</div>
                 <form class="form-grid" data-company-create-form>
                     <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" required></div>
+                    <div class="field-wrap"><label class="field-label">Şirket Yöneticisi</label><select class="field-select" name="manager_user_id">${buildManagerOptions()}</select></div>
                     <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address"></div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone"></div>
@@ -1165,9 +1173,11 @@ const renderCompaniesPage = async (root) => {
                                 <div style="margin-top:0.5rem">${limitBadge(company.studio_count, company.max_studio_count)}</div>
                             </div>
                         </div>
+                        <div style="margin-bottom:1rem">${statBlock('Şirket Yöneticisi', escapeHtml(company.manager?.name || '—'))}</div>
                         <div style="padding-top:0.85rem;border-top:1px solid var(--border)">
                             <form class="form-grid" data-company-edit-form data-company-id="${company.id}" style="gap:0.6rem">
                                 <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" value="${escapeHtml(company.name)}"></div>
+                                <div class="field-wrap"><label class="field-label">Şirket Yöneticisi</label><select class="field-select" name="manager_user_id">${buildManagerOptions(company.manager_user_id)}</select></div>
                                 <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address" value="${escapeHtml(company.address || '')}"></div>
                                 <div class="form-grid form-grid--split">
                                     <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" value="${escapeHtml(company.phone || '')}"></div>
@@ -1191,8 +1201,9 @@ const renderCompaniesPage = async (root) => {
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
                 handleAsync(async () => {
-                    const body = Object.fromEntries(new FormData(form).entries());
-                    await apiFetch(`/companies/${form.getAttribute('data-company-id')}`, { method: 'PATCH', body });
+                const body = Object.fromEntries(new FormData(form).entries());
+                if (!body.manager_user_id) delete body.manager_user_id;
+                await apiFetch(`/companies/${form.getAttribute('data-company-id')}`, { method: 'PATCH', body });
                     showToast('Şirket güncellendi.', 'success');
                     await renderCompanies();
                 });
@@ -1207,6 +1218,7 @@ const renderCompaniesPage = async (root) => {
         handleAsync(async () => {
             const form = e.target;
             const body = Object.fromEntries(new FormData(form).entries());
+            if (!body.manager_user_id) delete body.manager_user_id;
             await apiFetch('/companies', { method: 'POST', body });
             showToast('Şirket oluşturuldu.', 'success');
             form.reset();

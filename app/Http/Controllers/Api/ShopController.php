@@ -17,10 +17,24 @@ class ShopController extends Controller
         $user = $request->user();
 
         $shops = Shop::query()
-            ->with(['manager', 'studios'])
+            ->with(['company.manager', 'manager', 'supervisor', 'studios'])
             ->when(
-                ! $user->hasRole(UserRole::Admin),
-                fn ($query) => $query->where('manager_user_id', $user->id)
+                $user->hasRole(UserRole::Yonetici),
+                fn ($query) => $query->where(function ($query) use ($user): void {
+                    $query->whereHas('company', fn ($companyQuery) => $companyQuery->where('manager_user_id', $user->id))
+                        ->orWhere('manager_user_id', $user->id);
+                })
+            )
+            ->when(
+                $user->hasRole(UserRole::Supervisor),
+                fn ($query) => $query->where(function ($query) use ($user): void {
+                    $query->where('supervisor_user_id', $user->id)
+                        ->orWhere('manager_user_id', $user->id);
+                })
+            )
+            ->when(
+                ! $user->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]),
+                fn ($query) => $query->whereRaw('1 = 0')
             )
             ->orderBy('name')
             ->get();
@@ -29,6 +43,7 @@ class ShopController extends Controller
             'data' => $shops->map(fn (Shop $shop): array => [
                 'id'           => $shop->id,
                 'company_id'   => $shop->company_id,
+                'supervisor_user_id' => $shop->supervisor_user_id,
                 'name'         => $shop->name,
                 'location'     => $shop->location,
                 'about'        => $shop->about,
@@ -42,6 +57,12 @@ class ShopController extends Controller
                     'email' => $shop->manager->email,
                     'role'  => $shop->manager->role?->value,
                 ] : null,
+                'supervisor'   => $shop->supervisor ? [
+                    'id'    => $shop->supervisor->id,
+                    'name'  => $shop->supervisor->fullName(),
+                    'email' => $shop->supervisor->email,
+                    'role'  => $shop->supervisor->role?->value,
+                ] : null,
                 'studios' => $shop->studios->map(fn ($studio): array => [
                     'id'   => $studio->id,
                     'name' => $studio->name,
@@ -52,22 +73,34 @@ class ShopController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
+        $user = $request->user();
+        abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
 
-        $request->merge([
-            'manager_user_id' => $request->input('manager_user_id') ?: null,
-        ]);
+        if ($request->has('supervisor_user_id')) {
+            $request->merge([
+                'supervisor_user_id' => $request->input('supervisor_user_id') ?: null,
+            ]);
+        }
 
         $validated = $request->validate([
-            'company_id'      => ['required', 'integer', 'exists:companies,id'],
-            'name'            => ['required', 'string', 'max:255'],
-            'location'        => ['nullable', 'string', 'max:255'],
-            'manager_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'is_active'       => ['sometimes', 'boolean'],
+            'company_id'         => ['required', 'integer', 'exists:companies,id'],
+            'name'               => ['required', 'string', 'max:255'],
+            'location'           => ['nullable', 'string', 'max:255'],
+            'about'              => ['nullable', 'string', 'max:5000'],
+            'opening_time'       => ['nullable', 'date_format:H:i'],
+            'closing_time'       => ['nullable', 'date_format:H:i'],
+            'supervisor_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'is_active'          => ['sometimes', 'boolean'],
         ]);
 
         // Şirket dükkan limiti kontrolü
         $company = Company::query()->findOrFail($validated['company_id']);
+        abort_unless(
+            $user?->hasRole(UserRole::Admin)
+                || $company->manager_user_id === $user?->id
+                || $user?->managedShops()->where('company_id', $company->id)->exists(),
+            403
+        );
 
         if (! $company->canAddShop()) {
             return response()->json([
@@ -79,22 +112,25 @@ class ShopController extends Controller
             ], 422);
         }
 
-        if (isset($validated['manager_user_id'])) {
-            $manager = User::query()->findOrFail($validated['manager_user_id']);
-            abort_unless($manager->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor]), 422);
+        if (isset($validated['supervisor_user_id'])) {
+            $supervisor = User::query()->findOrFail($validated['supervisor_user_id']);
+            abort_unless($supervisor->hasRole(UserRole::Supervisor), 422);
         }
 
         $shop = Shop::query()->create([
-            'company_id'      => $company->id,
-            'name'            => $validated['name'],
-            'location'        => $validated['location'] ?? null,
-            'manager_user_id' => $validated['manager_user_id'] ?? null,
-            'is_active'       => $validated['is_active'] ?? true,
+            'company_id'         => $company->id,
+            'name'               => $validated['name'],
+            'location'           => $validated['location'] ?? null,
+            'about'              => $validated['about'] ?? null,
+            'opening_time'       => $validated['opening_time'] ?? null,
+            'closing_time'       => $validated['closing_time'] ?? null,
+            'supervisor_user_id' => $validated['supervisor_user_id'] ?? null,
+            'is_active'          => $validated['is_active'] ?? true,
         ]);
 
         return response()->json([
             'message' => 'Dükkan oluşturuldu.',
-            'data'    => $shop->load('manager'),
+            'data'    => $shop->load(['company.manager', 'supervisor']),
         ], 201);
     }
 
@@ -112,34 +148,32 @@ class ShopController extends Controller
         $user = $request->user();
         abort_unless($user?->canManageShop($shop), 403);
 
-        $request->merge([
-            'manager_user_id' => $request->input('manager_user_id') ?: null,
-        ]);
-
-        $validated = $request->validate([
-            'name'            => ['sometimes', 'string', 'max:255'],
-            'location'        => ['nullable', 'string', 'max:255'],
-            'about'           => ['nullable', 'string', 'max:5000'],
-            'opening_time'    => ['nullable', 'date_format:H:i'],
-            'closing_time'    => ['nullable', 'date_format:H:i'],
-            'manager_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'is_active'       => ['sometimes', 'boolean'],
-        ]);
-
-        if (isset($validated['manager_user_id'])) {
-            $manager = User::query()->findOrFail($validated['manager_user_id']);
-            abort_unless($manager->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor]), 422);
+        if ($request->has('supervisor_user_id')) {
+            $request->merge([
+                'supervisor_user_id' => $request->input('supervisor_user_id') ?: null,
+            ]);
         }
 
-        if (! $user?->hasRole(UserRole::Admin)) {
-            unset($validated['manager_user_id']);
+        $validated = $request->validate([
+            'name'               => ['sometimes', 'string', 'max:255'],
+            'location'           => ['nullable', 'string', 'max:255'],
+            'about'              => ['nullable', 'string', 'max:5000'],
+            'opening_time'       => ['nullable', 'date_format:H:i'],
+            'closing_time'       => ['nullable', 'date_format:H:i'],
+            'supervisor_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'is_active'          => ['sometimes', 'boolean'],
+        ]);
+
+        if (isset($validated['supervisor_user_id'])) {
+            $supervisor = User::query()->findOrFail($validated['supervisor_user_id']);
+            abort_unless($supervisor->hasRole(UserRole::Supervisor), 422);
         }
 
         $shop->fill($validated)->save();
 
         return response()->json([
             'message' => 'Dukkan guncellendi.',
-            'data' => $shop->fresh()->load('manager'),
+            'data' => $shop->fresh()->load(['company.manager', 'supervisor']),
         ]);
     }
 }

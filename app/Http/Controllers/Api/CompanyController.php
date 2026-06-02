@@ -7,18 +7,28 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\Studio;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CompanyController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        abort_unless(auth()->user()?->hasRole(UserRole::Admin), 403);
+        $user = $request->user();
+        abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
 
         $companies = Company::query()
+            ->with('manager')
             ->withCount(['shops', 'studios'])
+            ->when(
+                ! $user?->hasRole(UserRole::Admin),
+                fn ($query) => $query->where(function ($query) use ($user): void {
+                    $query->where('manager_user_id', $user?->id)
+                        ->orWhereHas('shops', fn ($shopQuery) => $shopQuery->where('manager_user_id', $user?->id));
+                })
+            )
             ->orderBy('name')
             ->get();
 
@@ -27,6 +37,7 @@ class CompanyController extends Controller
             'code'   => 200,
             'data'   => $companies->map(fn (Company $company): array => [
                 'id'                => $company->id,
+                'manager_user_id'   => $company->manager_user_id,
                 'name'              => $company->name,
                 'address'           => $company->address,
                 'phone'             => $company->phone,
@@ -37,6 +48,11 @@ class CompanyController extends Controller
                 'shop_count'        => $company->shops_count,
                 'studio_count'      => $company->studios_count,
                 'appointment_count' => $this->companyAppointmentCount($company),
+                'manager'           => $company->manager ? [
+                    'id'    => $company->manager->id,
+                    'name'  => $company->manager->fullName(),
+                    'email' => $company->manager->email,
+                ] : null,
             ])->values(),
         ]);
     }
@@ -45,14 +61,21 @@ class CompanyController extends Controller
     {
         abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
 
+        $request->merge([
+            'manager_user_id' => $request->input('manager_user_id') ?: null,
+        ]);
+
         $validated = $request->validate([
             'name'             => ['required', 'string', 'max:255'],
             'address'          => ['nullable', 'string', 'max:500'],
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
+            'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'max_shop_count'   => ['required', 'integer', 'min:0'],
             'max_studio_count' => ['required', 'integer', 'min:0'],
         ]);
+
+        $this->validateManager($validated['manager_user_id'] ?? null);
 
         $company = Company::query()->create($validated + ['is_active' => true]);
 
@@ -60,7 +83,7 @@ class CompanyController extends Controller
             'status'  => 'success',
             'code'    => 201,
             'message' => 'Şirket oluşturuldu.',
-            'data'    => $company,
+            'data'    => $company->load('manager'),
         ], 201);
     }
 
@@ -68,11 +91,18 @@ class CompanyController extends Controller
     {
         abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
 
+        if ($request->has('manager_user_id')) {
+            $request->merge([
+                'manager_user_id' => $request->input('manager_user_id') ?: null,
+            ]);
+        }
+
         $validated = $request->validate([
             'name'             => ['sometimes', 'string', 'max:255'],
             'address'          => ['nullable', 'string', 'max:500'],
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
+            'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'about'            => ['nullable', 'string', 'max:5000'],
             'website'          => ['nullable', 'string', 'url', 'max:255'],
             'is_active'        => ['sometimes', 'boolean'],
@@ -80,13 +110,15 @@ class CompanyController extends Controller
             'max_studio_count' => ['sometimes', 'integer', 'min:0'],
         ]);
 
+        $this->validateManager($validated['manager_user_id'] ?? null);
+
         $company->fill($validated)->save();
 
         return response()->json([
             'status'  => 'success',
             'code'    => 200,
             'message' => 'Şirket güncellendi.',
-            'data'    => $company->fresh(),
+            'data'    => $company->fresh()->load('manager'),
         ]);
     }
 
@@ -99,5 +131,17 @@ class CompanyController extends Controller
             ->pluck('id');
 
         return Appointment::query()->whereIn('studio_id', $studioIds)->count();
+    }
+
+    private function validateManager(?int $managerUserId): void
+    {
+        if ($managerUserId === null) {
+            return;
+        }
+
+        abort_unless(
+            User::query()->findOrFail($managerUserId)->hasRole(UserRole::Yonetici),
+            422
+        );
     }
 }

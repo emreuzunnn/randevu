@@ -73,7 +73,13 @@ class UserDirectoryController extends Controller
 
         $users = User::query()
             ->whereNull('banned_at')
-            ->when($roles->isNotEmpty(), fn ($q) => $q->whereIn('role', $roles->all()))
+            ->when(
+                $roles->isNotEmpty(),
+                fn ($q) => $q->where(function ($q) use ($roles): void {
+                    $q->whereIn('role', $roles->all())
+                        ->orWhereIn('requested_staff_role', $roles->all());
+                })
+            )
             ->when(
                 ! $authUser?->hasRole(UserRole::Admin),
                 fn ($q) => $q->whereHas(
@@ -96,7 +102,7 @@ class UserDirectoryController extends Controller
                 'id' => $user->id,
                 'name' => $user->fullName(),
                 'email' => $user->email,
-                'role' => $user->role?->value,
+                'role' => $user->requested_staff_role?->value ?? $user->role?->value,
             ])->values(),
         ]);
     }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
@@ -10,6 +11,7 @@ class Company extends Model
 {
     protected $fillable = [
         'name',
+        'manager_user_id',
         'logo_path',
         'address',
         'phone',
@@ -35,6 +37,11 @@ class Company extends Model
     public function shops(): HasMany
     {
         return $this->hasMany(Shop::class);
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_user_id');
     }
 
     public function studios(): HasManyThrough

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -32,9 +33,12 @@ class CompanyController extends Controller
             'address'          => ['nullable', 'string', 'max:500'],
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
+            'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'max_shop_count'   => ['required', 'integer', 'min:0'],
             'max_studio_count' => ['required', 'integer', 'min:0'],
         ]);
+
+        $this->validateManager($validated['manager_user_id'] ?? null);
 
         Company::query()->create($validated + ['is_active' => true]);
 
@@ -51,14 +55,29 @@ class CompanyController extends Controller
             'address'          => ['nullable', 'string', 'max:500'],
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
+            'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'is_active'        => ['sometimes', 'boolean'],
             'max_shop_count'   => ['sometimes', 'integer', 'min:0'],
             'max_studio_count' => ['sometimes', 'integer', 'min:0'],
         ]);
 
+        $this->validateManager($validated['manager_user_id'] ?? null);
+
         $company->fill($validated)->save();
 
         return redirect()->route('admin.companies.index')
             ->with('status', "\"$company->name\" güncellendi.");
+    }
+
+    private function validateManager(?int $managerUserId): void
+    {
+        if ($managerUserId === null) {
+            return;
+        }
+
+        abort_unless(
+            User::query()->findOrFail($managerUserId)->hasRole(UserRole::Yonetici),
+            422
+        );
     }
 }

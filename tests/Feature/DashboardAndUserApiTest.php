@@ -149,12 +149,13 @@ class DashboardAndUserApiTest extends TestCase
     public function test_supervisor_sees_staff_in_own_branch_only(): void
     {
         $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = Shop::factory()->create();
+        $shop = Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
         $ownStudio = Studio::factory()->create(['shop_id' => $shop->id]);
         $siblingStudio = Studio::factory()->create(['shop_id' => $shop->id]);
         $outsideStudio = Studio::factory()->create();
-
-        $this->attachStudioMember($ownStudio, $supervisor, UserRole::Supervisor);
 
         $branchEmployee = User::factory()->create([
             'name' => 'Sube',
@@ -187,10 +188,13 @@ class DashboardAndUserApiTest extends TestCase
     public function test_manager_sees_staff_in_own_company_only(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Yonetici]);
-        $company = Company::query()->create(['name' => 'Test Sirketi']);
+        $company = Company::query()->create([
+            'name' => 'Test Sirketi',
+            'manager_user_id' => $manager->id,
+        ]);
         $managedShop = Shop::factory()->create([
             'company_id' => $company->id,
-            'manager_user_id' => $manager->id,
+            'manager_user_id' => null,
         ]);
         $siblingShop = Shop::factory()->create(['company_id' => $company->id]);
         $managedStudio = Studio::factory()->create(['shop_id' => $managedShop->id]);
