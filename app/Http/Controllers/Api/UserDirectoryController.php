@@ -94,9 +94,9 @@ class UserDirectoryController extends Controller
         ]), 403);
 
         $validated = $request->validate([
-            'name'     => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:255'],
-            'surname'  => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:255'],
-            'phone'    => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:30'],
+            'name'     => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), array_map(static fn (UserRole $role): string => $role->value, UserRole::studioRoles()), true)), 'nullable', 'string', 'max:255'],
+            'surname'  => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), array_map(static fn (UserRole $role): string => $role->value, UserRole::studioRoles()), true)), 'nullable', 'string', 'max:255'],
+            'phone'    => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), array_map(static fn (UserRole $role): string => $role->value, UserRole::studioRoles()), true)), 'nullable', 'string', 'max:30'],
             'role'     => ['required', 'string', 'in:admin,yonetici,supervisor,designer,artist,info,sofor,calisan'],
             'studio_id' => ['required', 'integer', 'exists:studios,id'],
             'email'    => ['required', 'string', 'email', 'max:255'],

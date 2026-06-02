@@ -37,6 +37,7 @@ class User extends Authenticatable
         'response_time_hours',
         'password',
         'role',
+        'requested_staff_role',
         'can_open_multiple_studios',
         'banned_at',
         'ban_reason',
@@ -54,6 +55,7 @@ class User extends Authenticatable
             'email_verified_at'         => 'datetime',
             'password'                  => 'hashed',
             'role'                      => UserRole::class,
+            'requested_staff_role'      => UserRole::class,
             'can_open_multiple_studios' => 'boolean',
             'banned_at'                 => 'datetime',
             'portfolio'                 => 'array',
@@ -129,11 +131,19 @@ class User extends Authenticatable
 
     public function hasProfessionalAccountRole(): bool
     {
-        return $this->hasAnyRole([
-            UserRole::Artist,
-            UserRole::Designer,
-            UserRole::KullaniciRol,
-        ]);
+        return in_array($this->profileRole(), [UserRole::Artist, UserRole::Designer], true)
+            || ($this->requested_staff_role === null && $this->hasRole(UserRole::KullaniciRol));
+    }
+
+    public function profileRole(): UserRole
+    {
+        return $this->requested_staff_role ?? $this->role;
+    }
+
+    public function hasStaffApplicationFor(UserRole $role): bool
+    {
+        return $this->requested_staff_role === $role
+            || ($this->requested_staff_role === null && $this->hasRole($role));
     }
 
     public function isIndependentProfessional(): bool
@@ -145,7 +155,10 @@ class User extends Authenticatable
     public function isIndependentProfessionalFor(UserRole $role): bool
     {
         return $this->isIndependentProfessional()
-            && ($this->hasRole(UserRole::KullaniciRol) || $this->hasRole($role));
+            && (
+                $this->profileRole() === $role
+                || ($this->requested_staff_role === null && $this->hasRole(UserRole::KullaniciRol))
+            );
     }
 
     public function ownedStudios(): HasMany

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Studio;
+use App\Models\StudioStaffInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,33 +13,57 @@ class StudioStaffApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_create_supervisor(): void
+    public function test_admin_can_invite_registered_supervisor(): void
     {
         [$admin, $studio] = $this->createStudioMember(UserRole::Admin);
+        $candidate = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Supervisor,
+            'email' => 'supervisor@example.com',
+        ]);
 
         $response = $this->actingAs($admin)->postJson("/api/studios/{$studio->id}/supervisors", [
             'name' => 'Supervisor User',
-            'email' => 'supervisor@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'email' => $candidate->email,
         ]);
 
-        $response->assertCreated()
+        $response->assertAccepted()
             ->assertJsonPath('data.studio_role', 'supervisor');
+
+        $invitation = StudioStaffInvitation::query()->where('user_id', $candidate->id)->firstOrFail();
+
+        $this->actingAs($candidate)
+            ->patchJson("/api/staff-invitations/{$invitation->id}/accept")
+            ->assertOk();
+
+        $this->assertDatabaseHas('studio_user', [
+            'studio_id' => $studio->id,
+            'user_id' => $candidate->id,
+            'role' => UserRole::Supervisor->value,
+            'is_active' => 1,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $candidate->id,
+            'role' => UserRole::Supervisor->value,
+        ]);
     }
 
-    public function test_manager_can_create_driver(): void
+    public function test_manager_can_invite_registered_driver(): void
     {
         [$manager, $studio] = $this->createStudioMember(UserRole::Yonetici);
+        $candidate = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Sofor,
+            'email' => 'driver@example.com',
+        ]);
 
         $response = $this->actingAs($manager)->postJson("/api/studios/{$studio->id}/drivers", [
             'name' => 'Driver User',
-            'email' => 'driver@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'email' => $candidate->email,
         ]);
 
-        $response->assertCreated()
+        $response->assertAccepted()
             ->assertJsonPath('data.studio_role', 'sofor');
     }
 
@@ -70,6 +95,11 @@ class StudioStaffApiTest extends TestCase
             'user_id' => $employee->id,
             'role' => UserRole::Calisan->value,
             'is_active' => 0,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $employee->id,
+            'role' => UserRole::Kullanici->value,
         ]);
     }
 
@@ -120,6 +150,11 @@ class StudioStaffApiTest extends TestCase
             'user_id' => $driver->id,
             'role' => UserRole::Sofor->value,
             'is_active' => 0,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $driver->id,
+            'role' => UserRole::Kullanici->value,
         ]);
     }
 

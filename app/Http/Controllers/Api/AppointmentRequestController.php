@@ -308,7 +308,7 @@ class AppointmentRequestController extends Controller
             return $type;
         }
 
-        if ($target && ($target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer])))) {
+        if ($target && ($target->profileRole() === UserRole::Designer || ($studio && $target->hasStudioRole($studio, [UserRole::Designer])))) {
             return 'designer';
         }
 
@@ -339,7 +339,7 @@ class AppointmentRequestController extends Controller
 
         $independentRole = $type === 'designer' ? UserRole::Designer : UserRole::Artist;
         $isIndependentProfessional = $target->isIndependentProfessionalFor($independentRole);
-        $isDesigner = $target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]));
+        $isDesigner = $target->profileRole() === UserRole::Designer || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]));
 
         if ($isIndependentProfessional || $isDesigner) {
             return true;

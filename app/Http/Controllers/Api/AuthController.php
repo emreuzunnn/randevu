@@ -27,11 +27,11 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'bio'      => ['nullable', 'string', 'max:1000'],
             'accepted_terms' => ['accepted'],
-            'account_type' => ['nullable', 'string', 'in:normal,artist,designer,freelancer'],
+            'account_type' => ['nullable', 'string', Rule::in(array_keys(config('registration.account_types')))],
             'specializations' => [
                 Rule::requiredIf(fn (): bool => in_array(
                     $request->input('account_type'),
-                    ['artist', 'designer', 'freelancer'],
+                    ['artist', 'designer'],
                     true
                 )),
                 'array',
@@ -41,12 +41,10 @@ class AuthController extends Controller
         ]);
 
         $accountType = $validated['account_type'] ?? 'normal';
-        $role = match ($accountType) {
-            'artist' => UserRole::Artist,
-            'designer' => UserRole::Designer,
-            'freelancer' => UserRole::KullaniciRol,
-            default => UserRole::Kullanici,
-        };
+        $requestedStaffRole = $accountType === 'normal'
+            ? null
+            : UserRole::fromValue($accountType);
+        $role = $requestedStaffRole === null ? UserRole::Kullanici : UserRole::KullaniciRol;
 
         $user = User::query()->create([
             'name'     => $validated['name'] ?? '',
@@ -55,6 +53,7 @@ class AuthController extends Controller
             'phone'    => $validated['phone'],
             'password' => $validated['password'],
             'role'     => $role,
+            'requested_staff_role' => $requestedStaffRole,
             'bio'      => $validated['bio'] ?? null,
             'specializations' => $validated['specializations'] ?? null,
         ]);
@@ -63,9 +62,9 @@ class AuthController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => $role === UserRole::Kullanici
+            'message' => $requestedStaffRole === null
                 ? 'Kayıt başarılı.'
-                : $role->label().' kaydı başarılı.',
+                : $requestedStaffRole->label().' başvurusu ile kayıt başarılı.',
             'data'    => [
                 'token'      => $token,
                 'token_type' => 'Bearer',
@@ -84,11 +83,12 @@ class AuthController extends Controller
     {
         return response()->json([
             'data' => [
-                'account_types' => [
-                    ['value' => 'normal', 'label' => 'Normal Kullanıcı'],
-                    ['value' => 'artist', 'label' => 'Artist'],
-                    ['value' => 'designer', 'label' => 'Tasarımcı'],
-                ],
+                'account_types' => collect(config('registration.account_types'))
+                    ->map(fn (string $label, string $value): array => [
+                        'value' => $value,
+                        'label' => $label,
+                    ])
+                    ->values(),
                 'specializations' => collect(config('registration.specializations'))
                     ->map(fn (string $label, string $value): array => [
                         'value' => $value,
@@ -148,11 +148,7 @@ class AuthController extends Controller
             ->wherePivot('is_active', false)
             ->get(['studios.id', 'studios.name', 'studios.location', 'studio_user.joined_at', 'studio_user.left_at']);
 
-        $hasPortfolio = ! in_array(
-            $user?->role?->value,
-            [\App\Enums\UserRole::Sofor->value, \App\Enums\UserRole::Kullanici->value],
-            true
-        );
+        $hasPortfolio = $user?->hasProfessionalAccountRole() ?? false;
 
         return response()->json([
             'status' => 'success',
@@ -260,11 +256,7 @@ class AuthController extends Controller
         $primaryStudio = $refreshedUser ? $this->resolvePrimaryStudio($refreshedUser) : null;
         $membership = $primaryStudio?->users()->where('users.id', $refreshedUser?->id)->first()?->pivot;
 
-        $hasPortfolio = ! in_array(
-            $refreshedUser?->role?->value,
-            [UserRole::Sofor->value, UserRole::Kullanici->value],
-            true
-        );
+        $hasPortfolio = $refreshedUser?->hasProfessionalAccountRole() ?? false;
 
         return response()->json([
             'status'  => 'success',
@@ -465,7 +457,7 @@ class AuthController extends Controller
     private function hasSpecializations(?User $user): bool
     {
         return in_array(
-            $user?->role?->value,
+            $user?->profileRole()?->value,
             [UserRole::Artist->value, UserRole::Designer->value],
             true
         );

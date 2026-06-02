@@ -127,7 +127,7 @@ class PublicController extends Controller
     {
         abort_if($user->banned_at !== null, 404);
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
+            $user->hasProfessionalAccountRole(),
             404
         );
 
@@ -161,8 +161,8 @@ class PublicController extends Controller
                 'id'                  => $user->id,
                 'name'                => $user->fullName(),
                 'username'            => $user->username,
-                'role'                => $user->role?->value,
-                'role_label'          => $user->role?->label(),
+                'role'                => $user->profileRole()->value,
+                'role_label'          => $user->profileRole()->label(),
                 'profile_image'       => $user->profile_image,
                 'bio'                 => $user->bio,
                 'location'            => $user->location,
@@ -199,7 +199,7 @@ class PublicController extends Controller
     {
         abort_if($user->banned_at !== null, 404);
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol]),
+            $user->hasProfessionalAccountRole(),
             404
         );
 
@@ -250,7 +250,7 @@ class PublicController extends Controller
     {
         abort_if($user->banned_at !== null, 404);
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
+            $user->hasProfessionalAccountRole(),
             404
         );
 
@@ -305,7 +305,7 @@ class PublicController extends Controller
     {
         abort_if($user->banned_at !== null, 404);
         abort_unless(
-            $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]),
+            $user->hasProfessionalAccountRole(),
             404
         );
 
@@ -611,13 +611,25 @@ class PublicController extends Controller
     public function artists(): JsonResponse
     {
         $artists = User::query()
-            ->whereIn('role', [UserRole::Artist->value, UserRole::Designer->value, UserRole::KullaniciRol->value])
+            ->where(function ($query): void {
+                $query
+                    ->whereIn('role', [UserRole::Artist->value, UserRole::Designer->value])
+                    ->orWhere(function ($candidateQuery): void {
+                        $candidateQuery
+                            ->where('role', UserRole::KullaniciRol->value)
+                            ->where(function ($roleQuery): void {
+                                $roleQuery
+                                    ->whereNull('requested_staff_role')
+                                    ->orWhereIn('requested_staff_role', [UserRole::Artist->value, UserRole::Designer->value]);
+                            });
+                    });
+            })
             ->whereNull('banned_at')
             ->with(['studios' => fn ($query) => $query
                 ->where('studio_user.is_active', true)
                 ->select('studios.id', 'studios.name', 'studios.location')])
             ->orderBy('name')
-            ->get(['id', 'name', 'surname', 'username', 'role', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
+            ->get(['id', 'name', 'surname', 'username', 'role', 'requested_staff_role', 'profile_image', 'bio', 'rating', 'portfolio', 'experience_years', 'specializations', 'location', 'response_time_hours']);
 
         return response()->json([
             'data' => $artists->map(function ($a): array {
@@ -635,8 +647,8 @@ class PublicController extends Controller
                     'id'                  => $a->id,
                     'name'                => $a->fullName(),
                     'username'            => $a->username,
-                    'role'                => $a->role?->value,
-                    'role_label'          => $a->role?->label(),
+                    'role'                => $a->profileRole()->value,
+                    'role_label'          => $a->profileRole()->label(),
                     'profile_image'       => $a->profile_image,
                     'bio'                 => $a->bio,
                     'location'            => $a->location,

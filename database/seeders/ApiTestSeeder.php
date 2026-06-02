@@ -221,7 +221,8 @@ class ApiTestSeeder extends Seeder
             'phone'     => '5550000016',
             'email'     => 'bagimsiz.artist@example.com',
             'password'  => '123456',
-            'role'      => UserRole::Artist,
+            'role'      => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Artist,
             'bio'       => 'Bağımsız çalışan dövme sanatçısı.',
             'rating'    => 4.3,
             'specializations' => ['minimal', 'fine_line', 'blackwork'],
@@ -237,11 +238,29 @@ class ApiTestSeeder extends Seeder
             'phone'     => '5550000018',
             'email'     => 'bagimsiz.designer@example.com',
             'password'  => '123456',
-            'role'      => UserRole::Designer,
+            'role'      => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Designer,
             'bio'       => 'Bağımsız çalışan dövme tasarımcısı.',
             'rating'    => 4.5,
             'specializations' => ['japanese', 'color', 'cover_up'],
         ]);
+
+        foreach ([
+            ['Şoför', 'Aday', 'bagimsiz.sofor@example.com', UserRole::Sofor],
+            ['Info', 'Aday', 'bagimsiz.info@example.com', UserRole::Info],
+            ['Çalışan', 'Aday', 'bagimsiz.calisan@example.com', UserRole::Calisan],
+            ['Süpervizör', 'Aday', 'bagimsiz.supervisor@example.com', UserRole::Supervisor],
+        ] as [$name, $surname, $email, $requestedRole]) {
+            User::factory()->create([
+                'name'                 => $name,
+                'surname'              => $surname,
+                'phone'                => '5550000099',
+                'email'                => $email,
+                'password'             => '123456',
+                'role'                 => UserRole::KullaniciRol,
+                'requested_staff_role' => $requestedRole,
+            ]);
+        }
 
         $kullanici = User::factory()->create([
             'name'     => 'Kullanıcı',

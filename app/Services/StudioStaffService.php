@@ -32,19 +32,13 @@ class StudioStaffService
                 ->first();
 
             if ($existingUser !== null) {
-                if ($existingUser->hasProfessionalAccountRole()) {
-                    return $this->inviteProfessional(
+                if (in_array($role, UserRole::studioRoles(), true)) {
+                    return $this->inviteRegisteredStaff(
                         $studio,
                         $role,
                         $existingUser,
                         $invitedBy ?? auth()->user(),
                     );
-                }
-
-                if (in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
-                    throw ValidationException::withMessages([
-                        'email' => ['Kullanıcı önce uygulamadan artist veya tasarımcı olarak kayıt olmalıdır.'],
-                    ]);
                 }
 
                 if ($existingUser->belongsToStudio($studio)) {
@@ -81,9 +75,9 @@ class StudioStaffService
                 ];
             }
 
-            if (in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
+            if (in_array($role, UserRole::studioRoles(), true)) {
                 throw ValidationException::withMessages([
-                    'email' => ['Artist ve tasarımcılar önce uygulamadan kayıt olmalıdır.'],
+                    'email' => ['Çalışanlar önce uygulamadan uygun rolle kayıt olmalıdır.'],
                 ]);
             }
 
@@ -154,6 +148,8 @@ class StudioStaffService
                     'left_at' => null,
                 ]);
             }
+
+            $user->forceFill(['role' => $role])->save();
 
             $invitation->forceFill([
                 'status' => 'accepted',
@@ -253,6 +249,10 @@ class StudioStaffService
             $studio->users()->updateExistingPivot($user->id, $pivotUpdates);
         }
 
+        if (($attributes['is_active'] ?? null) === false) {
+            $this->restoreRoleWhenInactive($user);
+        }
+
         return $user->fresh();
     }
 
@@ -273,26 +273,22 @@ class StudioStaffService
             'is_active' => false,
             'left_at' => now(),
         ]);
+
+        $this->restoreRoleWhenInactive($user);
     }
 
     /**
      * @return array{user:User,studio_role:string,action:string,invitation:StudioStaffInvitation}
      */
-    private function inviteProfessional(
+    private function inviteRegisteredStaff(
         Studio $studio,
         UserRole $role,
-        User $freelancer,
+        User $applicant,
         ?User $invitedBy
     ): array {
-        if (! in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
+        if (! $applicant->hasStaffApplicationFor($role)) {
             throw ValidationException::withMessages([
-                'role' => ['Bağımsız profesyonellere yalnızca artist veya tasarımcı daveti gönderilebilir.'],
-            ]);
-        }
-
-        if (! $freelancer->hasRole(UserRole::KullaniciRol) && ! $freelancer->hasRole($role)) {
-            throw ValidationException::withMessages([
-                'role' => ['Kullanıcı bu çalışma rolüyle kayıtlı değil.'],
+                'role' => ['Kullanıcı uygulamada bu çalışma rolüyle kayıtlı değil.'],
             ]);
         }
 
@@ -302,7 +298,7 @@ class StudioStaffService
             ]);
         }
 
-        if ($freelancer->studios()->wherePivot('is_active', true)->exists()) {
+        if ($applicant->studios()->wherePivot('is_active', true)->exists()) {
             throw ValidationException::withMessages([
                 'email' => ['Bu kullanıcı zaten başka bir stüdyoda aktif çalışıyor.'],
             ]);
@@ -310,14 +306,14 @@ class StudioStaffService
 
         $invitation = StudioStaffInvitation::query()
             ->where('studio_id', $studio->id)
-            ->where('user_id', $freelancer->id)
+            ->where('user_id', $applicant->id)
             ->where('status', 'pending')
             ->first();
 
         if ($invitation === null) {
             $invitation = StudioStaffInvitation::query()->create([
                 'studio_id' => $studio->id,
-                'user_id' => $freelancer->id,
+                'user_id' => $applicant->id,
                 'invited_by_user_id' => $invitedBy->id,
                 'role' => $role->value,
                 'status' => 'pending',
@@ -325,7 +321,7 @@ class StudioStaffService
         }
 
         $this->fcmService->sendToUser(
-            $freelancer,
+            $applicant,
             'Yeni çalışanlık daveti',
             $studio->name.' sizi '.$role->label().' olarak ekibine davet etti.',
             'studio_staff_invitation',
@@ -337,11 +333,30 @@ class StudioStaffService
         );
 
         return [
-            'user' => $freelancer,
+            'user' => $applicant,
             'studio_role' => $role->value,
             'action' => 'invited_existing_freelancer',
             'invitation' => $invitation,
         ];
+    }
+
+    private function restoreRoleWhenInactive(User $user): void
+    {
+        if ($user->studios()->wherePivot('is_active', true)->exists()) {
+            return;
+        }
+
+        if (
+            $user->requested_staff_role === null
+            && in_array($user->role, [UserRole::Artist, UserRole::Designer], true)
+        ) {
+            $user->requested_staff_role = $user->role;
+        }
+
+        $user->role = $user->requested_staff_role === null
+            ? UserRole::Kullanici
+            : UserRole::KullaniciRol;
+        $user->save();
     }
 
     private function ensureInvitationCanBeAnswered(StudioStaffInvitation $invitation, User $user): void

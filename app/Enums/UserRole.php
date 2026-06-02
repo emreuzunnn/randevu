@@ -47,6 +47,7 @@ enum UserRole: string
             self::Artist,
             self::Info,
             self::Sofor,
+            self::Calisan,
         ];
     }
 

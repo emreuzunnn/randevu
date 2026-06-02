@@ -12,6 +12,44 @@ class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_user_can_register_as_driver_applicant_without_specializations(): void
+    {
+        $response = $this->postJson('/api/register', [
+            'name' => 'Aday',
+            'surname' => 'Şoför',
+            'phone' => '5551112233',
+            'email' => 'aday.sofor@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'accepted_terms' => true,
+            'account_type' => 'sofor',
+            'specializations' => [],
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.user.role', UserRole::KullaniciRol->value);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'aday.sofor@example.com',
+            'role' => UserRole::KullaniciRol->value,
+            'requested_staff_role' => UserRole::Sofor->value,
+        ]);
+    }
+
+    public function test_artist_registration_requires_specialization(): void
+    {
+        $this->postJson('/api/register', [
+            'phone' => '5551112233',
+            'email' => 'aday.artist@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'accepted_terms' => true,
+            'account_type' => 'artist',
+            'specializations' => [],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('specializations');
+    }
+
     public function test_user_can_login_and_receive_token(): void
     {
         $user = User::factory()->create([

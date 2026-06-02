@@ -1,6 +1,15 @@
 <?php
 
 return [
+    'account_types' => [
+        'normal' => 'Normal Kullanıcı',
+        'artist' => 'Artist',
+        'designer' => 'Tasarımcı',
+        'supervisor' => 'Süpervizör',
+        'info' => 'Info',
+        'sofor' => 'Şoför',
+        'calisan' => 'Çalışan',
+    ],
     'specializations' => [
         'realism' => 'Realizm',
         'fine_line' => 'Fine Line',

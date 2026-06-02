@@ -28,6 +28,7 @@ return new class extends Migration
             $table->string('whatsapp', 30)->nullable();
             $table->unsignedTinyInteger('response_time_hours')->nullable();
             $table->string('role')->default('kullanici');
+            $table->string('requested_staff_role')->nullable();
             $table->boolean('can_open_multiple_studios')->default(false);
             $table->string('api_token', 80)->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
