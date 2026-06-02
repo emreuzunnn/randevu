@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PushNotification;
 use App\Models\PushToken;
+use App\Models\StudioStaffInvitation;
 use App\Models\User;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
@@ -174,6 +175,16 @@ class NotificationController extends Controller
 
         $isRead = $notification->read_at !== null;
 
+        $data = $notification->data ?? [];
+        if (
+            $notification->type === 'studio_staff_invitation'
+            && isset($data['invitation_id'])
+        ) {
+            $data['invitation_status'] = StudioStaffInvitation::query()
+                ->find($data['invitation_id'])
+                ?->status;
+        }
+
         return [
             'id'          => (string) $notification->id,
             'type'        => $notification->type,
@@ -182,7 +193,7 @@ class NotificationController extends Controller
             'title'       => $notification->title,
             'description' => $notification->body,
             'body'        => $notification->body,
-            'data'        => $notification->data ?? [],
+            'data'        => $data,
             'time'        => $notification->created_at?->diffForHumans() ?? '',
             'created_at'  => $notification->created_at?->toIso8601String(),
             'read_at'     => $notification->read_at?->toIso8601String(),
@@ -197,7 +208,10 @@ class NotificationController extends Controller
             'appointment_request_accepted',
             'appointment_request_rejected' => 'calendar',
             'artist_assigned',
-            'artist_response' => 'person',
+            'artist_response',
+            'studio_staff_invitation',
+            'studio_staff_invitation_accepted',
+            'studio_staff_invitation_rejected' => 'person',
             'driver_action' => 'transfer',
             'warning' => 'warning',
             default => 'notification',
@@ -212,6 +226,9 @@ class NotificationController extends Controller
             'appointment_request_rejected' => 'EF4444',
             'artist_assigned' => '001B5E',
             'artist_response' => '8B5CF6',
+            'studio_staff_invitation' => '4ECDC4',
+            'studio_staff_invitation_accepted' => '22C55E',
+            'studio_staff_invitation_rejected' => 'EF4444',
             'driver_action' => 'F59E0B',
             default => '001B5E',
         };

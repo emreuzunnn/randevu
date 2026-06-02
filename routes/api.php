@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\StudioManagerController;
 use App\Http\Controllers\Api\StudioStaffController;
+use App\Http\Controllers\Api\StudioStaffInvitationController;
 use App\Http\Controllers\Api\UserDirectoryController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
@@ -33,7 +34,7 @@ Route::post('/ocr/appointment-slip', AppointmentSlipOcrController::class);
 // Kullanıcı girişi yapar ve sonraki API isteklerinde kullanılacak bearer token üretir.
 Route::post('/login', [AuthController::class, 'login']);
 
-// Yeni kullanıcı kaydı: public kayıt sadece normal kullanıcı (kullanici) oluşturur.
+// Yeni kullanıcı kaydı: normal kullanıcı veya bağımsız freelancer hesabı oluşturur.
 Route::post('/register', [AuthController::class, 'register']);
 
 // Stüdyo keşif sayfası için herkese açık listeler.
@@ -76,6 +77,11 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::post('/notifications/test-broadcast', [NotificationController::class, 'broadcastTest']);
     Route::patch('/notifications/{pushNotification}/read', [NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{pushNotification}', [NotificationController::class, 'destroy']);
+
+    // Freelancer çalışanlık davetleri: kullanıcı kabul ettiğinde stüdyo üyeliği açılır.
+    Route::get('/staff-invitations', [StudioStaffInvitationController::class, 'index']);
+    Route::patch('/staff-invitations/{studioStaffInvitation}/accept', [StudioStaffInvitationController::class, 'accept']);
+    Route::patch('/staff-invitations/{studioStaffInvitation}/reject', [StudioStaffInvitationController::class, 'reject']);
 
     // Portfolyo — tüm roller erişebilir; şoför/kullanıcı rollerinde has_portfolio: false döner
     Route::get('/me/portfolio', [AuthController::class, 'getPortfolio']);

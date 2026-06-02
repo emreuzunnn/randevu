@@ -42,10 +42,13 @@ class StudioStaffController extends Controller
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $result = $studioStaffService->createOrAttach($studio, $role, $validated);
+        $result = $studioStaffService->createOrAttach($studio, $role, $validated, $request->user());
+        $isInvitation = $result['action'] === 'invited_existing_freelancer';
 
         return response()->json([
-            'message' => $role->label().' olusturuldu.',
+            'message' => $isInvitation
+                ? 'Freelancera çalışanlık daveti gönderildi.'
+                : $role->label().' oluşturuldu.',
             'data' => [
                 'user' => [
                     'id' => $result['user']->id,
@@ -55,8 +58,9 @@ class StudioStaffController extends Controller
                 'studio_id' => $studio->id,
                 'studio_role' => $result['studio_role'],
                 'action' => $result['action'],
+                'invitation_id' => $result['invitation']->id ?? null,
             ],
-        ], 201);
+        ], $isInvitation ? 202 : 201);
     }
 
     public function update(

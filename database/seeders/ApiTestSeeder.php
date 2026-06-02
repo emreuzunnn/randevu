@@ -8,6 +8,8 @@ use App\Models\AppointmentRequest;
 use App\Models\Company;
 use App\Models\Shop;
 use App\Models\Studio;
+use App\Models\StudioStaffInvitation;
+use App\Models\PushNotification;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -378,6 +380,28 @@ class ApiTestSeeder extends Seeder
             'work_status' => 'working',
             'is_active'   => true,
             'joined_at'   => now()->subMonths(2),
+        ]);
+
+        // Freelancer davet testi:
+        // freelancer@example.com / 123456 ile giriş yapıp Bildirimler'den yanıtlanabilir.
+        $freelancerInvitation = StudioStaffInvitation::create([
+            'studio_id'          => $studio1->id,
+            'user_id'            => $kullaniciRol->id,
+            'invited_by_user_id' => $supervisor1->id,
+            'role'               => UserRole::Artist->value,
+            'status'             => 'pending',
+        ]);
+
+        PushNotification::create([
+            'user_id' => $kullaniciRol->id,
+            'type'    => 'studio_staff_invitation',
+            'title'   => 'Yeni çalışanlık daveti',
+            'body'    => $studio1->name.' sizi Artist olarak ekibine davet etti.',
+            'data'    => [
+                'invitation_id' => (string) $freelancerInvitation->id,
+                'studio_id'     => (string) $studio1->id,
+                'role'          => UserRole::Artist->value,
+            ],
         ]);
 
         // ── 9. RANDEVULAR — STÜDYO 1 ──────────────────────────────────────

@@ -74,10 +74,20 @@ class UserController extends Controller
             abort(403);
         }
 
-        $staffService->createOrAttach($studio, UserRole::fromValue($validated['role']), $validated);
+        $result = $staffService->createOrAttach(
+            $studio,
+            UserRole::fromValue($validated['role']),
+            $validated,
+            $request->user(),
+        );
 
         return redirect()
             ->route('admin.users.index', ['studio_id' => $studio->id])
-            ->with('status', 'Kullanici olusturuldu.');
+            ->with(
+                'status',
+                $result['action'] === 'invited_existing_freelancer'
+                    ? 'Freelancera çalışanlık daveti gönderildi.'
+                    : 'Kullanıcı oluşturuldu.'
+            );
     }
 }

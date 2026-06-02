@@ -123,18 +123,23 @@ class UserDirectoryController extends Controller
 
         $role = UserRole::fromValue($validated['role']);
 
-        $result = $studioStaffService->createOrAttach($studio, $role, $validated);
+        $result = $studioStaffService->createOrAttach($studio, $role, $validated, $request->user());
+        $isInvitation = $result['action'] === 'invited_existing_freelancer';
 
         return response()->json([
-            'message' => 'Kullanici basariyla olusturuldu.',
+            'message' => $isInvitation
+                ? 'Freelancera çalışanlık daveti gönderildi.'
+                : 'Kullanıcı başarıyla oluşturuldu.',
             'data' => [
                 'id' => $result['user']->id,
                 'name' => $result['user']->fullName(),
                 'email' => $result['user']->email,
                 'role' => $result['studio_role'],
-                'is_active' => true,
+                'is_active' => ! $isInvitation,
+                'action' => $result['action'],
+                'invitation_id' => $result['invitation']->id ?? null,
             ],
-        ], 201);
+        ], $isInvitation ? 202 : 201);
     }
 
     public function studioOptions(): JsonResponse

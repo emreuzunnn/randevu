@@ -26,7 +26,10 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'bio'      => ['nullable', 'string', 'max:1000'],
             'accepted_terms' => ['accepted'],
+            'account_type' => ['nullable', 'string', 'in:normal,freelancer'],
         ]);
+
+        $accountType = $validated['account_type'] ?? 'normal';
 
         $user = User::query()->create([
             'name'     => $validated['name'] ?? '',
@@ -34,7 +37,9 @@ class AuthController extends Controller
             'email'    => $validated['email'],
             'phone'    => $validated['phone'],
             'password' => $validated['password'],
-            'role'     => UserRole::Kullanici,
+            'role'     => $accountType === 'freelancer'
+                ? UserRole::KullaniciRol
+                : UserRole::Kullanici,
             'bio'      => $validated['bio'] ?? null,
         ]);
 
@@ -42,7 +47,9 @@ class AuthController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Kayıt başarılı.',
+            'message' => $accountType === 'freelancer'
+                ? 'Freelancer kaydı başarılı.'
+                : 'Kayıt başarılı.',
             'data'    => [
                 'token'      => $token,
                 'token_type' => 'Bearer',
