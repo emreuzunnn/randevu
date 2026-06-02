@@ -24,6 +24,13 @@ class DashboardController extends Controller
         $dateTo = $request->input('date_to');
         $studioId = $request->integer('studio_id');
         $accessibleStudioIds = $user?->accessibleStudioIds() ?? [];
+        if (
+            $studioId > 0
+            && ! $user?->hasRole(UserRole::Admin)
+            && ! in_array($studioId, $accessibleStudioIds, true)
+        ) {
+            abort(403);
+        }
 
         $appointmentsQuery = \App\Models\Appointment::query();
         if (! $user?->hasRole(\App\Enums\UserRole::Admin)) {
@@ -51,6 +58,10 @@ class DashboardController extends Controller
         $activeStaffCount = $studioId > 0
             ? \App\Models\Studio::query()
                 ->whereKey($studioId)
+                ->when(
+                    ! $user?->hasRole(\App\Enums\UserRole::Admin),
+                    fn ($query) => $query->whereIn('id', $accessibleStudioIds)
+                )
                 ->withCount([
                     'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
                 ])
@@ -69,6 +80,7 @@ class DashboardController extends Controller
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $accessibleStudioIds)
             )
+            ->when($studioId > 0, fn ($query) => $query->whereKey($studioId))
             ->withCount([
                 'appointments',
                 'users as total_staff_count',

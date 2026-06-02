@@ -150,11 +150,7 @@ class AppointmentController extends Controller
                     });
                 }
             })
-            ->where(function ($query) use ($user): void {
-                $query
-                    ->whereNull('assigned_artist_user_id')
-                    ->orWhere('assigned_artist_user_id', $user->id);
-            })
+            ->where('assigned_artist_user_id', $user->id)
             ->orderBy('appointment_at')
             ->get();
 

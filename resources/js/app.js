@@ -248,9 +248,20 @@ const statBlock = (label, content) => `
 
 /* ── Dashboard ──────────────────────────────────────────────── */
 
-const renderDashboard = async (root) => {
+const renderDashboard = async (root, selectedStudioId = '') => {
     root.innerHTML = `
         ${pageHeader('Genel Bakış', 'Operasyon Özeti', 'Canlı metrikler, dönemsel raporlar ve sahadaki hareketler tek akışta.', '<span class="badge-pill badge-pill--info">Canlı</span>')}
+        <div class="panel-card" style="padding:0.85rem 1rem">
+            <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+                <div>
+                    <div class="section-eyebrow" style="margin-bottom:0.2rem">İstatistik Kapsamı</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted)">Genel toplamı veya tek bir stüdyoyu görüntüleyin.</div>
+                </div>
+                <select data-dashboard-studio-filter style="margin-left:auto;min-width:220px">
+                    <option value="">Genel istatistikler</option>
+                </select>
+            </div>
+        </div>
         ${adminConfig.isAdmin ? `<div class="panel-card" data-dashboard-companies>${skeletonGrid(2)}</div>` : ''}
         <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</div>
         <div class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</div>
@@ -261,7 +272,17 @@ const renderDashboard = async (root) => {
         </div>
     `;
 
-    const payload = await apiFetch('/home');
+    const studioPayload = await apiFetch('/studios/options').catch(() => ({ data: [] }));
+    const studioOptions = studioPayload.data || [];
+    const studioSelect = qs('[data-dashboard-studio-filter]', root);
+    studioSelect.innerHTML = `
+        <option value="">Genel istatistikler</option>
+        ${studioOptions.map((studio) => `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`).join('')}
+    `;
+    studioSelect.value = selectedStudioId;
+    studioSelect.addEventListener('change', () => renderDashboard(root, studioSelect.value));
+
+    const payload = await apiFetch(`/home${selectedStudioId ? `?studio_id=${encodeURIComponent(selectedStudioId)}` : ''}`);
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [

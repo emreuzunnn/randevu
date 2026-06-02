@@ -206,7 +206,7 @@ class AppointmentRequestController extends Controller
                 'artist_status'           => null,
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
                 'notes'                   => null,
-                'source_image_path'       => $appointmentRequest->image_path,
+                'photo_path'              => $appointmentRequest->image_path,
                 'tattoo_image_paths'      => $appointmentRequest->tattoo_image_paths ?? [],
                 'pickup_required'         => $appointmentRequest->pickup_required,
                 'is_old_customer'         => false,
