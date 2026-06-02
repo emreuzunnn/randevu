@@ -155,11 +155,6 @@ class AppointmentController extends Controller
                     ->whereNull('assigned_artist_user_id')
                     ->orWhere('assigned_artist_user_id', $user->id);
             })
-            ->where(function ($query): void {
-                $query
-                    ->whereNull('artist_status')
-                    ->orWhere('artist_status', '!=', 'rejected');
-            })
             ->orderBy('appointment_at')
             ->get();
 
@@ -490,57 +485,6 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Artist randevuyu kabul veya reddeder */
-    public function artistResponse(
-        Request $request,
-        Studio $studio,
-        Appointment $appointment,
-        AppointmentService $appointmentService
-    ): JsonResponse {
-        abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
-
-        $user = $request->user();
-        abort_unless($user instanceof User, 403);
-
-        if ($appointment->assigned_artist_user_id === null) {
-            abort_unless($this->userCanRespondToArtistAppointment($user, $studio, $appointment), 403);
-            $appointment->assigned_artist_user_id = $user->id;
-            $appointment->artist_status = 'pending';
-            $appointment->save();
-        } else {
-            abort_unless((int) $appointment->assigned_artist_user_id === (int) $user->id, 403);
-        }
-
-        $validated = $request->validate([
-            'artist_status' => ['required', 'string', 'in:accepted,rejected'],
-        ]);
-
-        $appointment = $appointmentService->artistRespond($appointment, $validated['artist_status']);
-
-        $appointment->load('createdBy');
-        if ($appointment->createdBy instanceof User) {
-            app(FcmService::class)->sendToUser(
-                $appointment->createdBy,
-                $validated['artist_status'] === 'accepted' ? 'Artist Randevuyu Kabul Etti' : 'Artist Randevuyu Reddetti',
-                "{$user->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevuya yanıt verdi.",
-                'artist_response',
-                [
-                    'appointment_id' => $appointment->id,
-                    'studio_id'      => $appointment->studio_id,
-                    'artist_status'  => $appointment->artist_status,
-                ],
-            );
-        }
-
-        return response()->json([
-            'message' => $validated['artist_status'] === 'accepted' ? 'Randevu kabul edildi.' : 'Randevu reddedildi.',
-            'data'    => [
-                'id'            => $appointment->id,
-                'artist_status' => $appointment->artist_status,
-            ],
-        ]);
-    }
-
     /** Artist bitmiş dövme fotoğrafını yükleyerek randevuyu tamamlar. */
     public function artistComplete(Request $request, Appointment $appointment): JsonResponse
     {
@@ -553,7 +497,6 @@ class AppointmentController extends Controller
                 || ($appointment->studio_id !== null && $user->hasStudioRole((int) $appointment->studio_id, [UserRole::Artist])),
             403
         );
-        abort_unless($appointment->artist_status === 'accepted', 422);
         abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
 
         $request->validate([
@@ -872,15 +815,6 @@ class AppointmentController extends Controller
             ->map(static fn ($id): int => (int) $id)
             ->values()
             ->all();
-    }
-
-    private function userCanRespondToArtistAppointment(User $user, Studio $studio, Appointment $appointment): bool
-    {
-        return match ($appointment->appointment_type) {
-            'designer' => $user->hasStudioRole($studio, [UserRole::Designer]),
-            'tattoo' => $user->hasStudioRole($studio, [UserRole::Artist]),
-            default => false,
-        };
     }
 
     private function storeAppointmentImage(Request $request, Studio $studio): string

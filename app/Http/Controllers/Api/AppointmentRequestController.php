@@ -203,7 +203,7 @@ class AppointmentRequestController extends Controller
                 'place'                   => $validated['place'] ?? $appointmentRequest->place ?? $appointmentRequest->hotel_name,
                 'appointment_at'          => $requestedAt,
                 'status'                  => 'confirmed',
-                'artist_status'           => $appointmentRequest->target_user_id !== null ? 'accepted' : null,
+                'artist_status'           => null,
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
                 'notes'                   => null,
                 'source_image_path'       => $appointmentRequest->image_path,

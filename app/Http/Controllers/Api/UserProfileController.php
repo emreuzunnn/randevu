@@ -8,7 +8,6 @@ use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class UserProfileController extends Controller
 {
@@ -38,24 +37,17 @@ class UserProfileController extends Controller
         // Randevu istatistikleri (artist olarak atandığı randevular)
         $appointmentStats = null;
         if ($hasPortfolio) {
-            $stats = Appointment::query()
-                ->where('assigned_artist_user_id', $user->id)
-                ->select('artist_status', DB::raw('count(*) as count'))
-                ->groupBy('artist_status')
-                ->pluck('count', 'artist_status');
+            $appointments = Appointment::query()
+                ->where('assigned_artist_user_id', $user->id);
 
             $appointmentStats = [
-                'accepted' => (int) ($stats['accepted'] ?? 0),
-                'rejected' => (int) ($stats['rejected'] ?? 0),
-                'completed' => (int) Appointment::query()
-                    ->where('assigned_artist_user_id', $user->id)
+                'completed' => (int) (clone $appointments)
                     ->where('status', 'completed')
                     ->count(),
-                'cancelled' => (int) Appointment::query()
-                    ->where('assigned_artist_user_id', $user->id)
+                'cancelled' => (int) (clone $appointments)
                     ->where('status', 'cancelled')
                     ->count(),
-                'total'    => $stats->sum(),
+                'total'     => (int) $appointments->count(),
             ];
         }
 

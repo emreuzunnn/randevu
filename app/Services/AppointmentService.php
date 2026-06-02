@@ -150,16 +150,6 @@ class AppointmentService
         return $appointment->fresh(['assignedArtist']);
     }
 
-    /** Artist randevuyu kabul veya reddeder. */
-    public function artistRespond(Appointment $appointment, string $response): Appointment
-    {
-        abort_unless(in_array($response, ['accepted', 'rejected'], true), 422);
-
-        $appointment->fill(['artist_status' => $response])->save();
-
-        return $appointment->fresh();
-    }
-
     public function delete(Studio $studio, Appointment $appointment): void
     {
         if ((int) $appointment->studio_id !== (int) $studio->id) {

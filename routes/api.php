@@ -306,12 +306,10 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::patch('/appointment-requests/{appointmentRequest}/reject', [AppointmentRequestController::class, 'reject']);
 });
 
-// Artist/designer kendi atanmış randevularını listeler ve kabul/red kararı verir.
+// Artist/designer kendi atanmış randevularını listeler.
 Route::middleware(['api.auth', 'role:artist,designer,kullanici_rol'])->group(function (): void {
     // Stüdyodan bağımsız, artiste atanmış randevuları listeler.
     Route::get('/my-artist-appointments', [AppointmentController::class, 'myArtistAppointments']);
-    // artist_status: accepted (kabul) | rejected (red)
-    Route::patch('/studios/{studio}/appointments/{appointment}/artist-response', [AppointmentController::class, 'artistResponse']);
     // Artist tamamlanan dövmenin fotoğrafını yükler; fiyat bundan sonra görünür.
     Route::post('/appointments/{appointment}/artist-complete', [AppointmentController::class, 'artistComplete']);
 });
