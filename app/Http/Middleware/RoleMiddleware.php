@@ -38,7 +38,7 @@ class RoleMiddleware
 
             // Yönetim rolleri için canManageStudioAppointments kontrolü
             $managementRoles = [UserRole::Yonetici, UserRole::Supervisor];
-            if (! $canPass && array_intersect($allowedRoles, $managementRoles) !== []) {
+            if (! $canPass && $this->hasAnyAllowedRole($allowedRoles, $managementRoles)) {
                 if ($user->canManageStudioAppointments($studio)) {
                     $canPass = true;
                 }
@@ -46,7 +46,7 @@ class RoleMiddleware
 
             // Randevu yönetimi gerektiren çalışan rolleri
             $staffRoles = [UserRole::Designer, UserRole::Info, UserRole::Sofor, UserRole::Calisan];
-            if (! $canPass && array_intersect($allowedRoles, $staffRoles) !== []) {
+            if (! $canPass && $this->hasAnyAllowedRole($allowedRoles, $staffRoles)) {
                 if ($user->canManageStudioAppointments($studio)) {
                     $canPass = true;
                 }
@@ -77,6 +77,21 @@ class RoleMiddleware
         return $request->is('api/studios/*/appointment-support')
             || $request->is('api/studios/*/appointments')
             || $request->is('api/studios/*/appointments/*');
+    }
+
+    /**
+     * @param  array<int, UserRole>  $allowedRoles
+     * @param  array<int, UserRole>  $expectedRoles
+     */
+    private function hasAnyAllowedRole(array $allowedRoles, array $expectedRoles): bool
+    {
+        foreach ($expectedRoles as $role) {
+            if (in_array($role, $allowedRoles, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function driverWorksInStudioBranch(Request $request, Studio $studio): bool

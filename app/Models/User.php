@@ -256,6 +256,13 @@ class User extends Authenticatable
             return false;
         }
 
+        if (
+            $this->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor])
+            && in_array($studioModel->id, $this->staffScopeStudioIds(), true)
+        ) {
+            return true;
+        }
+
         // Platform yöneticisi ve şube supervisor'ı
         if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor])) {
             return true;
@@ -350,6 +357,54 @@ class User extends Authenticatable
         }
 
         return array_values(array_unique(array_map('intval', $studioIds)));
+    }
+
+    /**
+     * Personel yönetimi kapsamı: admin tüm proje, yönetici şirket, supervisor şube.
+     *
+     * @return array<int, int>
+     */
+    public function staffScopeStudioIds(): array
+    {
+        if ($this->hasRole(UserRole::Admin)) {
+            return Studio::query()->pluck('id')->map('intval')->all();
+        }
+
+        if ($this->hasRole(UserRole::Yonetici)) {
+            $companyIds = $this->managedShops()
+                ->whereNotNull('company_id')
+                ->pluck('company_id');
+
+            if ($companyIds->isNotEmpty()) {
+                return Studio::query()
+                    ->whereHas('shop', fn ($query) => $query->whereIn('company_id', $companyIds))
+                    ->pluck('id')
+                    ->map('intval')
+                    ->all();
+            }
+        }
+
+        if ($this->hasRole(UserRole::Supervisor)) {
+            $shopIds = $this->managedShops()->pluck('id');
+
+            if ($shopIds->isEmpty()) {
+                $shopIds = $this->studios()
+                    ->wherePivot('role', UserRole::Supervisor->value)
+                    ->wherePivot('is_active', true)
+                    ->pluck('studios.shop_id')
+                    ->filter();
+            }
+
+            if ($shopIds->isNotEmpty()) {
+                return Studio::query()
+                    ->whereIn('shop_id', $shopIds)
+                    ->pluck('id')
+                    ->map('intval')
+                    ->all();
+            }
+        }
+
+        return $this->accessibleStudioIds();
     }
 
     /** Kullanıcının stüdyoda artist olup olmadığını kontrol eder */

@@ -148,6 +148,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::patch('/studios/{studio}/settings', [StudioController::class, 'update']);
 
     // Stüdyodaki tüm kullanıcıları listeler.
+    Route::get('/users', [UserDirectoryController::class, 'index']);
     Route::get('/studios/{studio}/users', [UserDirectoryController::class, 'indexByStudio']);
     // Kullanıcının stüdyo rolünü ve aktif-pasif üyelik durumunu güncelle.
     Route::patch('/studios/{studio}/users/{user}', [UserDirectoryController::class, 'update']);

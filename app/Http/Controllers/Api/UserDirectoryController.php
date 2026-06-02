@@ -13,10 +13,28 @@ use Illuminate\Validation\Rule;
 
 class UserDirectoryController extends Controller
 {
+    /** Yetkili kullanıcının hiyerarşik kapsamındaki tüm çalışanları döndürür. */
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
+
+        return $this->staffResponse($user->staffScopeStudioIds());
+    }
+
     /** Mobil admin paneli için tüm stüdyolardaki çalışanları döndürür */
     public function adminIndex(): JsonResponse
     {
+        return $this->staffResponse(Studio::query()->pluck('id')->map('intval')->all());
+    }
+
+    /**
+     * @param  array<int, int>  $studioIds
+     */
+    private function staffResponse(array $studioIds): JsonResponse
+    {
         $studios = Studio::query()
+            ->whereIn('id', $studioIds)
             ->with(['users' => fn ($query) => $query->orderBy('users.name')])
             ->orderBy('name')
             ->get();
@@ -51,9 +69,7 @@ class UserDirectoryController extends Controller
             ->values();
 
         $companyId = $request->query('company_id');
-        $scopeStudioIds = $authUser->hasRole(UserRole::Supervisor)
-            ? $this->supervisedStudioIds($authUser)
-            : $authUser->accessibleStudioIds();
+        $scopeStudioIds = $authUser->staffScopeStudioIds();
 
         $users = User::query()
             ->whereNull('banned_at')
@@ -147,14 +163,7 @@ class UserDirectoryController extends Controller
     {
         $user = request()->user();
         $studios = Studio::query()
-            ->when(
-                $user?->hasRole(UserRole::Supervisor),
-                fn ($query) => $query->whereIn('id', $this->supervisedStudioIds($user))
-            )
-            ->when(
-                ! $user?->hasRole(UserRole::Admin) && ! $user?->hasRole(UserRole::Supervisor),
-                fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
-            )
+            ->whereIn('id', $user?->staffScopeStudioIds() ?? [])
             ->get(['id', 'name']);
 
         return response()->json([
@@ -266,27 +275,6 @@ class UserDirectoryController extends Controller
             return false;
         }
 
-        if ($user->hasRole(UserRole::Supervisor)) {
-            return $user->hasStudioRole($studio, [UserRole::Supervisor]);
-        }
-
-        return $user->canManageStudio($studio);
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function supervisedStudioIds(?User $user): array
-    {
-        if ($user === null) {
-            return [];
-        }
-
-        return $user->studios()
-            ->wherePivot('is_active', true)
-            ->wherePivot('role', UserRole::Supervisor->value)
-            ->pluck('studios.id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
+        return in_array($studio->id, $user->staffScopeStudioIds(), true);
     }
 }

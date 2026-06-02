@@ -116,19 +116,8 @@ class UserProfileController extends Controller
             return false;
         }
 
-        if ($viewer->hasRole(UserRole::Yonetici)) {
-            return count(array_intersect($targetStudioIds, $viewer->accessibleStudioIds())) > 0;
-        }
-
-        if ($viewer->hasRole(UserRole::Supervisor)) {
-            $supervisedStudioIds = $viewer->studios()
-                ->wherePivot('is_active', true)
-                ->wherePivot('role', UserRole::Supervisor->value)
-                ->pluck('studios.id')
-                ->map(fn ($id): int => (int) $id)
-                ->all();
-
-            return count(array_intersect($targetStudioIds, $supervisedStudioIds)) > 0;
+        if ($viewer->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor])) {
+            return count(array_intersect($targetStudioIds, $viewer->staffScopeStudioIds())) > 0;
         }
 
         return false;

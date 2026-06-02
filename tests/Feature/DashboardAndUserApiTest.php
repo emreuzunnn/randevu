@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\Company;
 use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
@@ -145,6 +146,87 @@ class DashboardAndUserApiTest extends TestCase
             ]);
     }
 
+    public function test_supervisor_sees_staff_in_own_branch_only(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = Shop::factory()->create();
+        $ownStudio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $siblingStudio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $outsideStudio = Studio::factory()->create();
+
+        $this->attachStudioMember($ownStudio, $supervisor, UserRole::Supervisor);
+
+        $branchEmployee = User::factory()->create([
+            'name' => 'Sube',
+            'surname' => 'Calisani',
+            'role' => UserRole::Calisan,
+        ]);
+        $outsideEmployee = User::factory()->create([
+            'name' => 'Baska',
+            'surname' => 'Sube',
+            'role' => UserRole::Calisan,
+        ]);
+        $this->attachStudioMember($siblingStudio, $branchEmployee, UserRole::Calisan);
+        $this->attachStudioMember($outsideStudio, $outsideEmployee, UserRole::Calisan);
+
+        $this->actingAs($supervisor)
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Sube Calisani'])
+            ->assertJsonMissing(['name' => 'Baska Sube']);
+
+        $this->actingAs($supervisor)
+            ->getJson("/api/studios/{$siblingStudio->id}/users")
+            ->assertOk();
+
+        $this->actingAs($supervisor)
+            ->getJson("/api/studios/{$outsideStudio->id}/users")
+            ->assertForbidden();
+    }
+
+    public function test_manager_sees_staff_in_own_company_only(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Yonetici]);
+        $company = Company::query()->create(['name' => 'Test Sirketi']);
+        $managedShop = Shop::factory()->create([
+            'company_id' => $company->id,
+            'manager_user_id' => $manager->id,
+        ]);
+        $siblingShop = Shop::factory()->create(['company_id' => $company->id]);
+        $managedStudio = Studio::factory()->create(['shop_id' => $managedShop->id]);
+        $siblingStudio = Studio::factory()->create(['shop_id' => $siblingShop->id]);
+        $outsideStudio = Studio::factory()->create();
+
+        $companyEmployee = User::factory()->create([
+            'name' => 'Sirket',
+            'surname' => 'Calisani',
+            'role' => UserRole::Calisan,
+        ]);
+        $outsideEmployee = User::factory()->create([
+            'name' => 'Dis',
+            'surname' => 'Calisan',
+            'role' => UserRole::Calisan,
+        ]);
+        $this->attachStudioMember($siblingStudio, $companyEmployee, UserRole::Calisan);
+        $this->attachStudioMember($outsideStudio, $outsideEmployee, UserRole::Calisan);
+
+        $this->actingAs($manager)
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Sirket Calisani'])
+            ->assertJsonMissing(['name' => 'Dis Calisan']);
+
+        $this->actingAs($manager)
+            ->getJson("/api/studios/{$siblingStudio->id}/users")
+            ->assertOk();
+
+        $this->actingAs($manager)
+            ->getJson("/api/studios/{$outsideStudio->id}/users")
+            ->assertForbidden();
+
+        $this->assertNotNull($managedStudio->id);
+    }
+
     public function test_appointment_detail_returns_requested_fields(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
@@ -201,5 +283,15 @@ class DashboardAndUserApiTest extends TestCase
         ]);
 
         return [$user, $studio];
+    }
+
+    private function attachStudioMember(Studio $studio, User $user, UserRole $role): void
+    {
+        $studio->users()->attach($user->id, [
+            'role' => $role->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
     }
 }

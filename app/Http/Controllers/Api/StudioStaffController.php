@@ -129,10 +129,6 @@ class StudioStaffController extends Controller
             return false;
         }
 
-        if ($user->hasRole(UserRole::Supervisor)) {
-            return $user->hasStudioRole($studio, [UserRole::Supervisor]);
-        }
-
-        return $user->canManageStudio($studio);
+        return in_array($studio->id, $user->staffScopeStudioIds(), true);
     }
 }
