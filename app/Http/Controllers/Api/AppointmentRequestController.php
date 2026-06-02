@@ -94,6 +94,7 @@ class AppointmentRequestController extends Controller
             'tattoo_images.*'    => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'    => ['sometimes', 'boolean'],
         ]);
+        $validated = $this->withoutUnauthorizedPrice($validated, $authUser);
 
         $target = ! empty($validated['artist_id'])
             ? User::query()->findOrFail($validated['artist_id'])
@@ -172,6 +173,7 @@ class AppointmentRequestController extends Controller
             'pax'            => ['nullable', 'integer', 'min:1', 'max:50'],
             'price'          => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ]);
+        $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
@@ -394,7 +396,7 @@ class AppointmentRequestController extends Controller
             'room_number'    => $appointmentRequest->room_number,
             'place'          => $appointmentRequest->place,
             'pax'            => $appointmentRequest->pax,
-            'price'          => $appointmentRequest->price,
+            'price'          => $this->visiblePriceFor($appointmentRequest),
             'phone_country_code' => $appointmentRequest->phone_country_code,
             'phone_number'   => $appointmentRequest->phone_number,
             'requester'      => $this->formatUser($appointmentRequest->requester),
@@ -420,6 +422,39 @@ class AppointmentRequestController extends Controller
             'phone' => $user->phone,
             'role'  => $user->role?->value,
         ];
+    }
+
+    private function visiblePriceFor(AppointmentRequest $appointmentRequest): mixed
+    {
+        if ($this->canManagePrice(request()->user())) {
+            return $appointmentRequest->price;
+        }
+
+        return $appointmentRequest->appointment?->status === 'completed'
+            ? ($appointmentRequest->appointment->price ?? $appointmentRequest->price)
+            : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function withoutUnauthorizedPrice(array $validated, ?User $user): array
+    {
+        if (! $this->canManagePrice($user)) {
+            unset($validated['price']);
+        }
+
+        return $validated;
+    }
+
+    private function canManagePrice(?User $user): bool
+    {
+        return $user?->hasAnyRole([
+            UserRole::Admin,
+            UserRole::Yonetici,
+            UserRole::Supervisor,
+        ]) === true;
     }
 
     private function storeRequestImage(Request $request, ?User $target, ?Studio $studio): string

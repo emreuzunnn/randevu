@@ -34,7 +34,7 @@ class AppointmentController extends Controller
                 'id'               => $appointment->id,
                 'customer'         => $this->formatCustomer($appointment),
                 'pax'              => $appointment->pax,
-                'price'            => $appointment->price,
+                'price'            => $this->visiblePriceFor($appointment),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -88,7 +88,7 @@ class AppointmentController extends Controller
                 'customer'          => $this->formatCustomer($appointment),
                 'place'             => $appointment->place,
                 'pax'               => $appointment->pax,
-                'price'             => $appointment->price,
+                'price'             => $this->visiblePriceFor($appointment),
                 'appointment_at'    => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type'  => $appointment->appointment_type,
                 'status'            => $appointment->status,
@@ -176,9 +176,7 @@ class AppointmentController extends Controller
                     'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
                     'place'            => $limitedView ? null : $appointment->place,
                     'pax'              => $limitedView ? null : $appointment->pax,
-                    'price'            => $appointment->appointment_type === 'tattoo' && $appointment->status !== 'completed'
-                        ? null
-                        : $appointment->price,
+                    'price'            => $this->visiblePriceFor($appointment),
                     'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                     'appointment_type' => $appointment->appointment_type,
                     'status'           => $appointment->status,
@@ -323,7 +321,7 @@ class AppointmentController extends Controller
                     'room_number'      => $appointment->room_number,
                     'place'            => $appointment->place,
                     'pax'              => $appointment->pax,
-                    'price'            => $appointment->price,
+                    'price'            => $this->visiblePriceFor($appointment),
                     'notes'            => $appointment->notes,
                     'customer_notes'   => $appointment->customer_notes,
                 ])->values(),
@@ -347,7 +345,7 @@ class AppointmentController extends Controller
                 'id'               => $appointment->id,
                 'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
                 'pax'              => $limitedView ? null : $appointment->pax,
-                'price'            => $appointment->price,
+                'price'            => $this->visiblePriceFor($appointment),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -587,7 +585,7 @@ class AppointmentController extends Controller
             'data' => [
                 'id' => $appointment->id,
                 'status' => $appointment->status,
-                'price' => $appointment->price,
+                'price' => $this->visiblePriceFor($appointment),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
             ],
         ]);
@@ -617,6 +615,7 @@ class AppointmentController extends Controller
             'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'              => ['sometimes', 'boolean'],
         ]);
+        $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
 
         $sourceImagePath = $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null;
         if ($request->hasFile('image')) {
@@ -706,6 +705,7 @@ class AppointmentController extends Controller
             'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'              => ['sometimes', 'boolean'],
         ]);
+        $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
 
         if ($request->hasFile('image')) {
             $validated['source_image_path'] = $this->storeAppointmentImage($request, $studio);
@@ -823,15 +823,32 @@ class AppointmentController extends Controller
     private function visiblePriceFor(Appointment $appointment): mixed
     {
         $user = request()->user();
-        $isAssignedArtist = $user instanceof User
-            && (int) $appointment->assigned_artist_user_id === (int) $user->id
-            && $user->hasAnyRole([UserRole::Artist, UserRole::Designer, UserRole::KullaniciRol]);
 
-        return $isAssignedArtist
-            && $appointment->appointment_type === 'tattoo'
-            && $appointment->status !== 'completed'
-            ? null
-            : $appointment->price;
+        return $appointment->status === 'completed' || $this->canManagePrice($user)
+            ? $appointment->price
+            : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function withoutUnauthorizedPrice(array $validated, ?User $user): array
+    {
+        if (! $this->canManagePrice($user)) {
+            unset($validated['price']);
+        }
+
+        return $validated;
+    }
+
+    private function canManagePrice(?User $user): bool
+    {
+        return $user?->hasAnyRole([
+            UserRole::Admin,
+            UserRole::Yonetici,
+            UserRole::Supervisor,
+        ]) === true;
     }
 
     private function artistLimitedView(Appointment $appointment): bool
