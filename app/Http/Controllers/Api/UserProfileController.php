@@ -117,7 +117,8 @@ class UserProfileController extends Controller
         }
 
         if ($viewer->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor])) {
-            return count(array_intersect($targetStudioIds, $viewer->staffScopeStudioIds())) > 0;
+            return $viewer->canManageStaffRole($target->role)
+                && count(array_intersect($targetStudioIds, $viewer->staffScopeStudioIds())) > 0;
         }
 
         return false;

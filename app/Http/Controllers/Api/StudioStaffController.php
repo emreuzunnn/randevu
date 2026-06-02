@@ -16,6 +16,7 @@ class StudioStaffController extends Controller
     {
         $role = UserRole::fromValue((string) $request->route('role'));
         abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
+        abort_unless($request->user()?->canManageStaffRole($role), 403);
 
         $users = $studio->users()
             ->wherePivot('role', $role->value)
@@ -114,13 +115,7 @@ class StudioStaffController extends Controller
 
         abort_unless($this->canAccessStaffInStudio($user, $studio), 403);
 
-        if (! $user?->hasRole(UserRole::Admin) && in_array($role, [UserRole::Admin, UserRole::Yonetici], true)) {
-            abort(403);
-        }
-
-        if ($user?->hasRole(UserRole::Supervisor) && in_array($role, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor], true)) {
-            abort(403);
-        }
+        abort_unless($user?->canManageStaffRole($role), 403);
     }
 
     private function canAccessStaffInStudio(?User $user, Studio $studio): bool

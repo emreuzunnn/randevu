@@ -185,6 +185,67 @@ class DashboardAndUserApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_supervisor_cannot_see_or_manage_higher_roles_in_branch(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $manager = User::factory()->create([
+            'name' => 'Hidden',
+            'surname' => 'Manager',
+            'role' => UserRole::Yonetici,
+        ]);
+        $otherSupervisor = User::factory()->create([
+            'name' => 'Hidden',
+            'surname' => 'Supervisor',
+            'role' => UserRole::Supervisor,
+        ]);
+        $employee = User::factory()->create([
+            'name' => 'Visible',
+            'surname' => 'Employee',
+            'role' => UserRole::Calisan,
+        ]);
+
+        $this->attachStudioMember($studio, $manager, UserRole::Yonetici);
+        $this->attachStudioMember($studio, $otherSupervisor, UserRole::Supervisor);
+        $this->attachStudioMember($studio, $employee, UserRole::Calisan);
+
+        $this->actingAs($supervisor)
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Visible Employee'])
+            ->assertJsonMissing(['name' => 'Hidden Manager'])
+            ->assertJsonMissing(['name' => 'Hidden Supervisor']);
+
+        $this->actingAs($supervisor)
+            ->getJson("/api/studios/{$studio->id}/users")
+            ->assertOk()
+            ->assertJsonMissing(['name' => 'Hidden Manager'])
+            ->assertJsonMissing(['name' => 'Hidden Supervisor']);
+
+        $this->actingAs($supervisor)
+            ->getJson("/api/users/{$manager->id}")
+            ->assertForbidden();
+
+        $this->actingAs($supervisor)
+            ->patchJson("/api/studios/{$studio->id}/users/{$manager->id}", [
+                'is_active' => false,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($supervisor)
+            ->getJson("/api/studios/{$studio->id}/supervisors")
+            ->assertForbidden();
+
+        $this->actingAs($supervisor)
+            ->getJson('/api/users/options?roles=supervisor')
+            ->assertOk()
+            ->assertExactJson(['data' => []]);
+    }
+
     public function test_manager_sees_staff_in_own_company_only(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Yonetici]);
@@ -229,6 +290,54 @@ class DashboardAndUserApiTest extends TestCase
             ->assertForbidden();
 
         $this->assertNotNull($managedStudio->id);
+    }
+
+    public function test_manager_cannot_see_or_manage_another_manager(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Yonetici]);
+        $company = Company::query()->create([
+            'name' => 'Managed Company',
+            'manager_user_id' => $manager->id,
+        ]);
+        $shop = Shop::factory()->create([
+            'company_id' => $company->id,
+            'manager_user_id' => null,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $otherManager = User::factory()->create([
+            'name' => 'Hidden',
+            'surname' => 'Owner',
+            'role' => UserRole::Yonetici,
+        ]);
+        $supervisor = User::factory()->create([
+            'name' => 'Visible',
+            'surname' => 'Supervisor',
+            'role' => UserRole::Supervisor,
+        ]);
+
+        $this->attachStudioMember($studio, $otherManager, UserRole::Yonetici);
+        $this->attachStudioMember($studio, $supervisor, UserRole::Supervisor);
+
+        $this->actingAs($manager)
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Visible Supervisor'])
+            ->assertJsonMissing(['name' => 'Hidden Owner']);
+
+        $this->actingAs($manager)
+            ->getJson("/api/users/{$otherManager->id}")
+            ->assertForbidden();
+
+        $this->actingAs($manager)
+            ->patchJson("/api/studios/{$studio->id}/users/{$otherManager->id}", [
+                'is_active' => false,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($manager)
+            ->getJson('/api/users/options?roles=yonetici')
+            ->assertOk()
+            ->assertExactJson(['data' => []]);
     }
 
     public function test_appointment_detail_returns_requested_fields(): void

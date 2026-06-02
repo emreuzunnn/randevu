@@ -129,6 +129,48 @@ class User extends Authenticatable
         return false;
     }
 
+    /**
+     * Kullanıcı yönetiminde görünür ve yönetilebilir alt roller.
+     *
+     * @return array<int, UserRole>
+     */
+    public function manageableStaffRoles(): array
+    {
+        return match ($this->role) {
+            UserRole::Admin => [
+                UserRole::Admin,
+                UserRole::Yonetici,
+                UserRole::Supervisor,
+                UserRole::Designer,
+                UserRole::Artist,
+                UserRole::Info,
+                UserRole::Sofor,
+                UserRole::Calisan,
+            ],
+            UserRole::Yonetici => [
+                UserRole::Supervisor,
+                UserRole::Designer,
+                UserRole::Artist,
+                UserRole::Info,
+                UserRole::Sofor,
+                UserRole::Calisan,
+            ],
+            UserRole::Supervisor => [
+                UserRole::Designer,
+                UserRole::Artist,
+                UserRole::Info,
+                UserRole::Sofor,
+                UserRole::Calisan,
+            ],
+            default => [],
+        };
+    }
+
+    public function canManageStaffRole(UserRole|string $role): bool
+    {
+        return in_array(UserRole::fromValue($role), $this->manageableStaffRoles(), true);
+    }
+
     public function hasProfessionalAccountRole(): bool
     {
         return in_array($this->profileRole(), [UserRole::Artist, UserRole::Designer], true)

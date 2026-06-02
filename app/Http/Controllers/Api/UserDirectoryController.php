@@ -19,23 +19,33 @@ class UserDirectoryController extends Controller
         $user = $request->user();
         abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
-        return $this->staffResponse($user->staffScopeStudioIds());
+        return $this->staffResponse($user, $user->staffScopeStudioIds());
     }
 
     /** Mobil admin paneli için tüm stüdyolardaki çalışanları döndürür */
-    public function adminIndex(): JsonResponse
+    public function adminIndex(Request $request): JsonResponse
     {
-        return $this->staffResponse(Studio::query()->pluck('id')->map('intval')->all());
+        return $this->staffResponse(
+            $request->user(),
+            Studio::query()->pluck('id')->map('intval')->all()
+        );
     }
 
     /**
      * @param  array<int, int>  $studioIds
      */
-    private function staffResponse(array $studioIds): JsonResponse
+    private function staffResponse(User $viewer, array $studioIds): JsonResponse
     {
+        $visibleRoles = array_map(
+            static fn (UserRole $role): string => $role->value,
+            $viewer->manageableStaffRoles()
+        );
+
         $studios = Studio::query()
             ->whereIn('id', $studioIds)
-            ->with(['users' => fn ($query) => $query->orderBy('users.name')])
+            ->with(['users' => fn ($query) => $query
+                ->wherePivotIn('role', $visibleRoles)
+                ->orderBy('users.name')])
             ->orderBy('name')
             ->get();
 
@@ -63,16 +73,23 @@ class UserDirectoryController extends Controller
         $authUser = $request->user();
         abort_unless($authUser?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
-        $roles = collect(explode(',', (string) $request->query('roles')))
+        $requestedRoles = collect(explode(',', (string) $request->query('roles')))
             ->filter()
             ->map(fn (string $role): string => UserRole::fromValue($role)->value)
             ->values();
+        $manageableRoles = collect($authUser->manageableStaffRoles())
+            ->map(static fn (UserRole $role): string => $role->value);
+        $roles = $requestedRoles->intersect($manageableRoles)->values();
 
         $companyId = $request->query('company_id');
         $scopeStudioIds = $authUser->staffScopeStudioIds();
 
         $users = User::query()
             ->whereNull('banned_at')
+            ->when(
+                $requestedRoles->isNotEmpty() && $roles->isEmpty(),
+                fn ($q) => $q->whereRaw('1 = 0')
+            )
             ->when(
                 $roles->isNotEmpty(),
                 fn ($q) => $q->where(function ($q) use ($roles): void {
@@ -128,23 +145,8 @@ class UserDirectoryController extends Controller
         $studio = Studio::query()->findOrFail($validated['studio_id']);
         abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
 
-        // Sadece admin, admin/yonetici rolü atayabilir
-        if (
-            ! $request->user()?->hasRole(UserRole::Admin)
-            && in_array($validated['role'], ['admin', 'yonetici'], true)
-        ) {
-            abort(403);
-        }
-
-        // Supervisor kendi seviyesinde veya üstünde rol atayamaz
-        if (
-            $request->user()?->hasRole(UserRole::Supervisor)
-            && in_array($validated['role'], ['admin', 'yonetici', 'supervisor'], true)
-        ) {
-            abort(403);
-        }
-
         $role = UserRole::fromValue($validated['role']);
+        abort_unless($request->user()?->canManageStaffRole($role), 403);
 
         $result = $studioStaffService->createOrAttach($studio, $role, $validated, $request->user());
         $isInvitation = $result['action'] === 'invited_existing_freelancer';
@@ -184,7 +186,11 @@ class UserDirectoryController extends Controller
     {
         abort_unless($this->canAccessStaffInStudio(request()->user(), $studio), 403);
 
-        $users = $studio->users()->get();
+        $visibleRoles = array_map(
+            static fn (UserRole $role): string => $role->value,
+            request()->user()->manageableStaffRoles()
+        );
+        $users = $studio->users()->wherePivotIn('role', $visibleRoles)->get();
 
         return response()->json([
             'data' => $users->map(fn (User $user): array => [
@@ -209,20 +215,7 @@ class UserDirectoryController extends Controller
 
         $currentRole = $studio->users()->where('users.id', $user->id)->first()?->pivot?->role;
         abort_if($currentRole === null, 404);
-
-        if (
-            ! $request->user()?->hasRole(UserRole::Admin)
-            && in_array($currentRole, ['admin', 'yonetici'], true)
-        ) {
-            abort(403);
-        }
-
-        if (
-            $request->user()?->hasRole(UserRole::Supervisor)
-            && in_array($currentRole, ['admin', 'yonetici', 'supervisor'], true)
-        ) {
-            abort(403);
-        }
+        abort_unless($request->user()?->canManageStaffRole($currentRole), 403);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -235,20 +228,8 @@ class UserDirectoryController extends Controller
             'profile_image' => ['nullable', 'string', 'max:2048'],
         ]);
 
-        if (
-            ! $request->user()?->hasRole(UserRole::Admin)
-            && isset($validated['role'])
-            && in_array($validated['role'], ['admin', 'yonetici'], true)
-        ) {
-            abort(403);
-        }
-
-        if (
-            $request->user()?->hasRole(UserRole::Supervisor)
-            && isset($validated['role'])
-            && in_array($validated['role'], ['admin', 'yonetici', 'supervisor'], true)
-        ) {
-            abort(403);
+        if (isset($validated['role'])) {
+            abort_unless($request->user()?->canManageStaffRole($validated['role']), 403);
         }
 
         $updatedUser = $studioStaffService->updateMembership(
