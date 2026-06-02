@@ -72,7 +72,7 @@ class AppointmentController extends Controller
         $branchStudioIds = Studio::query()->whereIn('shop_id', $shopIds)->pluck('id');
 
         $appointments = Appointment::query()
-            ->with(['studio', 'createdBy'])
+            ->with(['studio.shop', 'createdBy'])
             ->whereIn('studio_id', $branchStudioIds)
             ->where('pickup_required', true)
             ->orderBy('appointment_at')
@@ -124,7 +124,7 @@ class AppointmentController extends Controller
         }
 
         $appointments = Appointment::query()
-            ->with(['studio', 'createdBy'])
+            ->with(['studio.shop', 'createdBy'])
             ->where(function ($query) use ($artistStudioIds, $designerStudioIds, $isIndependentArtist, $user): void {
                 if ($artistStudioIds !== []) {
                     $query->orWhere(function ($artistQuery) use ($artistStudioIds): void {
@@ -163,6 +163,10 @@ class AppointmentController extends Controller
                     'studio' => $appointment->studio ? [
                         'id'   => $appointment->studio->id,
                         'name' => $appointment->studio->name,
+                        'shop' => $appointment->studio->shop ? [
+                            'id'   => $appointment->studio->shop->id,
+                            'name' => $appointment->studio->shop->name,
+                        ] : null,
                     ] : null,
                     'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
                     'place'            => $limitedView ? null : $appointment->place,
@@ -238,7 +242,7 @@ class AppointmentController extends Controller
 
     private function appointmentDetailResponse(Appointment $appointment): JsonResponse
     {
-        $appointment->load(['createdBy', 'assignedArtist', 'studio']);
+        $appointment->load(['createdBy', 'assignedArtist', 'studio.shop']);
         $limitedView = $this->artistLimitedView($appointment);
 
         return response()->json([
@@ -266,6 +270,10 @@ class AppointmentController extends Controller
                 'studio'           => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
+                    'shop' => $appointment->studio->shop ? [
+                        'id'   => $appointment->studio->shop->id,
+                        'name' => $appointment->studio->shop->name,
+                    ] : null,
                 ] : null,
                 'artist'           => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
