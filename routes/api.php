@@ -34,7 +34,10 @@ Route::post('/ocr/appointment-slip', AppointmentSlipOcrController::class);
 // Kullanıcı girişi yapar ve sonraki API isteklerinde kullanılacak bearer token üretir.
 Route::post('/login', [AuthController::class, 'login']);
 
-// Yeni kullanıcı kaydı: normal kullanıcı veya bağımsız freelancer hesabı oluşturur.
+// Kayıt ekranındaki güvenli rol ve uzmanlık seçenekleri.
+Route::get('/register/options', [AuthController::class, 'registrationOptions']);
+
+// Yeni kullanıcı kaydı: normal kullanıcı, bağımsız artist veya bağımsız tasarımcı oluşturur.
 Route::post('/register', [AuthController::class, 'register']);
 
 // Stüdyo keşif sayfası için herkese açık listeler.

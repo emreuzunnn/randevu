@@ -47,7 +47,7 @@ class StudioStaffController extends Controller
 
         return response()->json([
             'message' => $isInvitation
-                ? 'Freelancera çalışanlık daveti gönderildi.'
+                ? 'Kullanıcıya çalışanlık daveti gönderildi.'
                 : $role->label().' oluşturuldu.',
             'data' => [
                 'user' => [

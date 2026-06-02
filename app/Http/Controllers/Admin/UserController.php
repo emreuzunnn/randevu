@@ -86,7 +86,7 @@ class UserController extends Controller
             ->with(
                 'status',
                 $result['action'] === 'invited_existing_freelancer'
-                    ? 'Freelancera çalışanlık daveti gönderildi.'
+                    ? 'Kullanıcıya çalışanlık daveti gönderildi.'
                     : 'Kullanıcı oluşturuldu.'
             );
     }

@@ -127,6 +127,27 @@ class User extends Authenticatable
         return false;
     }
 
+    public function hasProfessionalAccountRole(): bool
+    {
+        return $this->hasAnyRole([
+            UserRole::Artist,
+            UserRole::Designer,
+            UserRole::KullaniciRol,
+        ]);
+    }
+
+    public function isIndependentProfessional(): bool
+    {
+        return $this->hasProfessionalAccountRole()
+            && ! $this->studios()->wherePivot('is_active', true)->exists();
+    }
+
+    public function isIndependentProfessionalFor(UserRole $role): bool
+    {
+        return $this->isIndependentProfessional()
+            && ($this->hasRole(UserRole::KullaniciRol) || $this->hasRole($role));
+    }
+
     public function ownedStudios(): HasMany
     {
         return $this->hasMany(Studio::class, 'owner_user_id');

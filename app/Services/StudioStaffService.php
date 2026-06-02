@@ -32,13 +32,19 @@ class StudioStaffService
                 ->first();
 
             if ($existingUser !== null) {
-                if ($existingUser->hasRole(UserRole::KullaniciRol)) {
-                    return $this->inviteFreelancer(
+                if ($existingUser->hasProfessionalAccountRole()) {
+                    return $this->inviteProfessional(
                         $studio,
                         $role,
                         $existingUser,
                         $invitedBy ?? auth()->user(),
                     );
+                }
+
+                if (in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
+                    throw ValidationException::withMessages([
+                        'email' => ['Kullanıcı önce uygulamadan artist veya tasarımcı olarak kayıt olmalıdır.'],
+                    ]);
                 }
 
                 if ($existingUser->belongsToStudio($studio)) {
@@ -73,6 +79,12 @@ class StudioStaffService
                     'studio_role' => $role->value,
                     'action' => 'attached_existing_user',
                 ];
+            }
+
+            if (in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
+                throw ValidationException::withMessages([
+                    'email' => ['Artist ve tasarımcılar önce uygulamadan kayıt olmalıdır.'],
+                ]);
             }
 
             if (blank($attributes['password'] ?? null)) {
@@ -266,7 +278,7 @@ class StudioStaffService
     /**
      * @return array{user:User,studio_role:string,action:string,invitation:StudioStaffInvitation}
      */
-    private function inviteFreelancer(
+    private function inviteProfessional(
         Studio $studio,
         UserRole $role,
         User $freelancer,
@@ -274,7 +286,13 @@ class StudioStaffService
     ): array {
         if (! in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
             throw ValidationException::withMessages([
-                'role' => ['Freelancer hesaplara yalnızca artist veya tasarımcı daveti gönderilebilir.'],
+                'role' => ['Bağımsız profesyonellere yalnızca artist veya tasarımcı daveti gönderilebilir.'],
+            ]);
+        }
+
+        if (! $freelancer->hasRole(UserRole::KullaniciRol) && ! $freelancer->hasRole($role)) {
+            throw ValidationException::withMessages([
+                'role' => ['Kullanıcı bu çalışma rolüyle kayıtlı değil.'],
             ]);
         }
 
@@ -286,7 +304,7 @@ class StudioStaffService
 
         if ($freelancer->studios()->wherePivot('is_active', true)->exists()) {
             throw ValidationException::withMessages([
-                'email' => ['Bu freelancer zaten başka bir stüdyoda aktif çalışıyor.'],
+                'email' => ['Bu kullanıcı zaten başka bir stüdyoda aktif çalışıyor.'],
             ]);
         }
 

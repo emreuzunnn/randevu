@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\StudioStaffService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserDirectoryController extends Controller
 {
@@ -93,9 +94,9 @@ class UserDirectoryController extends Controller
         ]), 403);
 
         $validated = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'surname'  => ['required', 'string', 'max:255'],
-            'phone'    => ['required', 'string', 'max:30'],
+            'name'     => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:255'],
+            'surname'  => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:255'],
+            'phone'    => [Rule::requiredIf(fn (): bool => ! in_array($request->input('role'), ['artist', 'designer'], true)), 'nullable', 'string', 'max:30'],
             'role'     => ['required', 'string', 'in:admin,yonetici,supervisor,designer,artist,info,sofor,calisan'],
             'studio_id' => ['required', 'integer', 'exists:studios,id'],
             'email'    => ['required', 'string', 'email', 'max:255'],
@@ -128,7 +129,7 @@ class UserDirectoryController extends Controller
 
         return response()->json([
             'message' => $isInvitation
-                ? 'Freelancera çalışanlık daveti gönderildi.'
+                ? 'Kullanıcıya çalışanlık daveti gönderildi.'
                 : 'Kullanıcı başarıyla oluşturuldu.',
             'data' => [
                 'id' => $result['user']->id,

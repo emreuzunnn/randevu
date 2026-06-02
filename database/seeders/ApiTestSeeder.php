@@ -215,19 +215,32 @@ class ApiTestSeeder extends Seeder
             'role'     => UserRole::Calisan,
         ]);
 
-        $kullaniciRol = User::factory()->create([
-            'name'      => 'Freelancer',
+        $independentArtist = User::factory()->create([
+            'name'      => 'Bağımsız',
             'surname'   => 'Artist',
             'phone'     => '5550000016',
-            'email'     => 'freelancer@example.com',
+            'email'     => 'bagimsiz.artist@example.com',
             'password'  => '123456',
-            'role'      => UserRole::KullaniciRol,
+            'role'      => UserRole::Artist,
             'bio'       => 'Bağımsız çalışan dövme sanatçısı.',
             'rating'    => 4.3,
+            'specializations' => ['minimal', 'fine_line', 'blackwork'],
             'portfolio' => [
                 ['title' => 'Minimalist Ay',  'image_path' => null, 'description' => 'Tek çizgi ay serisi.',     'category' => 'minimalist'],
                 ['title' => 'Script Yazı',    'image_path' => null, 'description' => 'El yazısı metin dövmesi.', 'category' => 'lettering'],
             ],
+        ]);
+
+        $independentDesigner = User::factory()->create([
+            'name'      => 'Bağımsız',
+            'surname'   => 'Tasarımcı',
+            'phone'     => '5550000018',
+            'email'     => 'bagimsiz.designer@example.com',
+            'password'  => '123456',
+            'role'      => UserRole::Designer,
+            'bio'       => 'Bağımsız çalışan dövme tasarımcısı.',
+            'rating'    => 4.5,
+            'specializations' => ['japanese', 'color', 'cover_up'],
         ]);
 
         $kullanici = User::factory()->create([
@@ -382,25 +395,46 @@ class ApiTestSeeder extends Seeder
             'joined_at'   => now()->subMonths(2),
         ]);
 
-        // Freelancer davet testi:
-        // freelancer@example.com / 123456 ile giriş yapıp Bildirimler'den yanıtlanabilir.
-        $freelancerInvitation = StudioStaffInvitation::create([
+        // Bağımsız profesyonel davet testleri:
+        // bagimsiz.artist@example.com / 123456 ile giriş yapıp Bildirimler'den yanıtlanabilir.
+        $artistInvitation = StudioStaffInvitation::create([
             'studio_id'          => $studio1->id,
-            'user_id'            => $kullaniciRol->id,
+            'user_id'            => $independentArtist->id,
             'invited_by_user_id' => $supervisor1->id,
             'role'               => UserRole::Artist->value,
             'status'             => 'pending',
         ]);
 
         PushNotification::create([
-            'user_id' => $kullaniciRol->id,
+            'user_id' => $independentArtist->id,
             'type'    => 'studio_staff_invitation',
             'title'   => 'Yeni çalışanlık daveti',
             'body'    => $studio1->name.' sizi Artist olarak ekibine davet etti.',
             'data'    => [
-                'invitation_id' => (string) $freelancerInvitation->id,
+                'invitation_id' => (string) $artistInvitation->id,
                 'studio_id'     => (string) $studio1->id,
                 'role'          => UserRole::Artist->value,
+            ],
+        ]);
+
+        // bagimsiz.designer@example.com / 123456 ile tasarımcı daveti test edilebilir.
+        $designerInvitation = StudioStaffInvitation::create([
+            'studio_id'          => $studio2->id,
+            'user_id'            => $independentDesigner->id,
+            'invited_by_user_id' => $supervisor2->id,
+            'role'               => UserRole::Designer->value,
+            'status'             => 'pending',
+        ]);
+
+        PushNotification::create([
+            'user_id' => $independentDesigner->id,
+            'type'    => 'studio_staff_invitation',
+            'title'   => 'Yeni çalışanlık daveti',
+            'body'    => $studio2->name.' sizi Tasarımcı olarak ekibine davet etti.',
+            'data'    => [
+                'invitation_id' => (string) $designerInvitation->id,
+                'studio_id'     => (string) $studio2->id,
+                'role'          => UserRole::Designer->value,
             ],
         ]);
 
@@ -894,7 +928,7 @@ class ApiTestSeeder extends Seeder
 
         AppointmentRequest::create([
             'requester_user_id'  => $kullanici->id,
-            'target_user_id'     => $kullaniciRol->id,
+            'target_user_id'     => $independentArtist->id,
             'studio_id'          => null,
             'request_type'       => 'tattoo',
             'requested_at'       => now()->addDays(5)->setTime(14, 30),

@@ -117,7 +117,7 @@ class AppointmentController extends Controller
         $artistStudioIds = $this->activeStudioIdsForRole($user, UserRole::Artist);
         $designerStudioIds = $this->activeStudioIdsForRole($user, UserRole::Designer);
 
-        $isIndependentArtist = $user->hasRole(UserRole::KullaniciRol);
+        $isIndependentArtist = $user->isIndependentProfessional();
 
         if ($artistStudioIds === [] && $designerStudioIds === [] && ! $isIndependentArtist) {
             return response()->json(['data' => []]);
@@ -497,7 +497,7 @@ class AppointmentController extends Controller
         abort_unless((int) $appointment->assigned_artist_user_id === (int) $user->id, 403);
         abort_unless($appointment->appointment_type === 'tattoo', 422);
         abort_unless(
-            $user->hasRole(UserRole::KullaniciRol)
+            $user->isIndependentProfessionalFor(UserRole::Artist)
                 || ($appointment->studio_id !== null && $user->hasStudioRole((int) $appointment->studio_id, [UserRole::Artist])),
             403
         );

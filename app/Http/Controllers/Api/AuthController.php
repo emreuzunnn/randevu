@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -26,10 +27,26 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'bio'      => ['nullable', 'string', 'max:1000'],
             'accepted_terms' => ['accepted'],
-            'account_type' => ['nullable', 'string', 'in:normal,freelancer'],
+            'account_type' => ['nullable', 'string', 'in:normal,artist,designer,freelancer'],
+            'specializations' => [
+                Rule::requiredIf(fn (): bool => in_array(
+                    $request->input('account_type'),
+                    ['artist', 'designer', 'freelancer'],
+                    true
+                )),
+                'array',
+                'max:5',
+            ],
+            'specializations.*' => ['string', Rule::in(array_keys(config('registration.specializations')))],
         ]);
 
         $accountType = $validated['account_type'] ?? 'normal';
+        $role = match ($accountType) {
+            'artist' => UserRole::Artist,
+            'designer' => UserRole::Designer,
+            'freelancer' => UserRole::KullaniciRol,
+            default => UserRole::Kullanici,
+        };
 
         $user = User::query()->create([
             'name'     => $validated['name'] ?? '',
@@ -37,19 +54,18 @@ class AuthController extends Controller
             'email'    => $validated['email'],
             'phone'    => $validated['phone'],
             'password' => $validated['password'],
-            'role'     => $accountType === 'freelancer'
-                ? UserRole::KullaniciRol
-                : UserRole::Kullanici,
+            'role'     => $role,
             'bio'      => $validated['bio'] ?? null,
+            'specializations' => $validated['specializations'] ?? null,
         ]);
 
         $token = $user->issueApiToken();
 
         return response()->json([
             'status'  => 'success',
-            'message' => $accountType === 'freelancer'
-                ? 'Freelancer kaydı başarılı.'
-                : 'Kayıt başarılı.',
+            'message' => $role === UserRole::Kullanici
+                ? 'Kayıt başarılı.'
+                : $role->label().' kaydı başarılı.',
             'data'    => [
                 'token'      => $token,
                 'token_type' => 'Bearer',
@@ -62,6 +78,25 @@ class AuthController extends Controller
                 ],
             ],
         ], 201);
+    }
+
+    public function registrationOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'account_types' => [
+                    ['value' => 'normal', 'label' => 'Normal Kullanıcı'],
+                    ['value' => 'artist', 'label' => 'Artist'],
+                    ['value' => 'designer', 'label' => 'Tasarımcı'],
+                ],
+                'specializations' => collect(config('registration.specializations'))
+                    ->map(fn (string $label, string $value): array => [
+                        'value' => $value,
+                        'label' => $label,
+                    ])
+                    ->values(),
+            ],
+        ]);
     }
 
     public function login(Request $request): JsonResponse
@@ -178,7 +213,7 @@ class AuthController extends Controller
             'location'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'experience_years'     => ['sometimes', 'nullable', 'integer', 'min:0', 'max:60'],
             'specializations'      => ['sometimes', 'nullable', 'array'],
-            'specializations.*'    => ['string', 'in:realism,fine_line,blackwork,old_school,minimal,chicano,japanese,color,cover_up,dotwork,tribal'],
+            'specializations.*'    => ['string', Rule::in(array_keys(config('registration.specializations')))],
             'availability_start'   => ['sometimes', 'nullable', 'date_format:H:i'],
             'availability_end'     => ['sometimes', 'nullable', 'date_format:H:i'],
             'profile_image'        => ['sometimes', 'nullable', 'string', 'max:2048'],
@@ -381,7 +416,7 @@ class AuthController extends Controller
         $user = $request->user();
         abort_if($user === null, 401);
         abort_unless(
-            $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
+            $user->hasRole(UserRole::Kullanici) || $user->isIndependentProfessional(),
             403,
             'Personel hesapları uygulama içinden silinemez.'
         );

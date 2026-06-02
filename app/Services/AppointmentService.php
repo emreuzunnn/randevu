@@ -131,9 +131,9 @@ class AppointmentService
                 ? [UserRole::Designer]
                 : [UserRole::Artist];
 
-            // Kişi randevu türüne uygun stüdyo rolünde olabilir ya da bağımsız KullaniciRol olabilir
+            // Kişi randevu türüne uygun stüdyo rolünde veya bağımsız profesyonel olabilir.
             $isStudioArtist = $artist->hasStudioRole($studio, $assignableRoles);
-            $isIndependent  = $artist->hasRole(UserRole::KullaniciRol);
+            $isIndependent  = $artist->isIndependentProfessionalFor($assignableRoles[0]);
 
             if (! $isStudioArtist && ! $isIndependent) {
                 throw ValidationException::withMessages([

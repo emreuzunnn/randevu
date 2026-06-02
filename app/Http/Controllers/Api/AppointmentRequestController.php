@@ -178,12 +178,12 @@ class AppointmentRequestController extends Controller
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
             $target = $appointmentRequest->target;
-            $isFreelancer = $target?->hasRole(UserRole::KullaniciRol) === true;
-            $studio = $isFreelancer
+            $isIndependentProfessional = $target?->isIndependentProfessional() === true;
+            $studio = $isIndependentProfessional
                 ? null
                 : ($appointmentRequest->studio ?? $target?->studios()->wherePivot('is_active', true)->first());
 
-            if (! $isFreelancer && $studio === null) {
+            if (! $isIndependentProfessional && $studio === null) {
                 throw ValidationException::withMessages([
                     'studio_id' => ['Talebi randevuya çevirmek için stüdyo bilgisi gerekli.'],
                 ]);
@@ -337,10 +337,11 @@ class AppointmentRequestController extends Controller
             return $studio !== null;
         }
 
-        $isFreelancer = $target->hasRole(UserRole::KullaniciRol);
+        $independentRole = $type === 'designer' ? UserRole::Designer : UserRole::Artist;
+        $isIndependentProfessional = $target->isIndependentProfessionalFor($independentRole);
         $isDesigner = $target->hasRole(UserRole::Designer) || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]));
 
-        if ($isFreelancer || $isDesigner) {
+        if ($isIndependentProfessional || $isDesigner) {
             return true;
         }
 
