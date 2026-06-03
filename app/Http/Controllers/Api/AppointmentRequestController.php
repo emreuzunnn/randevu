@@ -97,6 +97,7 @@ class AppointmentRequestController extends Controller
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $authUser);
 
+        $isStudioTargetedRequest = empty($validated['artist_id']);
         $target = ! empty($validated['artist_id'])
             ? User::query()->findOrFail($validated['artist_id'])
             : null;
@@ -104,8 +105,12 @@ class AppointmentRequestController extends Controller
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
 
+        if ($target === null && $studio !== null) {
+            $target = $this->resolveStudioTargetByType($studio, $type);
+        }
+
         abort_unless(
-            $this->canSendRequestToTarget($authUser, $target, $studio, $type),
+            $this->canSendRequestToTarget($authUser, $target, $studio, $type, $isStudioTargetedRequest),
             403,
             'Bu talebi gönderme yetkiniz yok.'
         );
@@ -146,7 +151,9 @@ class AppointmentRequestController extends Controller
 
         if ($target !== null) {
             $this->notifyTarget($target, $authUser, $appointmentRequest);
-        } elseif ($studio !== null) {
+        }
+
+        if ($studio !== null && $isStudioTargetedRequest) {
             $this->notifyStudio($studio, $authUser, $appointmentRequest);
         }
 
@@ -312,11 +319,40 @@ class AppointmentRequestController extends Controller
             return $type;
         }
 
+        if ($target === null && $studio !== null) {
+            throw ValidationException::withMessages([
+                'type' => ['Stüdyo talebi için talep türü seçilmelidir.'],
+            ]);
+        }
+
         if ($target && ($target->profileRole() === UserRole::Designer || ($studio && $target->hasStudioRole($studio, [UserRole::Designer])))) {
             return 'designer';
         }
 
         return 'tattoo';
+    }
+
+    private function resolveStudioTargetByType(Studio $studio, string $type): User
+    {
+        $role = $type === 'designer' ? UserRole::Designer : UserRole::Artist;
+        $users = $studio->users()
+            ->wherePivot('is_active', true)
+            ->wherePivot('role', $role->value)
+            ->get();
+
+        if ($users->count() === 0) {
+            throw ValidationException::withMessages([
+                'type' => ["Bu stüdyoda aktif {$role->label()} bulunmuyor."],
+            ]);
+        }
+
+        if ($users->count() > 1) {
+            throw ValidationException::withMessages([
+                'type' => ["Bu stüdyoda birden fazla aktif {$role->label()} var."],
+            ]);
+        }
+
+        return $users->first();
     }
 
     private function resolveRequestedAt(array $validated, ?Carbon $fallback = null): Carbon
@@ -335,7 +371,13 @@ class AppointmentRequestController extends Controller
         return $fallback ?? now()->addDay()->setTime(9, 0);
     }
 
-    private function canSendRequestToTarget(User $sender, ?User $target, ?Studio $studio, string $type): bool
+    private function canSendRequestToTarget(
+        User $sender,
+        ?User $target,
+        ?Studio $studio,
+        string $type,
+        bool $isStudioTargetedRequest = false
+    ): bool
     {
         if ($target === null) {
             return $studio !== null;
@@ -344,6 +386,14 @@ class AppointmentRequestController extends Controller
         $independentRole = $type === 'designer' ? UserRole::Designer : UserRole::Artist;
         $isIndependentProfessional = $target->isIndependentProfessionalFor($independentRole);
         $isDesigner = $target->profileRole() === UserRole::Designer || ($studio && $target->hasStudioRole($studio, [UserRole::Designer]));
+
+        if (
+            $isStudioTargetedRequest
+            && $studio !== null
+            && $target->hasStudioRole($studio, [$independentRole])
+        ) {
+            return true;
+        }
 
         if ($isIndependentProfessional || $isDesigner) {
             return true;

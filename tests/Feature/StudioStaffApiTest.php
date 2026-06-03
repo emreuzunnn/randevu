@@ -305,6 +305,36 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
+    public function test_studio_can_only_have_one_active_artist_and_one_active_designer(): void
+    {
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $activeArtist = User::factory()->create(['role' => UserRole::Artist]);
+        $candidate = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Artist,
+        ]);
+
+        $studio->users()->attach($activeArtist->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($supervisor)
+            ->postJson("/api/users/{$candidate->id}/staff-invitations", [
+                'studio_id' => $studio->id,
+                'role' => UserRole::Artist->value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+    }
+
     public function test_supervisor_cannot_invite_freelancer_for_other_branch(): void
     {
         $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);

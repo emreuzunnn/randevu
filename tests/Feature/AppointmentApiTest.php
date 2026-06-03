@@ -85,6 +85,60 @@ class AppointmentApiTest extends TestCase
             ->assertJsonPath('data.is_old_customer', true);
     }
 
+    public function test_studio_request_targets_staff_member_by_selected_type(): void
+    {
+        $requester = User::factory()->create(['role' => UserRole::Kullanici]);
+        $studio = Studio::factory()->create();
+        $artist = User::factory()->create(['role' => UserRole::Artist]);
+        $designer = User::factory()->create(['role' => UserRole::Designer]);
+
+        $studio->users()->attach($artist->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+        $studio->users()->attach($designer->id, [
+            'role' => UserRole::Designer->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $payload = [
+            'studio_id' => $studio->id,
+            'requested_at' => now()->addDays(2)->toIso8601String(),
+            'first_name' => 'Talep',
+            'last_name' => 'Musteri',
+            'phone_country_code' => '+90',
+            'phone_number' => '5551112233',
+            'hotel_name' => 'Test Hotel',
+            'room_number' => '101',
+            'place' => 'Test Hotel',
+            'pax' => 1,
+            'image_path' => 'requests/customer.jpg',
+        ];
+
+        $this->actingAs($requester)
+            ->postJson('/api/appointments/request', [
+                ...$payload,
+                'type' => 'tattoo',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.request_type', 'tattoo')
+            ->assertJsonPath('data.target.id', $artist->id);
+
+        $this->actingAs($requester)
+            ->postJson('/api/appointments/request', [
+                ...$payload,
+                'type' => 'designer',
+                'requested_at' => now()->addDays(3)->toIso8601String(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.request_type', 'designer')
+            ->assertJsonPath('data.target.id', $designer->id);
+    }
+
     public function test_employee_can_list_appointments(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
