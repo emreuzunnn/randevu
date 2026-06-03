@@ -30,7 +30,6 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
 
     Route::get('/appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
-    Route::post('/appointments', [AdminAppointmentController::class, 'store'])->name('appointments.store');
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
 
     Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');

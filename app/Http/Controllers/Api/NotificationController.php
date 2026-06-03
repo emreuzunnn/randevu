@@ -204,6 +204,9 @@ class NotificationController extends Controller
     private function icon(string $type): string
     {
         return match ($type) {
+            'appointment_created',
+            'appointment_completed',
+            'appointment_reminder',
             'appointment_request',
             'appointment_request_accepted',
             'appointment_request_rejected' => 'calendar',
@@ -221,6 +224,9 @@ class NotificationController extends Controller
     private function color(string $type): string
     {
         return match ($type) {
+            'appointment_created' => '001B5E',
+            'appointment_completed' => '22C55E',
+            'appointment_reminder' => 'F59E0B',
             'appointment_request' => '4ECDC4',
             'appointment_request_accepted' => '22C55E',
             'appointment_request_rejected' => 'EF4444',

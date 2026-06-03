@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\AppointmentRequest;
 use App\Models\Studio;
 use App\Models\User;
+use App\Services\AppointmentNotificationService;
 use App\Services\FcmService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -247,6 +248,9 @@ class AppointmentRequestController extends Controller
                 ],
             );
         }
+
+        app(AppointmentNotificationService::class)
+            ->notifyBranchAppointmentCreated($appointment, $request->user());
 
         return response()->json([
             'message' => 'Talep kabul edildi ve randevu oluşturuldu.',

@@ -186,6 +186,58 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
+    public function test_manager_and_supervisor_cannot_update_normal_users(): void
+    {
+        [$manager, $studio] = $this->createStudioMember(UserRole::Yonetici);
+        $normalUser = User::factory()->create(['role' => UserRole::Kullanici]);
+
+        $studio->users()->attach($normalUser->id, [
+            'role' => UserRole::Calisan->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($manager)
+            ->patchJson("/api/studios/{$studio->id}/users/{$normalUser->id}", [
+                'name' => 'Manager Should Not Update',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($manager)
+            ->patchJson("/api/studios/{$studio->id}/employees/{$normalUser->id}", [
+                'name' => 'Manager Should Not Update',
+            ])
+            ->assertForbidden();
+
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+        $shop = \App\Models\Shop::factory()->create([
+            'manager_user_id' => null,
+            'supervisor_user_id' => $supervisor->id,
+        ]);
+        $supervisorStudio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $independentUser = User::factory()->create(['role' => UserRole::KullaniciRol]);
+
+        $supervisorStudio->users()->attach($independentUser->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($supervisor)
+            ->patchJson("/api/studios/{$supervisorStudio->id}/users/{$independentUser->id}", [
+                'name' => 'Supervisor Should Not Update',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($supervisor)
+            ->patchJson("/api/studios/{$supervisorStudio->id}/artists/{$independentUser->id}", [
+                'name' => 'Supervisor Should Not Update',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_legacy_freelancer_can_receive_artist_invitation(): void
     {
         $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);

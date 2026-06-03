@@ -212,6 +212,11 @@ class UserDirectoryController extends Controller
     public function update(Request $request, Studio $studio, User $user, StudioStaffService $studioStaffService): JsonResponse
     {
         abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
+        abort_if(
+            ! $request->user()?->hasRole(UserRole::Admin)
+                && $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
+            403
+        );
 
         $currentRole = $studio->users()->where('users.id', $user->id)->first()?->pivot?->role;
         abort_if($currentRole === null, 404);

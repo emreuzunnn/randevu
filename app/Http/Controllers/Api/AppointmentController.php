@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\Studio;
 use App\Models\User;
+use App\Services\AppointmentNotificationService;
 use App\Services\AppointmentService;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
@@ -22,11 +23,34 @@ class AppointmentController extends Controller
     public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
 
     /** Mobil admin paneli için tüm stüdyolardaki randevuları döndürür */
-    public function adminIndex(): JsonResponse
+    public function adminIndex(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
+            'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
+            'studio_id' => ['nullable', 'integer', 'exists:studios,id'],
+            'status' => ['nullable', 'string', 'in:confirmed,completed,cancelled,rescheduled'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
         $appointments = Appointment::query()
-            ->with(['createdBy', 'assignedArtist', 'studio'])
-            ->orderBy('appointment_at')
+            ->with(['createdBy', 'assignedArtist', 'studio.shop.company'])
+            ->when(isset($filters['studio_id']), fn ($query) => $query
+                ->where('studio_id', (int) $filters['studio_id']))
+            ->when(isset($filters['shop_id']), fn ($query) => $query
+                ->whereHas('studio', fn ($studioQuery) => $studioQuery
+                    ->where('shop_id', (int) $filters['shop_id'])))
+            ->when(isset($filters['company_id']), fn ($query) => $query
+                ->whereHas('studio.shop', fn ($shopQuery) => $shopQuery
+                    ->where('company_id', (int) $filters['company_id'])))
+            ->when(isset($filters['status']), fn ($query) => $query
+                ->where('status', $filters['status']))
+            ->when(isset($filters['date_from']), fn ($query) => $query
+                ->whereDate('appointment_at', '>=', $filters['date_from']))
+            ->when(isset($filters['date_to']), fn ($query) => $query
+                ->whereDate('appointment_at', '<=', $filters['date_to']))
+            ->latest('appointment_at')
             ->get();
 
         return response()->json([
@@ -55,6 +79,14 @@ class AppointmentController extends Controller
                 'studio' => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
+                    'shop' => $appointment->studio->shop ? [
+                        'id'   => $appointment->studio->shop->id,
+                        'name' => $appointment->studio->shop->name,
+                        'company' => $appointment->studio->shop->company ? [
+                            'id'   => $appointment->studio->shop->company->id,
+                            'name' => $appointment->studio->shop->company->name,
+                        ] : null,
+                    ] : null,
                 ] : null,
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
             ])->values(),
@@ -538,7 +570,12 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function store(Request $request, Studio $studio, AppointmentService $appointmentService): JsonResponse
+    public function store(
+        Request $request,
+        Studio $studio,
+        AppointmentService $appointmentService,
+        AppointmentNotificationService $appointmentNotificationService
+    ): JsonResponse
     {
         $validated = $request->validate([
             'slip_image_path'             => ['nullable', 'string', 'max:2048'],
@@ -592,31 +629,7 @@ class AppointmentController extends Controller
             'pickup_required'   => $validated['pickup_required'] ?? false,
         ]);
 
-        $studioManagers = $studio->users()
-            ->wherePivot('is_active', true)
-            ->wherePivotIn('role', [
-                UserRole::Supervisor->value,
-                UserRole::Yonetici->value,
-                UserRole::Info->value,
-            ])
-            ->get();
-
-        foreach ($studioManagers as $manager) {
-            if ((int) $manager->id === (int) $request->user()?->id) {
-                continue;
-            }
-
-            app(FcmService::class)->sendToUser(
-                $manager,
-                'Yeni Randevu',
-                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu oluşturuldu.",
-                'appointment_created',
-                [
-                    'appointment_id' => $appointment->id,
-                    'studio_id'      => $studio->id,
-                ],
-            );
-        }
+        $appointmentNotificationService->notifyBranchAppointmentCreated($appointment, $request->user());
 
         return response()->json([
             'message' => 'Randevu oluşturuldu.',

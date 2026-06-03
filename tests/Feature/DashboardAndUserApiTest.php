@@ -88,6 +88,51 @@ class DashboardAndUserApiTest extends TestCase
             ->assertJsonPath('data.reports.quarterly.total_appointments', 2);
     }
 
+    public function test_admin_appointments_can_be_filtered_by_company_shop_and_studio(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $company = Company::query()->create([
+            'name' => 'Filtre Sirket',
+            'max_shop_count' => 0,
+            'max_studio_count' => 0,
+        ]);
+        $shop = Shop::factory()->create([
+            'company_id' => $company->id,
+            'name' => 'Filtre Sube',
+        ]);
+        $studio = Studio::factory()->create([
+            'shop_id' => $shop->id,
+            'name' => 'Filtre Studio',
+        ]);
+        $otherStudio = Studio::factory()->create();
+
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'created_by_user_id' => $admin->id,
+            'status' => 'completed',
+            'appointment_at' => now()->subDay(),
+        ]);
+        Appointment::factory()->create([
+            'studio_id' => $otherStudio->id,
+            'created_by_user_id' => $admin->id,
+            'status' => 'completed',
+            'appointment_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson("/api/admin/appointments?company_id={$company->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.studio.name', 'Filtre Studio')
+            ->assertJsonPath('data.0.studio.shop.name', 'Filtre Sube')
+            ->assertJsonPath('data.0.studio.shop.company.name', 'Filtre Sirket');
+
+        $this->actingAs($admin)
+            ->getJson("/api/admin/appointments?shop_id={$shop->id}&studio_id={$studio->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
     public function test_admin_can_create_user_with_studio_and_role(): void
     {
         [$admin, $studio] = $this->createStudioMember(UserRole::Admin);

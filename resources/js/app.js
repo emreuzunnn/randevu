@@ -668,8 +668,8 @@ const renderUsersPage = async (root) => {
 
 const renderAppointmentsPage = async (root) => {
     root.innerHTML = `
-        ${pageHeader('Randevu Akışı', 'Randevu Yönetimi', 'Liste, oluşturma ve durum güncellemeleri tek merkezde.', '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
-        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
+        ${pageHeader('Randevu Akışı', 'Randevu Yönetimi', 'Liste ve durum güncellemeleri tek merkezde.', '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
+        <div style="display:grid;gap:1rem">
             <div class="panel-card">
                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     <div class="field-wrap" style="flex:1;min-width:0">
@@ -680,68 +680,17 @@ const renderAppointmentsPage = async (root) => {
                 </div>
                 <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
             </div>
-            <div class="form-shell" style="align-self:start">
-                <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Randevu</div>
-                <div class="section-title" style="margin-bottom:1.25rem">Randevu Oluştur</div>
-                <form class="form-grid" data-appointment-form>
-                    <div class="field-wrap"><label class="field-label">Stüdyo</label><select class="field-select" name="studio_id" data-appointment-studio></select></div>
-                    <div class="field-wrap"><label class="field-label">Fiş / Görsel Yolu</label><input class="field-input" name="source_image_path" placeholder="https://..."></div>
-                    <div class="field-wrap"><label class="field-label">Dövme Görselleri</label><input class="field-input" name="tattoo_image_path_1" placeholder="Görsel URL 1"><input class="field-input" name="tattoo_image_path_2" placeholder="Görsel URL 2" style="margin-top:0.45rem"><input class="field-input" name="tattoo_image_path_3" placeholder="Görsel URL 3" style="margin-top:0.45rem"></div>
-                    <label style="display:flex;align-items:center;gap:0.55rem;font-size:0.82rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required"> Pick up gerekli, şoför transferlerinde göster</label>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="first_name" required></div>
-                        <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="last_name" required></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone_number"></div>
-                        <div class="field-wrap"><label class="field-label">Ülke Kodu</label><input class="field-input" name="phone_country_code" value="+90"></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Otel</label><input class="field-input" name="hotel_name"></div>
-                        <div class="field-wrap"><label class="field-label">Oda No</label><input class="field-input" name="room_number"></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Kişi Sayısı</label><input class="field-input" type="number" min="1" name="pax" required></div>
-                        <div class="field-wrap">
-                            <label class="field-label">Randevu Tipi</label>
-                            <select class="field-select" name="appointment_type">
-                                <option value="standard">Standart</option>
-                                <option value="designer">Tasarımcı</option>
-                                <option value="tattoo">Dövme</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Tarih</label><input class="field-input" type="date" name="date" required></div>
-                        <div class="field-wrap"><label class="field-label">Saat</label><input class="field-input" type="time" name="time" required></div>
-                    </div>
-                    <div class="field-wrap"><label class="field-label">Yer</label><input class="field-input" name="place"></div>
-                    <div class="field-wrap"><label class="field-label">Notlar</label><textarea class="field-textarea" rows="3" name="notes"></textarea></div>
-                    <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Randevuyu Kaydet</button>
-                </form>
-            </div>
         </div>
     `;
 
     const studioSelect       = qs('[data-appointments-studio-select]', root);
-    const createStudioSelect = qs('[data-appointment-studio]', root);
     const listNode           = qs('[data-appointments-list]', root);
-    const form               = qs('[data-appointment-form]', root);
 
     const loadStudios = async () => {
         const payload  = await apiFetch('/studios/options');
         const studios  = payload.data || [];
         const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         studioSelect.innerHTML       = options;
-        createStudioSelect.innerHTML = options;
-    };
-
-    let supportArtists = [];
-
-    const loadSupport = async (studioId) => {
-        if (!studioId) return;
-        const payload = await apiFetch(`/studios/${studioId}/appointment-support`);
-        supportArtists = payload.data?.artists || [];
     };
 
     const renderAppointments = async () => {
@@ -816,56 +765,13 @@ const renderAppointmentsPage = async (root) => {
     };
 
     await loadStudios();
-    await loadSupport(studioSelect.value || createStudioSelect.value);
     await renderAppointments();
 
     studioSelect.addEventListener('change', () => handleAsync(async () => {
-        createStudioSelect.value = studioSelect.value;
-        await loadSupport(studioSelect.value);
-        await renderAppointments();
-    }));
-
-    createStudioSelect.addEventListener('change', () => handleAsync(async () => {
-        studioSelect.value = createStudioSelect.value;
-        await loadSupport(createStudioSelect.value);
         await renderAppointments();
     }));
 
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
-
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleAsync(async () => {
-            const fd = new FormData(form);
-            await apiFetch(`/studios/${fd.get('studio_id')}/appointments`, {
-                method: 'POST',
-                body: {
-                    customer: {
-                        first_name:         fd.get('first_name'),
-                        last_name:          fd.get('last_name'),
-                        phone_country_code: fd.get('phone_country_code') || null,
-                        phone_number:       fd.get('phone_number') || null,
-                        hotel_name:         fd.get('hotel_name') || null,
-                        room_number:        fd.get('room_number') || null,
-                    },
-                    pax:               Number(fd.get('pax')),
-                    appointment_at:    `${fd.get('date')} ${fd.get('time')}:00`,
-                    appointment_type:  fd.get('appointment_type') || 'standard',
-                    notes:             fd.get('notes') || null,
-                    source_image_path: fd.get('source_image_path') || null,
-                    tattoo_image_paths: [
-                        fd.get('tattoo_image_path_1'),
-                        fd.get('tattoo_image_path_2'),
-                        fd.get('tattoo_image_path_3'),
-                    ].filter(Boolean),
-                    pickup_required: fd.get('pickup_required') === 'on',
-                },
-            });
-            showToast('Randevu oluşturuldu.', 'success');
-            form.reset();
-            await renderAppointments();
-        });
-    });
 };
 
 /* ── Stüdyolar ──────────────────────────────────────────────── */

@@ -72,6 +72,11 @@ class StudioStaffController extends Controller
     ): JsonResponse {
         $role = UserRole::fromValue((string) $request->route('role'));
         $this->authorizeRoleManagement($request, $studio, $role);
+        abort_if(
+            ! $request->user()?->hasRole(UserRole::Admin)
+                && $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
+            403
+        );
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -101,6 +106,11 @@ class StudioStaffController extends Controller
     ): JsonResponse {
         $role = UserRole::fromValue((string) $request->route('role'));
         $this->authorizeRoleManagement($request, $studio, $role);
+        abort_if(
+            ! $request->user()?->hasRole(UserRole::Admin)
+                && $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
+            403
+        );
 
         $studioStaffService->deactivateMembership($studio, $user, $role);
 
