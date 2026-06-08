@@ -83,7 +83,7 @@ class ShopController extends Controller
         }
 
         $validated = $request->validate([
-            'company_id'         => ['required', 'integer', 'exists:companies,id'],
+            'company_id'         => [$user?->hasRole(UserRole::Admin) ? 'required' : 'nullable', 'integer', 'exists:companies,id'],
             'name'               => ['required', 'string', 'max:255'],
             'location'           => ['nullable', 'string', 'max:255'],
             'about'              => ['nullable', 'string', 'max:5000'],
@@ -93,14 +93,12 @@ class ShopController extends Controller
             'is_active'          => ['sometimes', 'boolean'],
         ]);
 
-        // Şirket dükkan limiti kontrolü
-        $company = Company::query()->findOrFail($validated['company_id']);
-        abort_unless(
-            $user?->hasRole(UserRole::Admin)
-                || $company->manager_user_id === $user?->id
-                || $user?->managedShops()->where('company_id', $company->id)->exists(),
-            403
-        );
+        // Şube şirketin altında yer alır; yönetici için şirket kendi şirketinden otomatik atanır.
+        $company = $user?->hasRole(UserRole::Admin)
+            ? Company::query()->findOrFail($validated['company_id'])
+            : $user?->managedCompanies()->oldest('id')->first();
+
+        abort_if($company === null, 422, 'Yöneticiye bağlı şirket bulunamadı.');
 
         if (! $company->canAddShop()) {
             return response()->json([

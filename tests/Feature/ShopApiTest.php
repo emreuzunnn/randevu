@@ -73,17 +73,20 @@ class ShopApiTest extends TestCase
 
         $this->actingAs($manager)
             ->postJson('/api/shops', [
-                'company_id' => $ownedCompany->id,
                 'name' => 'Owned Branch',
+                'location' => 'Ankara',
             ])
-            ->assertCreated();
+            ->assertCreated()
+            ->assertJsonPath('data.company_id', $ownedCompany->id);
 
         $this->actingAs($manager)
             ->postJson('/api/shops', [
                 'company_id' => $otherCompany->id,
                 'name' => 'Blocked Branch',
+                'location' => 'Istanbul',
             ])
-            ->assertForbidden();
+            ->assertCreated()
+            ->assertJsonPath('data.company_id', $ownedCompany->id);
     }
 
     public function test_partial_shop_update_preserves_assigned_supervisor(): void

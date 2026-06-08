@@ -33,14 +33,18 @@ class AppointmentRequestController extends Controller
         if ($direction === 'outgoing') {
             $query->where('requester_user_id', $user->id);
         } else {
-            $managedStudioIds = $user->studios()
-                ->wherePivot('is_active', true)
-                ->wherePivotIn('role', [
-                    UserRole::Supervisor->value,
-                    UserRole::Yonetici->value,
-                    UserRole::Info->value,
-                ])
-                ->pluck('studios.id');
+            $managedStudioIds = collect($user->staffScopeStudioIds())
+                ->merge($user->studios()
+                    ->wherePivot('is_active', true)
+                    ->wherePivotIn('role', [
+                        UserRole::Supervisor->value,
+                        UserRole::Yonetici->value,
+                        UserRole::Info->value,
+                    ])
+                    ->pluck('studios.id')
+                    ->map(static fn ($id): int => (int) $id))
+                ->unique()
+                ->values();
 
             $query->where(function ($q) use ($user, $managedStudioIds): void {
                 $q->where('target_user_id', $user->id);
@@ -105,8 +109,14 @@ class AppointmentRequestController extends Controller
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
 
-        if ($target === null && $studio !== null) {
-            $target = $this->resolveStudioTargetByType($studio, $type);
+        if (
+            $target !== null
+            && $studio !== null
+            && ! $target->isIndependentProfessional()
+            && $target->hasStudioRole($studio, [$type === 'designer' ? UserRole::Designer : UserRole::Artist])
+        ) {
+            $target = null;
+            $isStudioTargetedRequest = true;
         }
 
         abort_unless(
@@ -181,7 +191,7 @@ class AppointmentRequestController extends Controller
             'pax'            => ['nullable', 'integer', 'min:1', 'max:50'],
             'price'          => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ]);
-        $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
+        $validated = $this->withoutUnauthorizedPrice($validated, $request->user(), $appointmentRequest);
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
@@ -190,6 +200,7 @@ class AppointmentRequestController extends Controller
             $studio = $isIndependentProfessional
                 ? null
                 : ($appointmentRequest->studio ?? $target?->studios()->wherePivot('is_active', true)->first());
+            $assignedProfessional = $target ?? ($studio ? $this->resolveStudioTargetByType($studio, $appointmentRequest->request_type) : null);
 
             if (! $isIndependentProfessional && $studio === null) {
                 throw ValidationException::withMessages([
@@ -200,7 +211,7 @@ class AppointmentRequestController extends Controller
             $appointment = Appointment::query()->create([
                 'studio_id'               => $studio?->id,
                 'created_by_user_id'      => $appointmentRequest->requester_user_id,
-                'assigned_artist_user_id' => $appointmentRequest->target_user_id,
+                'assigned_artist_user_id' => $assignedProfessional?->id,
                 'appointment_type'        => $appointmentRequest->request_type,
                 'first_name'              => $validated['first_name'] ?? $appointmentRequest->first_name ?? '-',
                 'last_name'               => $validated['last_name'] ?? $appointmentRequest->last_name ?? '-',
@@ -224,6 +235,7 @@ class AppointmentRequestController extends Controller
 
             $appointmentRequest->fill([
                 'studio_id'       => $studio?->id,
+                'target_user_id'  => $assignedProfessional?->id,
                 'appointment_id'  => $appointment->id,
                 'requested_at'    => $requestedAt,
                 'notes'           => $validated['notes'] ?? $appointmentRequest->notes,
@@ -481,7 +493,7 @@ class AppointmentRequestController extends Controller
 
     private function visiblePriceFor(AppointmentRequest $appointmentRequest): mixed
     {
-        if ($this->canManagePrice(request()->user())) {
+        if ($this->canManagePrice(request()->user(), $appointmentRequest)) {
             return $appointmentRequest->price;
         }
 
@@ -494,22 +506,28 @@ class AppointmentRequestController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function withoutUnauthorizedPrice(array $validated, ?User $user): array
+    private function withoutUnauthorizedPrice(array $validated, ?User $user, ?AppointmentRequest $appointmentRequest = null): array
     {
-        if (! $this->canManagePrice($user)) {
+        if (! $this->canManagePrice($user, $appointmentRequest)) {
             unset($validated['price']);
         }
 
         return $validated;
     }
 
-    private function canManagePrice(?User $user): bool
+    private function canManagePrice(?User $user, ?AppointmentRequest $appointmentRequest = null): bool
     {
-        return $user?->hasAnyRole([
+        if ($user?->hasAnyRole([
             UserRole::Admin,
             UserRole::Yonetici,
             UserRole::Supervisor,
-        ]) === true;
+        ]) === true) {
+            return true;
+        }
+
+        return $appointmentRequest !== null
+            && (int) $appointmentRequest->target_user_id === (int) $user?->id
+            && $user?->isIndependentProfessional() === true;
     }
 
     private function storeRequestImage(Request $request, ?User $target, ?Studio $studio): string

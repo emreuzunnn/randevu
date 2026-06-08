@@ -817,6 +817,7 @@ class AppointmentController extends Controller
 
         return $user instanceof User
             && $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol])
+            && ! $user->isIndependentProfessional()
             && $appointment->appointment_type === 'tattoo';
     }
 

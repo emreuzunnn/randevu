@@ -85,13 +85,20 @@ class AppointmentApiTest extends TestCase
             ->assertJsonPath('data.is_old_customer', true);
     }
 
-    public function test_studio_request_targets_staff_member_by_selected_type(): void
+    public function test_studio_request_stays_on_studio_and_accept_assigns_staff_by_selected_type(): void
     {
         $requester = User::factory()->create(['role' => UserRole::Kullanici]);
         $studio = Studio::factory()->create();
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
         $artist = User::factory()->create(['role' => UserRole::Artist]);
         $designer = User::factory()->create(['role' => UserRole::Designer]);
 
+        $studio->users()->attach($supervisor->id, [
+            'role' => UserRole::Supervisor->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
         $studio->users()->attach($artist->id, [
             'role' => UserRole::Artist->value,
             'work_status' => 'working',
@@ -126,9 +133,10 @@ class AppointmentApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.request_type', 'tattoo')
-            ->assertJsonPath('data.target.id', $artist->id);
+            ->assertJsonPath('data.target', null)
+            ->assertJsonPath('data.studio.id', $studio->id);
 
-        $this->actingAs($requester)
+        $designerRequestId = $this->actingAs($requester)
             ->postJson('/api/appointments/request', [
                 ...$payload,
                 'type' => 'designer',
@@ -136,7 +144,113 @@ class AppointmentApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.request_type', 'designer')
-            ->assertJsonPath('data.target.id', $designer->id);
+            ->assertJsonPath('data.target', null)
+            ->json('data.id');
+
+        $appointmentId = $this->actingAs($supervisor)
+            ->patchJson("/api/appointment-requests/{$designerRequestId}/accept", [
+                'price' => '2800',
+            ])
+            ->assertOk()
+            ->json('data.appointment.id');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointmentId,
+            'studio_id' => $studio->id,
+            'assigned_artist_user_id' => $designer->id,
+            'appointment_type' => 'designer',
+            'price' => '2800.00',
+        ]);
+    }
+
+    public function test_request_to_studio_bound_artist_is_handled_by_studio_and_accept_assigns_staff_with_price(): void
+    {
+        $requester = User::factory()->create(['role' => UserRole::Kullanici]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
+        $artist = User::factory()->create(['role' => UserRole::Artist]);
+
+        $studio->users()->attach($artist->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $requestId = $this->actingAs($requester)
+            ->postJson('/api/appointments/request', [
+                'artist_id' => $artist->id,
+                'requested_at' => now()->addDays(2)->toIso8601String(),
+                'type' => 'tattoo',
+                'first_name' => 'Studio',
+                'last_name' => 'Target',
+                'phone_country_code' => '+90',
+                'phone_number' => '5551112233',
+                'hotel_name' => 'Test Hotel',
+                'room_number' => '101',
+                'place' => 'Test Hotel',
+                'pax' => 1,
+                'image_path' => 'requests/customer.jpg',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.target', null)
+            ->assertJsonPath('data.studio.id', $studio->id)
+            ->json('data.id');
+
+        $appointmentId = $this->actingAs($supervisor)
+            ->patchJson("/api/appointment-requests/{$requestId}/accept", [
+                'price' => '4500',
+            ])
+            ->assertOk()
+            ->json('data.appointment.id');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointmentId,
+            'studio_id' => $studio->id,
+            'assigned_artist_user_id' => $artist->id,
+            'price' => '4500.00',
+        ]);
+    }
+
+    public function test_independent_artist_can_accept_request_with_price(): void
+    {
+        $requester = User::factory()->create(['role' => UserRole::Kullanici]);
+        $artist = User::factory()->create([
+            'role' => UserRole::KullaniciRol,
+            'requested_staff_role' => UserRole::Artist,
+        ]);
+
+        $requestId = $this->actingAs($requester)
+            ->postJson('/api/appointments/request', [
+                'artist_id' => $artist->id,
+                'requested_at' => now()->addDays(2)->toIso8601String(),
+                'type' => 'tattoo',
+                'first_name' => 'Free',
+                'last_name' => 'Lancer',
+                'phone_country_code' => '+90',
+                'phone_number' => '5551112233',
+                'hotel_name' => 'Test Hotel',
+                'room_number' => '101',
+                'place' => 'Test Hotel',
+                'pax' => 1,
+                'image_path' => 'requests/customer.jpg',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.target.id', $artist->id)
+            ->json('data.id');
+
+        $appointmentId = $this->actingAs($artist)
+            ->patchJson("/api/appointment-requests/{$requestId}/accept", [
+                'price' => '3200',
+            ])
+            ->assertOk()
+            ->json('data.appointment.id');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointmentId,
+            'studio_id' => null,
+            'assigned_artist_user_id' => $artist->id,
+            'price' => '3200.00',
+        ]);
     }
 
     public function test_employee_can_list_appointments(): void

@@ -16,14 +16,14 @@ use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
-    /** Kayıt: telefon, email ve şifre ile hesap oluştur */
+    /** Kayıt: email ve şifre ile hesap oluştur; telefon opsiyoneldir. */
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name'     => ['nullable', 'string', 'max:255'],
             'surname'  => ['nullable', 'string', 'max:255'],
             'email'    => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone'    => ['required', 'string', 'max:30'],
+            'phone'    => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'bio'      => ['nullable', 'string', 'max:1000'],
             'accepted_terms' => ['accepted'],
@@ -50,7 +50,7 @@ class AuthController extends Controller
             'name'     => $validated['name'] ?? '',
             'surname'  => $validated['surname'] ?? null,
             'email'    => $validated['email'],
-            'phone'    => $validated['phone'],
+            'phone'    => $validated['phone'] ?? null,
             'password' => $validated['password'],
             'role'     => $role,
             'requested_staff_role' => $requestedStaffRole,
@@ -407,11 +407,6 @@ class AuthController extends Controller
     {
         $user = $request->user();
         abort_if($user === null, 401);
-        abort_unless(
-            $user->hasRole(UserRole::Kullanici) || $user->isIndependentProfessional(),
-            403,
-            'Personel hesapları uygulama içinden silinemez.'
-        );
 
         $userId = $user->id;
         $reviewImagePaths = Review::query()

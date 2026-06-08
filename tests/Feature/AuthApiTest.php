@@ -221,4 +221,21 @@ class AuthApiTest extends TestCase
             'api_token' => null,
         ]);
     }
+
+    public function test_manager_level_user_can_delete_own_account(): void
+    {
+        $user = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+        $token = $user->issueApiToken();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->deleteJson('/api/me')
+            ->assertOk()
+            ->assertJsonPath('message', 'Hesabınız kalıcı olarak silindi.');
+
+        $this->assertDatabaseMissing('users', [
+            'id' => $user->id,
+        ]);
+    }
 }
