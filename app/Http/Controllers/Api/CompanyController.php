@@ -63,6 +63,7 @@ class CompanyController extends Controller
 
         $request->merge([
             'manager_user_id' => $request->input('manager_user_id') ?: null,
+            'create_manager' => $request->boolean('create_manager'),
         ]);
 
         $validated = $request->validate([
@@ -73,11 +74,40 @@ class CompanyController extends Controller
             'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'max_shop_count'   => ['required', 'integer', 'min:0'],
             'max_studio_count' => ['required', 'integer', 'min:0'],
+            'create_manager'   => ['sometimes', 'boolean'],
+            'manager_name'     => ['required_if:create_manager,true', 'nullable', 'string', 'max:255'],
+            'manager_surname'  => ['nullable', 'string', 'max:255'],
+            'manager_email'    => ['required_if:create_manager,true', 'nullable', 'string', 'email', 'max:255', 'unique:users,email'],
+            'manager_phone'    => ['nullable', 'string', 'max:30'],
+            'manager_password' => ['required_if:create_manager,true', 'nullable', 'string', 'min:6'],
         ]);
 
-        $this->validateManager($validated['manager_user_id'] ?? null);
+        if ($validated['create_manager'] ?? false) {
+            $manager = User::query()->create([
+                'name'     => $validated['manager_name'],
+                'surname'  => $validated['manager_surname'] ?? null,
+                'email'    => $validated['manager_email'],
+                'phone'    => $validated['manager_phone'] ?? null,
+                'password' => $validated['manager_password'],
+                'role'     => UserRole::Yonetici,
+            ]);
 
-        $company = Company::query()->create($validated + ['is_active' => true]);
+            $validated['manager_user_id'] = $manager->id;
+        } else {
+            $this->validateManager($validated['manager_user_id'] ?? null);
+        }
+
+        $company = Company::query()->create(collect($validated)
+            ->only([
+                'name',
+                'address',
+                'phone',
+                'email',
+                'manager_user_id',
+                'max_shop_count',
+                'max_studio_count',
+            ])
+            ->all() + ['is_active' => true]);
 
         return response()->json([
             'status'  => 'success',
