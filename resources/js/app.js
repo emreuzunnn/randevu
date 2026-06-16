@@ -67,13 +67,21 @@ const ROLE_LABELS = {
 };
 
 const APPOINTMENT_TYPE_LABELS = {
-    standard: 'Standart',
-    designer: 'Tasarımcı Randevusu',
-    tattoo:   'Dövme Randevusu',
+    designer: 'Tasarım',
+    tattoo:   'Dövme',
 };
 
 const statusLabel = (s) => STATUS_LABELS[s] ?? s;
 const roleLabel   = (r) => ROLE_LABELS[r]   ?? r;
+const uniqueById  = (items = []) => {
+    const seen = new Set();
+    return items.filter((item) => {
+        if (!item?.id || seen.has(String(item.id))) return false;
+        seen.add(String(item.id));
+        return true;
+    });
+};
+const usesStudioAssignment = (role) => ['artist', 'designer'].includes(role);
 
 /* ── Toast ──────────────────────────────────────────────────── */
 
@@ -503,7 +511,7 @@ const renderUsersPage = async (root) => {
             <div class="form-shell" style="align-self:start">
                 <div class="section-eyebrow" style="margin-bottom:0.4rem">Personel Ekle</div>
                 <div class="section-title" style="margin-bottom:0.3rem">Kullanıcı Oluştur / Ata</div>
-                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem">Kayıtlı e-posta girilirse mevcut kullanıcı stüdyoya atanır.</p>
+                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem" data-users-assignment-help>Kayıtlı e-posta girilirse mevcut kullanıcı atanır.</p>
                 <form class="form-grid" data-users-create-form>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">İsim</label><input class="field-input" name="name" required></div>
@@ -518,13 +526,17 @@ const renderUsersPage = async (root) => {
                             <label class="field-label">Rol</label>
                             <select class="field-select" name="role" data-users-role-select></select>
                         </div>
-                        <div class="field-wrap">
+                        <div class="field-wrap" data-users-create-studio-wrap>
                             <label class="field-label">Stüdyo</label>
                             <select class="field-select" name="studio_id" data-users-create-studio></select>
                         </div>
+                        <div class="field-wrap" data-users-create-shop-wrap style="display:none">
+                            <label class="field-label">Şube</label>
+                            <select class="field-select" name="shop_id" data-users-create-shop></select>
+                        </div>
                     </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="password" type="password"></div>
+                    <div class="form-grid form-grid--split" data-users-password-wrap>
+                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(şube rolleri için zorunlu)</span></label><input class="field-input" name="password" type="password"></div>
                         <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password"></div>
                     </div>
                     <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Kullanıcı Oluştur / Ata</button>
@@ -544,6 +556,11 @@ const renderUsersPage = async (root) => {
 
     const studioSelect       = qs('[data-users-studio-select]', root);
     const createStudioSelect = qs('[data-users-create-studio]', root);
+    const createStudioWrap   = qs('[data-users-create-studio-wrap]', root);
+    const createShopSelect   = qs('[data-users-create-shop]', root);
+    const createShopWrap     = qs('[data-users-create-shop-wrap]', root);
+    const passwordWrap       = qs('[data-users-password-wrap]', root);
+    const assignmentHelp     = qs('[data-users-assignment-help]', root);
     const listNode           = qs('[data-users-list]', root);
     const form               = qs('[data-users-create-form]', root);
     const roleSelect         = qs('[data-users-role-select]', root);
@@ -556,11 +573,32 @@ const renderUsersPage = async (root) => {
 
     const loadStudios = async () => {
         const payload  = await apiFetch('/studios/options');
-        const studios  = payload.data || [];
+        const studios  = uniqueById(payload.data || []);
         const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         studioSelect.innerHTML = options;
         if (createStudioSelect) createStudioSelect.innerHTML = options;
         return studios;
+    };
+
+    const loadShops = async () => {
+        if (!createShopSelect) return [];
+        const payload = await apiFetch('/shops');
+        const shops = uniqueById(payload.data || []);
+        createShopSelect.innerHTML = shops.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        return shops;
+    };
+
+    const updateCreateAssignmentMode = () => {
+        if (!roleSelect || !createStudioWrap || !createShopWrap) return;
+        const studioMode = usesStudioAssignment(roleSelect.value);
+        createStudioWrap.style.display = studioMode ? '' : 'none';
+        createShopWrap.style.display = studioMode ? 'none' : '';
+        if (passwordWrap) passwordWrap.style.display = studioMode ? 'none' : '';
+        if (assignmentHelp) {
+            assignmentHelp.textContent = studioMode
+                ? 'Artist ve tasarımcılar stüdyoya davet edilir; şifre gerekmez.'
+                : 'Supervisor, şoför, info ve çalışan rolleri şubeye atanır.';
+        }
     };
 
     const renderUsers = async () => {
@@ -643,10 +681,12 @@ const renderUsersPage = async (root) => {
         });
     };
 
-    await loadStudios();
+    await Promise.all([loadStudios(), loadShops()]);
+    updateCreateAssignmentMode();
     await renderUsers();
 
     studioSelect.addEventListener('change', () => handleAsync(renderUsers));
+    roleSelect?.addEventListener('change', updateCreateAssignmentMode);
     qs('[data-users-refresh]', root)?.addEventListener('click', () => handleAsync(renderUsers));
 
     if (form) {
@@ -654,6 +694,15 @@ const renderUsersPage = async (root) => {
             e.preventDefault();
             handleAsync(async () => {
                 const data = Object.fromEntries(new FormData(form).entries());
+                if (usesStudioAssignment(data.role)) {
+                    delete data.shop_id;
+                    delete data.password;
+                    delete data.password_confirmation;
+                } else {
+                    delete data.studio_id;
+                    if (!data.password) throw new Error('Şube rolleri için şifre zorunludur.');
+                    data.password_confirmation = data.password_confirmation || data.password;
+                }
                 await apiFetch('/users', { method: 'POST', body: data });
                 form.reset();
                 if (createStudioSelect) createStudioSelect.value = studioSelect.value;
@@ -714,7 +763,7 @@ const renderAppointmentsPage = async (root) => {
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
                             <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
-                            ${apt.appointment_type && apt.appointment_type !== 'standard'
+                            ${apt.appointment_type
                                 ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>`
                                 : ''}
                         </div>
@@ -723,7 +772,7 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap">
                             <label class="field-label">Durum</label>
                             <select class="field-select" data-appointment-status style="font-size:0.78rem;padding:0.42rem 0.65rem">
-                                ${['pending','confirmed','completed','cancelled','rescheduled'].map((s) =>
+                                ${['confirmed','completed','cancelled'].map((s) =>
                                     `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`
                                 ).join('')}
                             </select>
@@ -731,7 +780,7 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap">
                             <label class="field-label">Tip</label>
                             <select class="field-select" data-appointment-type style="font-size:0.78rem;padding:0.42rem 0.65rem">
-                                ${['standard','designer','tattoo'].map((t) =>
+                                ${['designer','tattoo'].map((t) =>
                                     `<option value="${t}" ${apt.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>`
                                 ).join('')}
                             </select>
@@ -754,7 +803,7 @@ const renderAppointmentsPage = async (root) => {
                     method: 'PATCH',
                     body: {
                         status:           qs('[data-appointment-status]', card)?.value,
-                        appointment_type: qs('[data-appointment-type]',   card)?.value || 'standard',
+                        appointment_type: qs('[data-appointment-type]',   card)?.value || 'designer',
                         pickup_required:  qs('[data-appointment-pickup]', card)?.checked || false,
                     },
                 });
@@ -788,12 +837,40 @@ const renderStudiosPage = async (root) => {
                 : 'Lokasyon, ekip yoğunluğu ve yapılandırma bilgileri tek kartta.',
             '<span class="badge-pill badge-pill--purple">Stüdyo Ayarları</span>'
         )}
-        <div class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</div>
+        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
+            <div class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</div>
+            ${adminConfig.canManageStudios ? `
+            <div class="form-shell" data-studio-create-shell style="align-self:start">
+                <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Stüdyo</div>
+                <div class="section-title" style="margin-bottom:1.25rem">Stüdyo Oluştur</div>
+                <form class="form-grid" data-studio-create-form>
+                    <div class="field-wrap">
+                        <label class="field-label">Bağlı Şube</label>
+                        <select class="field-select" name="shop_id" data-studio-create-shop required></select>
+                    </div>
+                    <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" required></div>
+                    <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
+                    <button class="button-primary" type="submit" style="justify-content:center">Stüdyo Oluştur</button>
+                </form>
+            </div>
+            ` : ''}
+        </div>
     `;
 
     const grid    = qs('[data-studios-grid]', root);
-    const payload = await apiFetch('/studios/overview');
+    const [payload, shopsPayload] = await Promise.all([
+        apiFetch('/studios/overview'),
+        adminConfig.canManageStudios ? apiFetch('/shops') : Promise.resolve({ data: [] }),
+    ]);
     const studios = payload.data || [];
+    const shops   = uniqueById(shopsPayload.data || []);
+    const createShopSelect = qs('[data-studio-create-shop]', root);
+    if (createShopSelect) {
+        createShopSelect.innerHTML = shops.length
+            ? shops.map((shop) => `<option value="${shop.id}">${escapeHtml(shop.name)}</option>`).join('')
+            : '<option value="">Önce şube oluşturun</option>';
+        createShopSelect.disabled = shops.length === 0;
+    }
 
     grid.innerHTML = studios.length
         ? studios.map((studio, i) => `
@@ -834,13 +911,25 @@ const renderStudiosPage = async (root) => {
             });
         });
     });
+
+    qs('[data-studio-create-form]', root)?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleAsync(async () => {
+            const form = e.target;
+            const data = Object.fromEntries(new FormData(form).entries());
+            if (!data.shop_id) throw new Error('Stüdyo oluşturmak için önce şube seçin.');
+            await apiFetch('/studios', { method: 'POST', body: data });
+            showToast('Stüdyo oluşturuldu.', 'success');
+            await renderStudiosPage(root);
+        });
+    });
 };
 
 /* ── Dükkanlar ──────────────────────────────────────────────── */
 
 const renderShopsPage = async (root) => {
     root.innerHTML = `
-        ${pageHeader('Dükkan Yönetimi', 'Dükkan Ağı', 'Dükkan kartları, supervisor eşleştirmesi ve yapılandırma aynı yerde.', '<span class="badge-pill badge-pill--success">Şube Yönetimi</span>')}
+        ${pageHeader('Şube Yönetimi', 'Şube Ağı', 'Şube kartları, supervisor eşleştirmesi ve yapılandırma aynı yerde.', '<span class="badge-pill badge-pill--success">Şube Yönetimi</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-shops-list>${skeletonGrid(3)}</div>
             <div class="form-shell" data-shops-create style="align-self:start"></div>
@@ -870,9 +959,14 @@ const renderShopsPage = async (root) => {
         );
         results.forEach(([cid, users]) => { supervisorsByCompany[cid] = users; });
     }
+    if (adminConfig.canManageShops) {
+        supervisorsByCompany.__all = await apiFetch('/users/options?roles=supervisor')
+            .then((p) => uniqueById(p.data || []))
+            .catch(() => []);
+    }
 
     const buildSupervisorOptions = (companyId, selectedId = null) => {
-        const list = supervisorsByCompany[String(companyId)] || [];
+        const list = uniqueById(supervisorsByCompany[String(companyId)] || supervisorsByCompany.__all || []);
         return `<option value="">Supervisor seçin (opsiyonel)</option>${list.map((m) =>
             `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(m.name)} — ${roleLabel(m.role)}</option>`
         ).join('')}`;
@@ -887,9 +981,9 @@ const renderShopsPage = async (root) => {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.3rem">Dükkan Ağı</div>
-                <div class="section-title">Aktif Dükkanlar</div>
+                <div class="section-title">Aktif Şubeler</div>
             </div>
-            <span class="badge-pill">${shops.length} dükkan</span>
+            <span class="badge-pill">${shops.length} şube</span>
         </div>
         <div class="list-stack">
             ${shops.map((shop, i) => `
@@ -909,7 +1003,7 @@ const renderShopsPage = async (root) => {
                     </div>
                     <div style="padding-top:0.85rem;border-top:1px solid var(--border)">
                         <form class="form-grid" data-shop-form data-shop-id="${shop.id}" style="gap:0.6rem">
-                            <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" value="${escapeHtml(shop.name)}"></div>
+                            <div class="field-wrap"><label class="field-label">Şube Adı</label><input class="field-input" name="name" value="${escapeHtml(shop.name)}"></div>
                             <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(shop.location || '')}"></div>
                             ${adminConfig.canManageShops ? `
                                 <div class="field-wrap">
@@ -930,21 +1024,23 @@ const renderShopsPage = async (root) => {
     createNode.innerHTML = adminConfig.canManageShops
         ? `
             <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Lokasyon</div>
-            <div class="section-title" style="margin-bottom:1.25rem">Yeni Dükkan Oluştur</div>
+            <div class="section-title" style="margin-bottom:1.25rem">Yeni Şube Oluştur</div>
             <form class="form-grid" data-shop-create-form>
+                ${adminConfig.isAdmin ? `
                 <div class="field-wrap">
                     <label class="field-label">Şirket</label>
                     <select class="field-select" name="company_id" required data-company-select>${buildCompanyOptions()}</select>
                 </div>
-                <div class="field-wrap"><label class="field-label">Dükkan Adı</label><input class="field-input" name="name" required></div>
+                ` : ''}
+                <div class="field-wrap"><label class="field-label">Şube Adı</label><input class="field-input" name="name" required></div>
                 <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
                 <div class="field-wrap">
                     <label class="field-label">Supervisor <span style="color:var(--text-subtle)">(opsiyonel)</span></label>
                     <select class="field-select" name="supervisor_user_id" data-supervisor-select>
-                        <option value="">Önce şirket seçin</option>
+                        ${adminConfig.isAdmin ? '<option value="">Önce şirket seçin</option>' : buildSupervisorOptions('__all')}
                     </select>
                 </div>
-                <button class="button-primary" type="submit" style="justify-content:center">Dükkan Oluştur</button>
+                <button class="button-primary" type="submit" style="justify-content:center">Şube Oluştur</button>
             </form>
         `
         : `
@@ -978,8 +1074,9 @@ const renderShopsPage = async (root) => {
             handleAsync(async () => {
                 const body = Object.fromEntries(new FormData(createForm).entries());
                 if (!body.supervisor_user_id) delete body.supervisor_user_id;
+                if (!adminConfig.isAdmin) delete body.company_id;
                 await apiFetch('/shops', { method: 'POST', body });
-                showToast('Yeni dükkan eklendi.', 'success');
+                showToast('Yeni şube eklendi.', 'success');
                 await renderShopsPage(root);
             });
         });
@@ -1003,7 +1100,7 @@ const renderShopsPage = async (root) => {
 
 const renderCompaniesPage = async (root) => {
     const managerPayload = await apiFetch('/users/options?roles=yonetici');
-    const managers = managerPayload.data || [];
+    const managers = uniqueById(managerPayload.data || []);
     const buildManagerOptions = (selectedId = null) =>
         `<option value="">Yönetici seçin (opsiyonel)</option>${managers.map((manager) =>
             `<option value="${manager.id}" ${String(manager.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml(manager.name)}</option>`
@@ -1018,11 +1115,23 @@ const renderCompaniesPage = async (root) => {
                 <div class="section-title" style="margin-bottom:1.25rem">Şirket Oluştur</div>
                 <form class="form-grid" data-company-create-form>
                     <div class="field-wrap"><label class="field-label">Şirket Adı</label><input class="field-input" name="name" required></div>
-                    <div class="field-wrap"><label class="field-label">Şirket Yöneticisi</label><select class="field-select" name="manager_user_id">${buildManagerOptions()}</select></div>
                     <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" name="address"></div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone"></div>
                         <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email"></div>
+                    </div>
+                    <input type="hidden" name="create_manager" value="1">
+                    <div style="padding:0.8rem;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft)">
+                        <div class="section-eyebrow" style="margin-bottom:0.65rem">Şirket Yönetici Hesabı</div>
+                        <div class="form-grid form-grid--split">
+                            <div class="field-wrap"><label class="field-label">Yönetici Adı</label><input class="field-input" name="manager_name" required></div>
+                            <div class="field-wrap"><label class="field-label">Yönetici Soyadı</label><input class="field-input" name="manager_surname"></div>
+                        </div>
+                        <div class="form-grid form-grid--split">
+                            <div class="field-wrap"><label class="field-label">Yönetici E-posta</label><input class="field-input" name="manager_email" type="email" required></div>
+                            <div class="field-wrap"><label class="field-label">Yönetici Telefon</label><input class="field-input" name="manager_phone"></div>
+                        </div>
+                        <div class="field-wrap"><label class="field-label">Yönetici Şifre</label><input class="field-input" name="manager_password" type="password" required minlength="6"></div>
                     </div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Max Dükkan <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_shop_count" value="0"></div>
@@ -1124,7 +1233,6 @@ const renderCompaniesPage = async (root) => {
         handleAsync(async () => {
             const form = e.target;
             const body = Object.fromEntries(new FormData(form).entries());
-            if (!body.manager_user_id) delete body.manager_user_id;
             await apiFetch('/companies', { method: 'POST', body });
             showToast('Şirket oluşturuldu.', 'success');
             form.reset();
