@@ -53,7 +53,7 @@ class DashboardController extends Controller
             ->where('status', 'cancelled')
             ->count();
         $transferCount = (clone $appointmentsQuery)
-            ->whereNotNull('assigned_driver_user_id')
+            ->where('pickup_required', true)
             ->count();
         $activeStaffCount = $studioId > 0
             ? \App\Models\Studio::query()
@@ -89,7 +89,6 @@ class DashboardController extends Controller
             ->get();
 
         $todayAppointments = (clone $appointmentsQuery)
-            ->with(['assignedDriver'])
             ->when($dateFrom === null && $dateTo === null, fn ($query) => $query->whereDate('appointment_at', now()->toDateString()))
             ->orderBy('appointment_at')
             ->take(12)
@@ -132,10 +131,7 @@ class DashboardController extends Controller
                     'appointment_at' => optional($appointment->appointment_at)->toIso8601String(),
                     'status' => $appointment->status,
                     'studio' => $appointment->studio?->name ?? Studio::query()->whereKey($appointment->studio_id)->value('name'),
-                    'driver' => $appointment->assignedDriver ? [
-                        'id' => $appointment->assignedDriver->id,
-                        'name' => $appointment->assignedDriver->fullName(),
-                    ] : null,
+                    'pickup_required' => (bool) $appointment->pickup_required,
                 ])->values(),
             ],
         ]);

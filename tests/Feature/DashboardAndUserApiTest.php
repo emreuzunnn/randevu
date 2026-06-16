@@ -388,24 +388,11 @@ class DashboardAndUserApiTest extends TestCase
     public function test_appointment_detail_returns_requested_fields(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
-        $driver = User::factory()->create([
-            'name' => 'Sofor',
-            'surname' => 'Bir',
-            'role' => UserRole::Sofor,
-        ]);
-
-        $studio->users()->attach($driver->id, [
-            'role' => UserRole::Sofor->value,
-            'work_status' => 'transfer',
-            'is_active' => true,
-            'joined_at' => now(),
-        ]);
 
         $appointment = Appointment::factory()->create([
             'studio_id' => $studio->id,
             'created_by_user_id' => $employee->id,
-            'assigned_driver_user_id' => $driver->id,
-            'appointment_type' => 'vip',
+            'appointment_type' => 'designer',
             'first_name' => 'Detay',
             'last_name' => 'Musteri',
             'place' => 'Ramada',
@@ -415,7 +402,7 @@ class DashboardAndUserApiTest extends TestCase
         $this->actingAs($employee)
             ->getJson("/api/studios/{$studio->id}/appointments/{$appointment->id}")
             ->assertOk()
-            ->assertJsonPath('data.appointment_type', 'vip')
+            ->assertJsonPath('data.appointment_type', 'designer')
             ->assertJsonPath('data.place', 'Ramada')
             ->assertJsonPath('data.status', 'confirmed');
     }

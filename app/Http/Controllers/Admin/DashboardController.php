@@ -42,7 +42,7 @@ class DashboardController extends Controller
                     ->whereIn('studio_user.studio_id', $accessibleStudioIds)
                     ->distinct('users.id')
                     ->count('users.id'),
-            'transfer_count' => (clone $appointments)->whereNotNull('assigned_driver_user_id')->count(),
+            'transfer_count' => (clone $appointments)->where('pickup_required', true)->count(),
         ];
 
         $studios = Studio::query()
@@ -59,7 +59,7 @@ class DashboardController extends Controller
             ->get();
 
         $recentAppointments = Appointment::query()
-            ->with(['assignedDriver', 'createdBy', 'studio'])
+            ->with(['createdBy', 'studio'])
             ->when(
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
                 fn ($query) => $query->whereIn('studio_id', $accessibleStudioIds)

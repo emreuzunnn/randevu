@@ -57,7 +57,7 @@ class WebPanelRoleAccessTest extends TestCase
         }
     }
 
-    public function test_appointment_detail_is_available_to_assigned_artist_driver_and_creator(): void
+    public function test_appointment_detail_is_available_to_assigned_artist_branch_driver_and_creator(): void
     {
         $shop = Shop::factory()->create(['manager_user_id' => null]);
         $studio = Studio::factory()->create(['shop_id' => $shop->id]);

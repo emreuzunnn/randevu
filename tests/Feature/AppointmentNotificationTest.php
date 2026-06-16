@@ -64,7 +64,7 @@ class AppointmentNotificationTest extends TestCase
         ]);
     }
 
-    public function test_due_reminders_notify_assigned_professional_and_driver_once(): void
+    public function test_due_reminders_notify_assigned_professional_and_branch_driver_once(): void
     {
         $studio = Studio::factory()->create();
         $creator = $this->attachUserToStudio($studio, UserRole::Info);
@@ -75,7 +75,6 @@ class AppointmentNotificationTest extends TestCase
             'studio_id' => $studio->id,
             'created_by_user_id' => $creator->id,
             'assigned_artist_user_id' => $artist->id,
-            'assigned_driver_user_id' => $driver->id,
             'appointment_type' => 'tattoo',
             'appointment_at' => now()->addMinutes(30),
             'status' => 'confirmed',

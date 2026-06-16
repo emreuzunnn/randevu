@@ -15,16 +15,6 @@ class AppointmentApiTest extends TestCase
     public function test_employee_can_create_appointment(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
-        $driver = User::factory()->create([
-            'role' => UserRole::Sofor,
-        ]);
-
-        $studio->users()->attach($driver->id, [
-            'role' => UserRole::Sofor->value,
-            'work_status' => 'working',
-            'is_active' => true,
-            'joined_at' => now(),
-        ]);
 
         $response = $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
             'slip_image_path' => 'slips/test.jpg',
@@ -37,18 +27,16 @@ class AppointmentApiTest extends TestCase
             ],
             'pax' => 3,
             'appointment_at' => '2026-04-18 17:00:00',
-            'appointment_type' => 'standard',
+            'appointment_type' => 'designer',
             'notes' => 'Test appointment',
-            'assigned_driver_user_id' => $driver->id,
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.status', 'pending');
+            ->assertJsonPath('data.status', 'confirmed');
 
         $this->assertDatabaseHas('appointments', [
             'studio_id' => $studio->id,
             'created_by_user_id' => $employee->id,
-            'assigned_driver_user_id' => $driver->id,
             'pax' => 3,
             'first_name' => 'Fabian',
             'last_name' => 'Uzun',

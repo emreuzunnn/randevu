@@ -15,7 +15,6 @@ class Appointment extends Model
     protected $fillable = [
         'studio_id',
         'created_by_user_id',
-        'assigned_driver_user_id',
         'assigned_artist_user_id',
         'appointment_type',
         'first_name',
@@ -61,11 +60,6 @@ class Appointment extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
-    }
-
-    public function assignedDriver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_driver_user_id');
     }
 
     public function assignedArtist(): BelongsTo

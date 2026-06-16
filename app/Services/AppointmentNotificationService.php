@@ -46,7 +46,7 @@ class AppointmentNotificationService
     {
         $now = now();
         $appointments = Appointment::query()
-            ->with(['assignedArtist', 'assignedDriver', 'studio.shop'])
+            ->with(['assignedArtist', 'studio.shop'])
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->whereBetween('appointment_at', [$now, $now->copy()->addMinutes($minutes)])
             ->get();
@@ -92,9 +92,7 @@ class AppointmentNotificationService
             );
         }
 
-        if ($appointment->assignedDriver instanceof User) {
-            $recipients->push($appointment->assignedDriver);
-        } elseif ($appointment->pickup_required && $appointment->studio instanceof Studio) {
+        if ($appointment->pickup_required && $appointment->studio instanceof Studio) {
             $recipients = $recipients->merge(
                 $this->branchStaff($appointment->studio, [UserRole::Sofor])
             );

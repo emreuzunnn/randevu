@@ -239,8 +239,11 @@ class AppointmentReportService
             ->where(function (Builder $query) use ($staff): void {
                 $query
                     ->where('created_by_user_id', $staff->id)
-                    ->orWhere('assigned_artist_user_id', $staff->id)
-                    ->orWhere('assigned_driver_user_id', $staff->id);
+                    ->orWhere('assigned_artist_user_id', $staff->id);
+
+                if ($staff->hasRole(UserRole::Sofor)) {
+                    $query->orWhere('pickup_required', true);
+                }
             });
     }
 

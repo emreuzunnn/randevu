@@ -41,7 +41,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): View
     {
-        $appointment->load(['assignedDriver', 'assignedArtist', 'createdBy', 'studio.shop']);
+        $appointment->load(['assignedArtist', 'createdBy', 'studio.shop']);
         $user = request()->user();
         $canAccess = false;
 
