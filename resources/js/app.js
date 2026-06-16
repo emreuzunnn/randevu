@@ -87,6 +87,8 @@ const isArtistLikeRole = () => ['artist', 'designer', 'kullanici_rol'].includes(
 const isDriverRole = () => adminConfig.role === 'sofor';
 const canManageAppointmentRecords = () =>
     ['admin', 'yonetici', 'supervisor', 'info', 'calisan'].includes(adminConfig.role);
+const canCreateAppointmentWeb = () =>
+    ['yonetici', 'supervisor', 'designer', 'info', 'calisan'].includes(adminConfig.role);
 
 const requestStatusLabel = (status) => ({
     pending:  'Bekliyor',
@@ -784,17 +786,85 @@ const renderAppointmentsPage = async (root) => {
                 </div>
                 <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
             </div>
+            ${canCreateAppointmentWeb() ? `
+            <div class="form-shell">
+                <div class="section-eyebrow" style="margin-bottom:0.4rem">Manuel Giriş</div>
+                <div class="section-title" style="margin-bottom:1rem">Randevu Oluştur</div>
+                <form class="form-grid" data-appointment-create-form enctype="multipart/form-data">
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap">
+                            <label class="field-label">Stüdyo</label>
+                            <select class="field-select" name="studio_id" data-appointment-create-studio required></select>
+                        </div>
+                        <div class="field-wrap">
+                            <label class="field-label">Tür</label>
+                            <select class="field-select" name="appointment_type">
+                                <option value="designer">Tasarım</option>
+                                <option value="tattoo">Dövme</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="customer[first_name]" required></div>
+                        <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="customer[last_name]" required></div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap">
+                            <label class="field-label">Ülke Kodu</label>
+                            <select class="field-select" name="customer[phone_country_code]">
+                                <option value="+90">🇹🇷 Turkey +90</option>
+                                <option value="+49">🇩🇪 Germany +49</option>
+                                <option value="+44">🇬🇧 United Kingdom +44</option>
+                                <option value="+48">🇵🇱 Poland +48</option>
+                                <option value="+31">🇳🇱 Netherlands +31</option>
+                                <option value="+7">🇷🇺 Russia +7</option>
+                                <option value="+41">🇨🇭 Switzerland +41</option>
+                                <option value="+32">🇧🇪 Belgium +32</option>
+                                <option value="+372">🇪🇪 Estonia +372</option>
+                                <option value="+46">🇸🇪 Sweden +46</option>
+                                <option value="+47">🇳🇴 Norway +47</option>
+                                <option value="+45">🇩🇰 Denmark +45</option>
+                                <option value="+358">🇫🇮 Finland +358</option>
+                            </select>
+                        </div>
+                        <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="customer[phone_number]" inputmode="tel"></div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Otel</label><input class="field-input" name="customer[hotel_name]"></div>
+                        <div class="field-wrap"><label class="field-label">Oda</label><input class="field-input" name="customer[room_number]"></div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Tarih/Saat</label><input class="field-input" name="appointment_at" type="datetime-local" required></div>
+                        <div class="field-wrap"><label class="field-label">Kişi</label><input class="field-input" name="pax" type="number" min="1" value="1" required></div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Fiyat <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="price" type="number" min="0" step="0.01"></div>
+                        <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*"></div>
+                    </div>
+                    <div class="field-wrap"><label class="field-label">Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
+                    <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
+                    <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
+                    <button class="button-primary" type="submit" style="justify-content:center">Randevu Oluştur</button>
+                </form>
+            </div>
+            ` : ''}
         </div>
     `;
 
     const studioSelect = qs('[data-appointments-studio-select]', root);
+    const createStudioSelect = qs('[data-appointment-create-studio]', root);
     const listNode = qs('[data-appointments-list]', root);
 
     const loadStudios = async () => {
-        if (!studioSelect) return;
+        if (!studioSelect && !createStudioSelect) return;
         const payload = await apiFetch('/studios/options');
         const studios = uniqueById(payload.data || []);
-        studioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        if (studioSelect) {
+            studioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        }
+        if (createStudioSelect) {
+            createStudioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        }
     };
 
     const endpointForRole = () => {
@@ -936,6 +1006,27 @@ const renderAppointmentsPage = async (root) => {
 
     studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
+    qs('[data-appointment-create-form]', root)?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleAsync(async () => {
+            const form = e.target;
+            const tattooFiles = form.querySelector('input[name="tattoo_images[]"]')?.files;
+            if (tattooFiles && tattooFiles.length > 3) {
+                throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
+            }
+            const studioId = form.querySelector('[name="studio_id"]')?.value;
+            if (!studioId) throw new Error('Stüdyo seçin.');
+            const formData = new FormData(form);
+            formData.delete('studio_id');
+            if (formData.get('appointment_at')) {
+                formData.set('appointment_at', new Date(formData.get('appointment_at')).toISOString());
+            }
+            await apiFetch(`/studios/${studioId}/appointments`, { method: 'POST', body: formData });
+            showToast('Randevu oluşturuldu.', 'success');
+            form.reset();
+            await renderAppointments();
+        });
+    });
 };
 
 /* ── Stüdyolar ──────────────────────────────────────────────── */
@@ -1361,6 +1452,7 @@ const renderCompaniesPage = async (root) => {
 const renderAppointmentRequestsPage = async (root) => {
     const params = new URLSearchParams(window.location.search);
     const initialDirection = isRegularUserRole() ? 'outgoing' : (params.get('direction') || 'incoming');
+    const initialArtistId = params.get('artist_id');
 
     root.innerHTML = `
         ${pageHeader('Talep Yönetimi', 'Randevu Talepleri', 'Gelen talepler kabul edilince doğrudan randevuya dönüşür.', '<span class="badge-pill badge-pill--teal">Talep Akışı</span>')}
@@ -1371,7 +1463,7 @@ const renderAppointmentRequestsPage = async (root) => {
                 <div class="form-grid form-grid--split">
                     <div class="field-wrap">
                         <label class="field-label">Stüdyo</label>
-                        <select class="field-select" name="studio_id" data-request-studio-select required></select>
+                        <select class="field-select" name="studio_id" data-request-studio-select ${initialArtistId ? '' : 'required'}></select>
                     </div>
                     <div class="field-wrap">
                         <label class="field-label">Tür</label>
@@ -1427,6 +1519,7 @@ const renderAppointmentRequestsPage = async (root) => {
                     <input type="checkbox" name="pickup_required" value="1">
                     Pick up gerekli
                 </label>
+                ${initialArtistId ? `<input type="hidden" name="artist_id" value="${escapeHtml(initialArtistId)}">` : ''}
                 <button class="button-primary" type="submit" style="justify-content:center">Talep Gönder</button>
             </form>
         </div>
@@ -1450,9 +1543,12 @@ const renderAppointmentRequestsPage = async (root) => {
     const loadRequestStudios = async () => {
         const payload = await apiFetch('/public/studios').catch(() => ({ data: [] }));
         const studios = payload.data || [];
-        requestStudioSelect.innerHTML = studios.map((studio) =>
-            `<option value="${studio.id}" ${String(studio.id) === String(params.get('studio_id')) ? 'selected' : ''}>${escapeHtml(studio.name)}</option>`
-        ).join('');
+        requestStudioSelect.innerHTML = `
+            ${initialArtistId ? '<option value="">Artist / freelancer hedefli</option>' : ''}
+            ${studios.map((studio) =>
+                `<option value="${studio.id}" ${String(studio.id) === String(params.get('studio_id')) ? 'selected' : ''}>${escapeHtml(studio.name)}</option>`
+            ).join('')}
+        `;
     };
 
     const setActiveTab = () => {
@@ -1695,6 +1791,361 @@ const renderMyNotificationsPage = async (root) => {
     await Promise.all([renderInvitations(), renderNotifications()]);
 };
 
+/* ── Keşfet / Public Detaylar ───────────────────────────────── */
+
+const mediaGrid = (items = [], alt = 'Görsel') => `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:0.65rem">
+        ${items.map((item) => {
+            const src = typeof item === 'string' ? item : (item.image_path || item.image_url || item.url);
+            if (!src) return '';
+            return `<a href="${escapeHtml(src)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:0.7rem;border:1px solid var(--border)"></a>`;
+        }).join('') || '<div class="empty-state" style="padding:1rem;border:none">Görsel bulunmuyor.</div>'}
+    </div>
+`;
+
+const renderDiscoveryPage = async (root) => {
+    root.innerHTML = `
+        ${pageHeader('Keşfet', 'Stüdyolar ve Freelancerlar', 'Mobil keşif akışındaki stüdyo, artist ve tasarımcıları webde de görüntüleyin.', '<span class="badge-pill badge-pill--teal">Sosyal Akış</span>')}
+        <div class="panel-card">
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+                <button class="button-primary" data-discovery-tab="studios" style="padding:0.5rem 0.85rem;font-size:0.78rem">Stüdyolar</button>
+                <button class="button-secondary" data-discovery-tab="artists" style="padding:0.5rem 0.85rem;font-size:0.78rem">Artist & Tasarımcı</button>
+            </div>
+            <div data-discovery-content>${skeletonGrid(6)}</div>
+        </div>
+    `;
+
+    const content = qs('[data-discovery-content]', root);
+    let activeTab = 'studios';
+
+    const setActiveTab = () => {
+        root.querySelectorAll('[data-discovery-tab]').forEach((btn) => {
+            const active = btn.getAttribute('data-discovery-tab') === activeTab;
+            btn.classList.toggle('button-primary', active);
+            btn.classList.toggle('button-secondary', !active);
+        });
+    };
+
+    const renderStudios = async () => {
+        content.innerHTML = skeletonGrid(6);
+        const payload = await apiFetch('/public/studios');
+        const studios = payload.data || [];
+        content.innerHTML = `
+            <div class="data-grid">
+                ${studios.map((studio, i) => {
+                    const portfolio = studio.portfolio || studio.gallery_images || [];
+                    return `
+                    <article class="data-card animate-stagger-${(i % 3) + 1}">
+                        ${portfolio[0] ? `<img src="${escapeHtml(portfolio[0])}" alt="${escapeHtml(studio.name)}" style="width:100%;height:150px;object-fit:cover;border-radius:0.75rem;border:1px solid var(--border);margin-bottom:0.85rem">` : ''}
+                        <div class="section-title">${escapeHtml(studio.name)}</div>
+                        <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || studio.shop?.location || 'Konum yok')}</div>
+                        <div style="margin-top:0.75rem;font-size:0.78rem;color:var(--text-muted);line-height:1.55;min-height:2.4rem">${escapeHtml(studio.about || 'Açıklama eklenmemiş.')}</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border)">
+                            <span class="badge-pill" style="font-size:0.6rem">${escapeHtml(studio.shop?.company?.name || studio.shop?.name || 'Stüdyo')}</span>
+                            <a class="button-secondary" href="/admin/discovery/studios/${studio.id}" style="padding:0.45rem 0.75rem;font-size:0.74rem">Detay</a>
+                        </div>
+                    </article>
+                `}).join('') || '<div class="empty-state">Stüdyo bulunmuyor.</div>'}
+            </div>
+        `;
+    };
+
+    const renderArtists = async () => {
+        content.innerHTML = skeletonGrid(6);
+        const payload = await apiFetch('/public/artists');
+        const artists = payload.data || [];
+        content.innerHTML = `
+            <div class="data-grid">
+                ${artists.map((artist, i) => {
+                    const preview = artist.portfolio_preview || artist.portfolio || [];
+                    const firstImage = preview[0]?.image_path || preview[0]?.image_url || preview[0];
+                    return `
+                    <article class="data-card animate-stagger-${(i % 3) + 1}">
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem">
+                            ${artist.profile_image ? `<img src="${escapeHtml(artist.profile_image)}" alt="${escapeHtml(artist.name)}" style="width:52px;height:52px;object-fit:cover;border-radius:50%;border:1px solid var(--border)">` : '<div style="width:52px;height:52px;border-radius:50%;background:var(--surface-soft);border:1px solid var(--border)"></div>'}
+                            <div>
+                                <div class="section-title">${escapeHtml(artist.name)}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(artist.role_label || roleLabel(artist.role))}</div>
+                            </div>
+                        </div>
+                        ${firstImage ? `<img src="${escapeHtml(firstImage)}" alt="Portfolyo" style="width:100%;height:140px;object-fit:cover;border-radius:0.75rem;border:1px solid var(--border);margin-bottom:0.75rem">` : ''}
+                        <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;min-height:2.4rem">${escapeHtml(artist.bio || 'Biyografi eklenmemiş.')}</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border)">
+                            <span class="badge-pill" style="font-size:0.6rem">${artist.is_freelancer ? 'Freelancer' : 'Stüdyo'}</span>
+                            <a class="button-secondary" href="/admin/discovery/artists/${artist.id}" style="padding:0.45rem 0.75rem;font-size:0.74rem">Profil</a>
+                        </div>
+                    </article>
+                `}).join('') || '<div class="empty-state">Artist veya tasarımcı bulunmuyor.</div>'}
+            </div>
+        `;
+    };
+
+    const render = async () => {
+        setActiveTab();
+        if (activeTab === 'artists') await renderArtists();
+        else await renderStudios();
+    };
+
+    root.querySelectorAll('[data-discovery-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+            activeTab = button.getAttribute('data-discovery-tab') || 'studios';
+            handleAsync(render);
+        });
+    });
+
+    await render();
+};
+
+const renderPublicStudioDetailPage = async (root) => {
+    const studioId = root.getAttribute('data-studio-id');
+    const [detailPayload, reviewsPayload] = await Promise.all([
+        apiFetch(`/public/studios/${studioId}`),
+        apiFetch(`/public/studios/${studioId}/reviews`).catch(() => ({ data: { items: [] } })),
+    ]);
+    const studio = detailPayload.data || {};
+    const reviews = reviewsPayload.data?.items || reviewsPayload.data || [];
+
+    root.innerHTML = `
+        ${pageHeader('Stüdyo', escapeHtml(studio.name || 'Stüdyo Detayı'), escapeHtml(studio.location || studio.shop?.location || ''), '<span class="badge-pill badge-pill--teal">Public Profil</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1fr 0.9fr">
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:0.75rem">Portfolyo</div>
+                ${mediaGrid(studio.portfolio || studio.aggregated_gallery || studio.gallery_images || [], 'Stüdyo portfolyo')}
+            </div>
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:0.75rem">Bilgiler</div>
+                <div class="detail-grid">
+                    <div class="detail-row"><span class="detail-label">Şube</span><span class="detail-value">${escapeHtml(studio.shop?.name || '—')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Şirket</span><span class="detail-value">${escapeHtml(studio.shop?.company?.name || '—')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Puan</span><span class="detail-value">${escapeHtml(studio.rating || '—')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Tamamlanan</span><span class="detail-value">${escapeHtml(studio.appointment_stats?.completed ?? 0)}</span></div>
+                    <div class="detail-row"><span class="detail-label">İptal</span><span class="detail-value">${escapeHtml(studio.appointment_stats?.cancelled ?? 0)}</span></div>
+                </div>
+                <a href="/admin/appointment-requests?studio_id=${encodeURIComponent(studio.id)}" class="button-primary" style="justify-content:center;margin-top:1rem">Talep Gönder</a>
+            </div>
+        </div>
+        <div class="panel-card" style="margin-top:1rem">
+            <div class="section-title" style="margin-bottom:1rem">Çalışanlar</div>
+            <div class="data-grid">
+                ${(studio.staff || []).map((staff) => `
+                    <a class="list-card" href="/admin/discovery/artists/${staff.id}" style="text-decoration:none;padding:0.75rem 0.85rem">
+                        <div style="display:flex;align-items:center;gap:0.7rem">
+                            ${staff.profile_image ? `<img src="${escapeHtml(staff.profile_image)}" alt="${escapeHtml(staff.name)}" style="width:44px;height:44px;object-fit:cover;border-radius:50%">` : '<div style="width:44px;height:44px;border-radius:50%;background:var(--surface-soft)"></div>'}
+                            <div><div style="font-weight:650;color:var(--text-main)">${escapeHtml(staff.name)}</div><div style="font-size:0.72rem;color:var(--text-muted)">${escapeHtml(staff.role_label || roleLabel(staff.role))}</div></div>
+                        </div>
+                    </a>
+                `).join('') || '<div class="empty-state">Çalışan bulunmuyor.</div>'}
+            </div>
+        </div>
+        <div class="panel-card" style="margin-top:1rem">
+            <div class="section-title" style="margin-bottom:1rem">Yorumlar</div>
+            <div class="list-stack">
+                ${reviews.map((review) => `
+                    <div class="list-card" style="padding:0.75rem 0.85rem">
+                        <div style="display:flex;justify-content:space-between;gap:1rem"><strong>${escapeHtml(review.user?.name || review.reviewer?.name || 'Kullanıcı')}</strong><span class="badge-pill">${escapeHtml(review.rating || '')}/5</span></div>
+                        <div style="margin-top:0.4rem;font-size:0.78rem;color:var(--text-muted)">${escapeHtml(review.comment || review.body || '')}</div>
+                        ${review.image_path ? `<a href="${escapeHtml(review.image_path)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(review.image_path)}" alt="Yorum görseli" style="margin-top:0.5rem;width:90px;height:90px;object-fit:cover;border-radius:0.6rem"></a>` : ''}
+                    </div>
+                `).join('') || '<div class="empty-state">Yorum bulunmuyor.</div>'}
+            </div>
+        </div>
+    `;
+};
+
+const renderPublicArtistDetailPage = async (root) => {
+    const artistId = root.getAttribute('data-artist-id');
+    const [detailPayload, reviewsPayload] = await Promise.all([
+        apiFetch(`/public/artists/${artistId}`),
+        apiFetch(`/public/artists/${artistId}/reviews`).catch(() => ({ data: { items: [] } })),
+    ]);
+    const artist = detailPayload.data || {};
+    const reviews = reviewsPayload.data?.items || reviewsPayload.data || [];
+
+    root.innerHTML = `
+        ${pageHeader('Artist', escapeHtml(artist.name || 'Profil'), escapeHtml(artist.bio || ''), `<span class="badge-pill badge-pill--success">${escapeHtml(artist.role_label || roleLabel(artist.role))}</span>`)}
+        <div style="display:grid;gap:1rem;grid-template-columns:0.9fr 1.1fr">
+            <div class="panel-card">
+                ${artist.profile_image ? `<img src="${escapeHtml(artist.profile_image)}" alt="${escapeHtml(artist.name)}" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:1px solid var(--border);margin-bottom:1rem">` : ''}
+                <div class="detail-grid">
+                    <div class="detail-row"><span class="detail-label">Çalışma</span><span class="detail-value">${artist.is_freelancer ? 'Freelancer' : 'Stüdyo'}</span></div>
+                    <div class="detail-row"><span class="detail-label">Puan</span><span class="detail-value">${escapeHtml(artist.rating || '—')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Tamamlanan</span><span class="detail-value">${escapeHtml(artist.appointment_stats?.completed ?? 0)}</span></div>
+                    <div class="detail-row"><span class="detail-label">İptal</span><span class="detail-value">${escapeHtml(artist.appointment_stats?.cancelled ?? 0)}</span></div>
+                </div>
+                <a href="/admin/appointment-requests?artist_id=${encodeURIComponent(artist.id)}" class="button-primary" style="justify-content:center;margin-top:1rem">Talep Gönder</a>
+            </div>
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:0.75rem">Portfolyo</div>
+                ${mediaGrid(artist.portfolio || [], 'Artist portfolyo')}
+            </div>
+        </div>
+        <div class="panel-card" style="margin-top:1rem">
+            <div class="section-title" style="margin-bottom:1rem">Yorumlar</div>
+            <div class="list-stack">
+                ${reviews.map((review) => `
+                    <div class="list-card" style="padding:0.75rem 0.85rem">
+                        <div style="display:flex;justify-content:space-between;gap:1rem"><strong>${escapeHtml(review.user?.name || review.reviewer?.name || 'Kullanıcı')}</strong><span class="badge-pill">${escapeHtml(review.rating || '')}/5</span></div>
+                        <div style="margin-top:0.4rem;font-size:0.78rem;color:var(--text-muted)">${escapeHtml(review.comment || review.body || '')}</div>
+                        ${review.image_path ? `<a href="${escapeHtml(review.image_path)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(review.image_path)}" alt="Yorum görseli" style="margin-top:0.5rem;width:90px;height:90px;object-fit:cover;border-radius:0.6rem"></a>` : ''}
+                    </div>
+                `).join('') || '<div class="empty-state">Yorum bulunmuyor.</div>'}
+            </div>
+        </div>
+    `;
+};
+
+/* ── Profil / Portfolyo / Ayarlar ───────────────────────────── */
+
+const renderProfilePage = async (root) => {
+    const payload = await apiFetch('/profile');
+    const profile = payload.data || {};
+    const portfolio = profile.portfolio || [];
+    const canDeleteAccount = !['admin', 'yonetici', 'supervisor'].includes(adminConfig.role);
+
+    root.innerHTML = `
+        ${pageHeader('Hesap', 'Profil', 'Profil bilgileri, portfolyo ve hesap işlemleri.', '<span class="badge-pill badge-pill--info">Web Profil</span>')}
+        <div style="display:grid;gap:1rem;grid-template-columns:1fr 1fr">
+            <div class="form-shell">
+                <div class="section-title" style="margin-bottom:1rem">Profil Bilgileri</div>
+                <form class="form-grid" data-profile-form>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="name" value="${escapeHtml((profile.name || '').split(' ')[0] || '')}"></div>
+                        <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="surname" value="${escapeHtml((profile.name || '').split(' ').slice(1).join(' '))}"></div>
+                    </div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email" value="${escapeHtml(profile.email || '')}"></div>
+                        <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" value="${escapeHtml(profile.phone || '')}"></div>
+                    </div>
+                    <div class="field-wrap"><label class="field-label">Biyografi</label><textarea class="field-input" name="bio" rows="3">${escapeHtml(profile.bio || '')}</textarea></div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(profile.location || '')}"></div>
+                        <div class="field-wrap"><label class="field-label">Durum</label><select class="field-select" name="status">${['working','break','transfer'].map((s) => `<option value="${s}" ${profile.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}</select></div>
+                    </div>
+                    <button class="button-primary" type="submit" style="justify-content:center">Profili Güncelle</button>
+                </form>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem">
+                    <a class="button-secondary" href="/admin/profile/appointments" style="padding:0.5rem 0.85rem;font-size:0.78rem">Randevularım</a>
+                    ${canDeleteAccount ? '<button class="button-ghost" data-delete-account style="padding:0.5rem 0.85rem;font-size:0.78rem">Hesabımı Sil</button>' : ''}
+                </div>
+            </div>
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:1rem">Portfolyo</div>
+                ${mediaGrid(portfolio, 'Portfolyo')}
+                <form class="form-grid" data-portfolio-form style="margin-top:1rem">
+                    <div class="field-wrap"><label class="field-label">Başlık</label><input class="field-input" name="title" required></div>
+                    <div class="field-wrap"><label class="field-label">Kategori</label><input class="field-input" name="category"></div>
+                    <div class="field-wrap"><label class="field-label">Görsel</label><input class="field-input" name="image" type="file" accept="image/*"></div>
+                    <div class="field-wrap"><label class="field-label">Açıklama</label><textarea class="field-input" name="description" rows="2"></textarea></div>
+                    <button class="button-secondary" type="submit" style="justify-content:center">Portfolyoya Ekle</button>
+                </form>
+            </div>
+        </div>
+    `;
+
+    qs('[data-profile-form]', root)?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleAsync(async () => {
+            const body = Object.fromEntries(new FormData(e.target).entries());
+            await apiFetch('/profile', { method: 'PATCH', body });
+            showToast('Profil güncellendi.', 'success');
+            await renderProfilePage(root);
+        });
+    });
+
+    qs('[data-portfolio-form]', root)?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleAsync(async () => {
+            await apiFetch('/me/portfolio/items', { method: 'POST', body: new FormData(e.target) });
+            showToast('Portfolyo eklendi.', 'success');
+            await renderProfilePage(root);
+        });
+    });
+
+    qs('[data-delete-account]', root)?.addEventListener('click', () => {
+        if (!confirm('Hesabınızı kalıcı olarak silmek istiyor musunuz?')) return;
+        handleAsync(async () => {
+            await apiFetch('/me', { method: 'DELETE' });
+            window.location.href = '/admin/login';
+        });
+    });
+};
+
+const renderProfileAppointmentsPage = async (root) => {
+    root.innerHTML = `
+        ${pageHeader('Profil', 'Randevularım', 'Tarih, durum ve tür filtresiyle kişisel randevu geçmişi.', '<span class="badge-pill badge-pill--warning">Arşiv</span>')}
+        <div class="panel-card">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;margin-bottom:1rem">
+                <select class="field-select" data-pa-status><option value="">Tüm Durumlar</option><option value="confirmed">Aktif</option><option value="completed">Tamamlandı</option><option value="cancelled">İptal</option></select>
+                <select class="field-select" data-pa-type><option value="">Tüm Türler</option><option value="designer">Tasarım</option><option value="tattoo">Dövme</option></select>
+                <input class="field-input" data-pa-date-from type="date">
+                <input class="field-input" data-pa-search placeholder="Ara">
+            </div>
+            <div class="list-stack" data-profile-appointments-list>${skeletonGrid(4)}</div>
+        </div>
+    `;
+
+    const listNode = qs('[data-profile-appointments-list]', root);
+    const load = async () => {
+        listNode.innerHTML = skeletonGrid(4);
+        const endpoint = isDriverRole()
+            ? '/my-appointments'
+            : isArtistLikeRole()
+                ? '/my-artist-appointments'
+                : '/appointment-requests?direction=outgoing';
+        const payload = await apiFetch(endpoint);
+        const raw = payload.data || [];
+        const rows = raw.filter((item) => {
+            const status = qs('[data-pa-status]', root).value;
+            const type = qs('[data-pa-type]', root).value;
+            const dateFrom = qs('[data-pa-date-from]', root).value;
+            const search = qs('[data-pa-search]', root).value.toLowerCase().trim();
+            const dateValue = item.appointment_at || item.requested_at;
+            const haystack = JSON.stringify(item).toLowerCase();
+            return (!status || item.status === status)
+                && (!type || item.appointment_type === type || item.request_type === type)
+                && (!dateFrom || (dateValue && dateValue.slice(0, 10) >= dateFrom))
+                && (!search || haystack.includes(search));
+        });
+        listNode.innerHTML = rows.map((item) => `
+            <a class="list-card" href="${item.appointment_id || item.appointment_at ? `/admin/appointments/${item.appointment_id || item.id}` : `/admin/appointment-requests?request_id=${item.id}`}" style="text-decoration:none;padding:0.85rem 1rem">
+                <div style="display:flex;justify-content:space-between;gap:1rem">
+                    <div>
+                        <div style="font-weight:700;color:var(--text-main)">${escapeHtml(`${item.customer?.first_name || item.first_name || ''} ${item.customer?.last_name || item.last_name || ''}`.trim() || 'Kayıt')}</div>
+                        <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${formatDateTime(item.appointment_at || item.requested_at)} · ${escapeHtml(item.studio?.name || '—')}</div>
+                    </div>
+                    <span class="${statusClass(item.status)}" style="font-size:0.65rem">${statusLabel(item.status) || requestStatusLabel(item.status)}</span>
+                </div>
+            </a>
+        `).join('') || '<div class="empty-state">Kayıt bulunmuyor.</div>';
+    };
+
+    ['[data-pa-status]', '[data-pa-type]', '[data-pa-date-from]', '[data-pa-search]'].forEach((selector) => {
+        qs(selector, root)?.addEventListener('input', () => handleAsync(load));
+        qs(selector, root)?.addEventListener('change', () => handleAsync(load));
+    });
+    await load();
+};
+
+const renderSettingsPage = async (root) => {
+    root.innerHTML = `
+        ${pageHeader('Ayarlar', 'Uygulama Ayarları', 'Web panel teması ve bildirim testi.', '<span class="badge-pill">Web</span>')}
+        <div class="data-grid">
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:0.75rem">Tema</div>
+                <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55">Web panel mevcut sistem temasını kullanır. Mobil uygulamada varsayılan light, kullanıcı seçerse dark kalır.</p>
+            </div>
+            <div class="panel-card">
+                <div class="section-title" style="margin-bottom:0.75rem">Bildirim Testi</div>
+                <button class="button-primary" data-test-notification style="justify-content:center">Test Bildirimi Gönder</button>
+            </div>
+        </div>
+    `;
+    qs('[data-test-notification]', root)?.addEventListener('click', () => handleAsync(async () => {
+        await apiFetch('/notifications/test', { method: 'POST', body: {} });
+        showToast('Test bildirimi tetiklendi.', 'success');
+    }));
+};
+
 /* ── Sayfa yönlendirici ─────────────────────────────────────── */
 
 const pageInitializers = [
@@ -1704,6 +2155,12 @@ const pageInitializers = [
     ['[data-admin-appointments]', renderAppointmentsPage],
     ['[data-admin-appointment-requests]', renderAppointmentRequestsPage],
     ['[data-admin-my-notifications]', renderMyNotificationsPage],
+    ['[data-admin-discovery]', renderDiscoveryPage],
+    ['[data-admin-public-studio-detail]', renderPublicStudioDetailPage],
+    ['[data-admin-public-artist-detail]', renderPublicArtistDetailPage],
+    ['[data-admin-profile]', renderProfilePage],
+    ['[data-admin-profile-appointments]', renderProfileAppointmentsPage],
+    ['[data-admin-settings]', renderSettingsPage],
     ['[data-admin-studios]',      renderStudiosPage],
     ['[data-admin-shops]',        renderShopsPage],
 ];

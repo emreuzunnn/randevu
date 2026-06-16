@@ -34,6 +34,12 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
 
     Route::view('/appointment-requests', 'admin.appointment-requests.index')->name('appointment-requests.index');
     Route::view('/my-notifications', 'admin.my-notifications.index')->name('my-notifications.index');
+    Route::view('/discovery', 'admin.discovery.index')->name('discovery.index');
+    Route::view('/discovery/studios/{studio}', 'admin.discovery.studio')->name('discovery.studio');
+    Route::view('/discovery/artists/{user}', 'admin.discovery.artist')->name('discovery.artist');
+    Route::view('/profile', 'admin.profile.index')->name('profile.index');
+    Route::view('/profile/appointments', 'admin.profile.appointments')->name('profile.appointments');
+    Route::view('/settings', 'admin.settings.index')->name('settings.index');
 
     Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');
     Route::get('/content-reports', [AdminContentReportController::class, 'index'])->name('content-reports.index');

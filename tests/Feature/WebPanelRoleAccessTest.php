@@ -93,4 +93,23 @@ class WebPanelRoleAccessTest extends TestCase
         $this->actingAs($creator)->get("/admin/appointments/{$appointment->id}")->assertOk();
         $this->actingAs($outside)->get("/admin/appointments/{$appointment->id}")->assertForbidden();
     }
+
+    public function test_shared_mobile_parity_pages_are_available_on_web_panel(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::Kullanici]);
+        $studio = Studio::factory()->create();
+        $artist = User::factory()->create([
+            'role' => UserRole::Artist,
+            'requested_staff_role' => UserRole::Artist,
+        ]);
+
+        $this->actingAs($user)->get('/admin/discovery')->assertOk();
+        $this->actingAs($user)->get("/admin/discovery/studios/{$studio->id}")->assertOk();
+        $this->actingAs($user)->get("/admin/discovery/artists/{$artist->id}")->assertOk();
+        $this->actingAs($user)->get('/admin/profile')->assertOk();
+        $this->actingAs($user)->get('/admin/profile/appointments')->assertOk();
+        $this->actingAs($user)->get('/admin/settings')->assertOk();
+        $this->actingAs($user)->get('/admin/appointment-requests')->assertOk();
+        $this->actingAs($user)->get('/admin/my-notifications')->assertOk();
+    }
 }
