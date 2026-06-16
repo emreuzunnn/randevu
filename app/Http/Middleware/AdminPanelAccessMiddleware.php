@@ -19,9 +19,13 @@ class AdminPanelAccessMiddleware
             UserRole::Admin,
             UserRole::Yonetici,
             UserRole::Supervisor,
+            UserRole::Artist,
             UserRole::Info,
             UserRole::Designer,
             UserRole::Sofor,
+            UserRole::Calisan,
+            UserRole::KullaniciRol,
+            UserRole::Kullanici,
         ]), Response::HTTP_FORBIDDEN);
 
         return $next($request);

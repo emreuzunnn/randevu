@@ -82,6 +82,23 @@ const uniqueById  = (items = []) => {
     });
 };
 const usesStudioAssignment = (role) => ['artist', 'designer'].includes(role);
+const isRegularUserRole = () => ['kullanici', 'kullanici_rol'].includes(adminConfig.role);
+const isArtistLikeRole = () => ['artist', 'designer', 'kullanici_rol'].includes(adminConfig.role);
+const isDriverRole = () => adminConfig.role === 'sofor';
+const canManageAppointmentRecords = () =>
+    ['admin', 'yonetici', 'supervisor', 'info', 'calisan'].includes(adminConfig.role);
+
+const requestStatusLabel = (status) => ({
+    pending:  'Bekliyor',
+    accepted: 'Kabul Edildi',
+    rejected: 'Reddedildi',
+}[status] || status);
+
+const requestStatusClass = (status) => ({
+    pending:  'badge-pill badge-pill--warning',
+    accepted: 'badge-pill badge-pill--success',
+    rejected: 'badge-pill badge-pill--danger',
+}[status] || 'badge-pill');
 
 /* ── Toast ──────────────────────────────────────────────────── */
 
@@ -254,6 +271,31 @@ const statBlock = (label, content) => `
     </div>
 `;
 
+const renderDiscoveryHome = (root, data = {}) => {
+    const studios = data.studios || [];
+    root.innerHTML = `
+        ${pageHeader('Keşfet', 'Stüdyolar', 'Randevu talebi gönderebileceğiniz aktif stüdyolar.', '<span class="badge-pill badge-pill--teal">Kullanıcı Paneli</span>')}
+        <div class="data-grid">
+            ${studios.map((studio, i) => `
+                <article class="data-card animate-stagger-${(i % 3) + 1}">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
+                        <div>
+                            <div class="section-title">${escapeHtml(studio.name)}</div>
+                            <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || studio.shop?.location || 'Konum yok')}</div>
+                        </div>
+                        <span class="badge-pill" style="font-size:0.62rem">${escapeHtml(studio.shop?.company?.name || studio.shop?.name || 'Stüdyo')}</span>
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;min-height:2.4rem">${escapeHtml(studio.about || 'Bu stüdyo için henüz açıklama eklenmemiş.')}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.65rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border)">
+                        <span style="font-size:0.72rem;color:var(--text-subtle)">${escapeHtml(studio.opening_time || '09:00')} - ${escapeHtml(studio.closing_time || '18:00')}</span>
+                        <a href="/admin/appointment-requests?studio_id=${encodeURIComponent(studio.id)}" class="button-secondary" style="padding:0.45rem 0.75rem;font-size:0.74rem">Talep Gönder</a>
+                    </div>
+                </article>
+            `).join('') || '<div class="empty-state">Gösterilecek stüdyo bulunamadı.</div>'}
+        </div>
+    `;
+};
+
 /* ── Dashboard ──────────────────────────────────────────────── */
 
 const renderDashboard = async (root, selectedStudioId = '') => {
@@ -291,6 +333,10 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     studioSelect.addEventListener('change', () => renderDashboard(root, studioSelect.value));
 
     const payload = await apiFetch(`/home${selectedStudioId ? `?studio_id=${encodeURIComponent(selectedStudioId)}` : ''}`);
+    if (payload.type === 'discovery') {
+        renderDiscoveryHome(root, payload.data || {});
+        return;
+    }
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [
@@ -314,7 +360,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     ['Toplam',     report.total_appointments,     ''],
                     ['Tamamlandı', report.completed_appointments, 'var(--success)'],
                     ['İptal',      report.cancelled_appointments,  'var(--danger)'],
-                    ['Bekliyor',   report.pending_appointments,   'var(--warning)'],
+                    ['Aktif',      report.confirmed_appointments ?? report.active_appointments ?? 0, 'var(--warning)'],
                 ].map(([lbl, val, color]) => `
                     <div class="stat-block">
                         <div class="stat-label">${lbl}</div>
@@ -716,15 +762,24 @@ const renderUsersPage = async (root) => {
 /* ── Randevular ─────────────────────────────────────────────── */
 
 const renderAppointmentsPage = async (root) => {
+    const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Randevular' : 'Randevu Yönetimi';
+    const desc = isDriverRole()
+        ? 'Pick up seçili transferler, müşteri bilgileri ve sürücü aksiyonları.'
+        : isArtistLikeRole()
+            ? 'Size atanan tasarım ve dövme randevuları.'
+            : 'Liste ve durum güncellemeleri tek merkezde.';
+
     root.innerHTML = `
-        ${pageHeader('Randevu Akışı', 'Randevu Yönetimi', 'Liste ve durum güncellemeleri tek merkezde.', '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
+        ${pageHeader('Randevu Akışı', title, desc, '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
         <div style="display:grid;gap:1rem">
             <div class="panel-card">
                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+                    ${canManageAppointmentRecords() ? `
                     <div class="field-wrap" style="flex:1;min-width:0">
                         <label class="field-label">Stüdyo Seç</label>
                         <select class="field-select" data-appointments-studio-select></select>
                     </div>
+                    ` : '<div></div>'}
                     <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                 </div>
                 <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
@@ -732,94 +787,154 @@ const renderAppointmentsPage = async (root) => {
         </div>
     `;
 
-    const studioSelect       = qs('[data-appointments-studio-select]', root);
-    const listNode           = qs('[data-appointments-list]', root);
+    const studioSelect = qs('[data-appointments-studio-select]', root);
+    const listNode = qs('[data-appointments-list]', root);
 
     const loadStudios = async () => {
-        const payload  = await apiFetch('/studios/options');
-        const studios  = payload.data || [];
-        const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-        studioSelect.innerHTML       = options;
+        if (!studioSelect) return;
+        const payload = await apiFetch('/studios/options');
+        const studios = uniqueById(payload.data || []);
+        studioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    };
+
+    const endpointForRole = () => {
+        if (isDriverRole()) return '/my-appointments';
+        if (isArtistLikeRole()) return '/my-artist-appointments';
+        return studioSelect?.value ? `/studios/${studioSelect.value}/appointments` : null;
+    };
+
+    const renderImageThumb = (apt) => {
+        const image = apt.customer?.photo_path || apt.photo_path || apt.source_image_path || apt.tattoo_image_paths?.[0];
+        return image
+            ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener noreferrer" style="flex-shrink:0"><img src="${escapeHtml(image)}" alt="Randevu görseli" style="width:58px;height:58px;object-fit:cover;border-radius:0.65rem;border:1px solid var(--border)"></a>`
+            : '<div style="width:58px;height:58px;border-radius:0.65rem;border:1px solid var(--border);background:var(--surface-soft);flex-shrink:0"></div>';
     };
 
     const renderAppointments = async () => {
-        if (!studioSelect.value) {
+        const endpoint = endpointForRole();
+        if (!endpoint) {
             listNode.innerHTML = '<div class="empty-state">Randevuları görüntülemek için bir stüdyo seçin.</div>';
             return;
         }
+
         listNode.innerHTML = skeletonGrid(4);
-        const payload      = await apiFetch(`/studios/${studioSelect.value}/appointments`);
+        const payload = await apiFetch(endpoint);
         const appointments = payload.data || [];
 
         listNode.innerHTML = appointments.length
-            ? appointments.map((apt, i) => `
-                <article class="list-card animate-stagger-${(i % 3) + 1}" data-appointment-id="${apt.id}" style="padding:0.85rem 1rem">
+            ? appointments.map((apt, i) => {
+                const customerName = `${apt.customer?.first_name || ''} ${apt.customer?.last_name || ''}`.trim();
+                const phone = `${apt.customer?.phone_country_code || ''}${apt.customer?.phone_number || ''}`.replace(/\s+/g, '');
+                const studioId = apt.studio?.id || studioSelect?.value || '';
+                const limited = apt.artist_limited_view;
+                return `
+                <article class="list-card animate-stagger-${(i % 3) + 1}" data-appointment-id="${apt.id}" data-studio-id="${studioId}" style="padding:0.85rem 1rem">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
-                        <div>
-                            <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(`${apt.customer.first_name} ${apt.customer.last_name}`)}</div>
-                            <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">Otel: ${escapeHtml(apt.customer.hotel_name || '—')}</div>
-                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Oda: ${escapeHtml(apt.customer.room_number || '—')}</div>
-                            <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Tarih: ${formatDateTime(apt.appointment_at)}</div>
+                        <div style="display:flex;align-items:flex-start;gap:0.75rem;min-width:0">
+                            ${renderImageThumb(apt)}
+                            <div>
+                                <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(limited ? 'Atanan dövme işi' : (customerName || 'İsimsiz'))}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">Otel/Yer: ${escapeHtml(limited ? (apt.studio?.name || 'Stüdyo') : (apt.customer?.hotel_name || apt.place || '—'))}</div>
+                                <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Oda: ${escapeHtml(limited ? '—' : (apt.customer?.room_number || '—'))}</div>
+                                <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Tarih: ${formatDateTime(apt.appointment_at)}</div>
+                                <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Stüdyo: ${escapeHtml(apt.studio?.name || 'Bağımsız')}</div>
+                            </div>
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
                             <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
-                            ${apt.appointment_type
-                                ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>`
-                                : ''}
+                            ${apt.appointment_type ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>` : ''}
+                            ${apt.price !== null && apt.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(apt.price)} ₺</span>` : ''}
                         </div>
                     </div>
+                    ${canManageAppointmentRecords() ? `
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
                         <div class="field-wrap">
                             <label class="field-label">Durum</label>
                             <select class="field-select" data-appointment-status style="font-size:0.78rem;padding:0.42rem 0.65rem">
-                                ${['confirmed','completed','cancelled'].map((s) =>
-                                    `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`
-                                ).join('')}
+                                ${['confirmed','completed','cancelled'].map((s) => `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="field-wrap">
                             <label class="field-label">Tip</label>
                             <select class="field-select" data-appointment-type style="font-size:0.78rem;padding:0.42rem 0.65rem">
-                                ${['designer','tattoo'].map((t) =>
-                                    `<option value="${t}" ${apt.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>`
-                                ).join('')}
+                                ${['designer','tattoo'].map((t) => `<option value="${t}" ${apt.appointment_type === t ? 'selected' : ''}>${APPOINTMENT_TYPE_LABELS[t]}</option>`).join('')}
                             </select>
                         </div>
                     </div>
-                    <div style="display:flex;gap:0.5rem">
+                    ` : ''}
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
                         <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.4rem 0.75rem;font-size:0.75rem">Detay</a>
-                        <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>
-                        <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
+                        ${canManageAppointmentRecords() ? `
+                            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>
+                            <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
+                        ` : ''}
+                        ${isDriverRole() ? `
+                            ${phone ? `<a href="tel:${escapeHtml(phone)}" class="button-secondary" style="padding:0.4rem 0.75rem;font-size:0.75rem">Müşteriyi Ara</a>` : ''}
+                            <button class="button-secondary" data-driver-action="picked_up" style="padding:0.4rem 0.75rem;font-size:0.75rem">Aldım</button>
+                            <button class="button-primary" data-driver-action="dropped_off" style="padding:0.4rem 0.75rem;font-size:0.75rem">Bıraktım</button>
+                            <button class="button-ghost" data-driver-action="customer_no_show" style="padding:0.4rem 0.75rem;font-size:0.75rem">Müşteri Gelmedi</button>
+                        ` : ''}
+                        ${adminConfig.role === 'artist' && apt.appointment_type === 'tattoo' && !['completed', 'cancelled'].includes(apt.status) ? `
+                            <form data-artist-complete-form style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                                <input class="field-input" type="file" name="completed_tattoo_image" accept="image/*" required style="max-width:240px;font-size:0.75rem;padding:0.45rem 0.65rem">
+                                <button class="button-primary" type="submit" style="padding:0.4rem 0.75rem;font-size:0.75rem">Tamamla</button>
+                            </form>
+                        ` : ''}
                     </div>
                 </article>
-            `).join('')
-            : '<div class="empty-state">Bu stüdyoda randevu bulunmuyor.</div>';
+            `}).join('')
+            : '<div class="empty-state">Bu kapsamda randevu bulunmuyor.</div>';
 
         listNode.querySelectorAll('[data-appointment-save]').forEach((btn) => {
             btn.addEventListener('click', () => handleAsync(async () => {
                 const card = btn.closest('[data-appointment-id]');
-                const id   = card?.getAttribute('data-appointment-id');
-                await apiFetch(`/studios/${studioSelect.value}/appointments/${id}`, {
+                const id = card?.getAttribute('data-appointment-id');
+                const studioId = card?.getAttribute('data-studio-id');
+                await apiFetch(`/studios/${studioId}/appointments/${id}`, {
                     method: 'PATCH',
                     body: {
-                        status:           qs('[data-appointment-status]', card)?.value,
-                        appointment_type: qs('[data-appointment-type]',   card)?.value || 'designer',
-                        pickup_required:  qs('[data-appointment-pickup]', card)?.checked || false,
+                        status: qs('[data-appointment-status]', card)?.value,
+                        appointment_type: qs('[data-appointment-type]', card)?.value || 'designer',
+                        pickup_required: qs('[data-appointment-pickup]', card)?.checked || false,
                     },
                 });
                 showToast('Randevu güncellendi.', 'success');
                 await renderAppointments();
             }));
         });
+
+        listNode.querySelectorAll('[data-driver-action]').forEach((btn) => {
+            btn.addEventListener('click', () => handleAsync(async () => {
+                const card = btn.closest('[data-appointment-id]');
+                await apiFetch(`/studios/${card?.getAttribute('data-studio-id')}/appointments/${card?.getAttribute('data-appointment-id')}/driver-action`, {
+                    method: 'PATCH',
+                    body: { driver_status: btn.getAttribute('data-driver-action') },
+                });
+                showToast('Transfer güncellendi.', 'success');
+                await renderAppointments();
+            }));
+        });
+
+        listNode.querySelectorAll('[data-artist-complete-form]').forEach((form) => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                handleAsync(async () => {
+                    const card = form.closest('[data-appointment-id]');
+                    await apiFetch(`/appointments/${card?.getAttribute('data-appointment-id')}/artist-complete`, {
+                        method: 'POST',
+                        body: new FormData(form),
+                    });
+                    showToast('Randevu tamamlandı.', 'success');
+                    await renderAppointments();
+                });
+            });
+        });
     };
 
     await loadStudios();
     await renderAppointments();
 
-    studioSelect.addEventListener('change', () => handleAsync(async () => {
-        await renderAppointments();
-    }));
-
+    studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
 };
 
@@ -1241,6 +1356,345 @@ const renderCompaniesPage = async (root) => {
     });
 };
 
+/* ── Talepler ───────────────────────────────────────────────── */
+
+const renderAppointmentRequestsPage = async (root) => {
+    const params = new URLSearchParams(window.location.search);
+    const initialDirection = isRegularUserRole() ? 'outgoing' : (params.get('direction') || 'incoming');
+
+    root.innerHTML = `
+        ${pageHeader('Talep Yönetimi', 'Randevu Talepleri', 'Gelen talepler kabul edilince doğrudan randevuya dönüşür.', '<span class="badge-pill badge-pill--teal">Talep Akışı</span>')}
+        <div class="form-shell" style="margin-bottom:1rem">
+            <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Talep</div>
+            <div class="section-title" style="margin-bottom:1rem">Stüdyoya Talep Gönder</div>
+            <form class="form-grid" data-request-create-form enctype="multipart/form-data">
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap">
+                        <label class="field-label">Stüdyo</label>
+                        <select class="field-select" name="studio_id" data-request-studio-select required></select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Tür</label>
+                        <select class="field-select" name="type" required>
+                            <option value="designer">Tasarım</option>
+                            <option value="tattoo">Dövme</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap"><label class="field-label">Tarih</label><input class="field-input" name="preferred_date" type="date" required></div>
+                    <div class="field-wrap"><label class="field-label">Saat</label><input class="field-input" name="preferred_time" type="time" required></div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap"><label class="field-label">İsim</label><input class="field-input" name="first_name" required></div>
+                    <div class="field-wrap"><label class="field-label">Soyisim</label><input class="field-input" name="last_name" required></div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap">
+                        <label class="field-label">Ülke Kodu</label>
+                        <select class="field-select" name="phone_country_code" required>
+                            <option value="+90">🇹🇷 Turkey +90</option>
+                            <option value="+49">🇩🇪 Germany +49</option>
+                            <option value="+44">🇬🇧 United Kingdom +44</option>
+                            <option value="+48">🇵🇱 Poland +48</option>
+                            <option value="+31">🇳🇱 Netherlands +31</option>
+                            <option value="+7">🇷🇺 Russia +7</option>
+                            <option value="+41">🇨🇭 Switzerland +41</option>
+                            <option value="+32">🇧🇪 Belgium +32</option>
+                            <option value="+372">🇪🇪 Estonia +372</option>
+                            <option value="+46">🇸🇪 Sweden +46</option>
+                            <option value="+47">🇳🇴 Norway +47</option>
+                            <option value="+45">🇩🇰 Denmark +45</option>
+                            <option value="+358">🇫🇮 Finland +358</option>
+                        </select>
+                    </div>
+                    <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone_number" inputmode="tel" required></div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap"><label class="field-label">Otel</label><input class="field-input" name="hotel_name" required></div>
+                    <div class="field-wrap"><label class="field-label">Oda</label><input class="field-input" name="room_number" required></div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap"><label class="field-label">Yer</label><input class="field-input" name="place" required></div>
+                    <div class="field-wrap"><label class="field-label">Kişi</label><input class="field-input" name="pax" type="number" min="1" value="1" required></div>
+                </div>
+                <div class="form-grid form-grid--split">
+                    <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*" required></div>
+                    <div class="field-wrap"><label class="field-label">Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
+                </div>
+                <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
+                <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)">
+                    <input type="checkbox" name="pickup_required" value="1">
+                    Pick up gerekli
+                </label>
+                <button class="button-primary" type="submit" style="justify-content:center">Talep Gönder</button>
+            </form>
+        </div>
+        <div class="panel-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                    ${isRegularUserRole() ? '' : '<button class="button-secondary" data-request-tab="incoming" style="padding:0.5rem 0.85rem;font-size:0.78rem">Gelen</button>'}
+                    <button class="button-secondary" data-request-tab="outgoing" style="padding:0.5rem 0.85rem;font-size:0.78rem">Gönderdiklerim</button>
+                </div>
+                <button class="button-secondary" data-requests-refresh style="padding:0.5rem 0.85rem;font-size:0.78rem">Yenile</button>
+            </div>
+            <div class="list-stack" data-requests-list>${skeletonGrid(4)}</div>
+        </div>
+    `;
+
+    const listNode = qs('[data-requests-list]', root);
+    const createForm = qs('[data-request-create-form]', root);
+    const requestStudioSelect = qs('[data-request-studio-select]', root);
+    let direction = initialDirection;
+
+    const loadRequestStudios = async () => {
+        const payload = await apiFetch('/public/studios').catch(() => ({ data: [] }));
+        const studios = payload.data || [];
+        requestStudioSelect.innerHTML = studios.map((studio) =>
+            `<option value="${studio.id}" ${String(studio.id) === String(params.get('studio_id')) ? 'selected' : ''}>${escapeHtml(studio.name)}</option>`
+        ).join('');
+    };
+
+    const setActiveTab = () => {
+        root.querySelectorAll('[data-request-tab]').forEach((btn) => {
+            const active = btn.getAttribute('data-request-tab') === direction;
+            btn.classList.toggle('button-primary', active);
+            btn.classList.toggle('button-secondary', !active);
+        });
+    };
+
+    const renderRequests = async () => {
+        setActiveTab();
+        listNode.innerHTML = skeletonGrid(4);
+        const payload = await apiFetch(`/appointment-requests?direction=${encodeURIComponent(direction)}`);
+        const requests = payload.data || [];
+
+        listNode.innerHTML = requests.length
+            ? requests.map((request, i) => {
+                const customerName = `${request.customer?.first_name || request.first_name || ''} ${request.customer?.last_name || request.last_name || ''}`.trim();
+                const image = request.image_path || request.tattoo_image_paths?.[0];
+                const canRespond = direction === 'incoming' && request.status === 'pending';
+                return `
+                <article class="list-card animate-stagger-${(i % 3) + 1}" data-request-card data-request-id="${request.id}" style="padding:0.9rem 1rem">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.85rem;flex-wrap:wrap">
+                        <div style="display:flex;gap:0.75rem;min-width:240px;flex:1">
+                            ${image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener noreferrer" style="flex-shrink:0"><img src="${escapeHtml(image)}" alt="Talep görseli" style="width:62px;height:62px;object-fit:cover;border-radius:0.7rem;border:1px solid var(--border)"></a>` : '<div style="width:62px;height:62px;border-radius:0.7rem;background:var(--surface-soft);border:1px solid var(--border);flex-shrink:0"></div>'}
+                            <div>
+                                <div style="font-weight:700;color:var(--text-main);font-size:0.9rem">${escapeHtml(customerName || request.requester?.name || 'Talep')}</div>
+                                <div style="margin-top:0.25rem;font-size:0.74rem;color:var(--text-muted)">${escapeHtml(request.studio?.name || request.target?.name || 'Bağımsız')} · ${formatDateTime(request.requested_at)}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-subtle)">Otel: ${escapeHtml(request.hotel_name || request.customer?.hotel_name || '—')} · Oda: ${escapeHtml(request.room_number || request.customer?.room_number || '—')}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-subtle)">Telefon: ${escapeHtml(`${request.phone_country_code || request.customer?.phone_country_code || ''} ${request.phone_number || request.customer?.phone_number || ''}`.trim() || '—')}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem">
+                            <span class="${requestStatusClass(request.status)}" style="font-size:0.65rem">${requestStatusLabel(request.status)}</span>
+                            <span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[request.request_type] || request.request_type}</span>
+                            ${request.price !== null && request.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(request.price)} ₺</span>` : ''}
+                        </div>
+                    </div>
+                    ${request.notes ? `<div style="margin-top:0.85rem;font-size:0.78rem;color:var(--text-muted);line-height:1.55">${escapeHtml(request.notes)}</div>` : ''}
+                    ${request.tattoo_image_paths?.length ? `
+                        <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-top:0.75rem">
+                            ${request.tattoo_image_paths.map((path) => `<a href="${escapeHtml(path)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(path)}" alt="Dövme görseli" style="width:48px;height:48px;object-fit:cover;border-radius:0.55rem;border:1px solid var(--border)"></a>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div style="display:flex;align-items:flex-end;gap:0.6rem;flex-wrap:wrap;margin-top:0.85rem;padding-top:0.85rem;border-top:1px solid var(--border)">
+                        ${canRespond ? `
+                            <div class="field-wrap" style="max-width:160px">
+                                <label class="field-label">Fiyat</label>
+                                <input class="field-input" data-request-price type="number" min="0" step="0.01" value="${escapeHtml(request.price ?? '')}" required>
+                            </div>
+                            <button class="button-primary" data-request-accept style="padding:0.45rem 0.85rem;font-size:0.75rem">Kabul Et</button>
+                            <button class="button-ghost" data-request-reject style="padding:0.45rem 0.85rem;font-size:0.75rem">Reddet</button>
+                        ` : ''}
+                        ${request.appointment_id ? `<a href="/admin/appointments/${request.appointment_id}" class="button-secondary" style="padding:0.45rem 0.85rem;font-size:0.75rem">Randevuya Git</a>` : ''}
+                    </div>
+                </article>
+            `}).join('')
+            : `<div class="empty-state">${direction === 'incoming' ? 'Gelen talep bulunmuyor.' : 'Gönderilmiş talep bulunmuyor.'}</div>`;
+
+        listNode.querySelectorAll('[data-request-accept]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const card = button.closest('[data-request-card]');
+                const price = qs('[data-request-price]', card)?.value;
+                if (!price) throw new Error('Talebi kabul etmek için fiyat girin.');
+                await apiFetch(`/appointment-requests/${card?.getAttribute('data-request-id')}/accept`, {
+                    method: 'PATCH',
+                    body: { price },
+                });
+                showToast('Talep kabul edildi ve randevuya dönüştü.', 'success');
+                await renderRequests();
+            }));
+        });
+
+        listNode.querySelectorAll('[data-request-reject]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const card = button.closest('[data-request-card]');
+                await apiFetch(`/appointment-requests/${card?.getAttribute('data-request-id')}/reject`, {
+                    method: 'PATCH',
+                    body: {},
+                });
+                showToast('Talep reddedildi.', 'success');
+                await renderRequests();
+            }));
+        });
+    };
+
+    root.querySelectorAll('[data-request-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+            direction = button.getAttribute('data-request-tab') || 'incoming';
+            handleAsync(renderRequests);
+        });
+    });
+    qs('[data-requests-refresh]', root)?.addEventListener('click', () => handleAsync(renderRequests));
+    createForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleAsync(async () => {
+            const tattooFiles = createForm.querySelector('input[name="tattoo_images[]"]')?.files;
+            if (tattooFiles && tattooFiles.length > 3) {
+                throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
+            }
+            const formData = new FormData(createForm);
+            const normalized = new FormData();
+            for (const [key, value] of formData.entries()) {
+                normalized.append(key === 'tattoo_images[]' ? 'tattoo_images[]' : key, value);
+            }
+            await apiFetch('/appointments/request', { method: 'POST', body: normalized });
+            showToast('Talep gönderildi.', 'success');
+            createForm.reset();
+            direction = isRegularUserRole() ? 'outgoing' : direction;
+            await renderRequests();
+        });
+    });
+
+    await loadRequestStudios();
+    await renderRequests();
+};
+
+/* ── Kullanıcı Bildirimleri ─────────────────────────────────── */
+
+const notificationTargetUrl = (notification) => {
+    const data = notification.data || {};
+    if (data.appointment_id) return `/admin/appointments/${encodeURIComponent(data.appointment_id)}`;
+    if (data.appointment_request_id) return `/admin/appointment-requests?request_id=${encodeURIComponent(data.appointment_request_id)}`;
+    if (data.invitation_id) return '/admin/my-notifications';
+    return null;
+};
+
+const renderMyNotificationsPage = async (root) => {
+    root.innerHTML = `
+        ${pageHeader('Bildirimler', 'Bildirimlerim', 'Size gelen sistem bildirimleri ve çalışanlık davetleri.', '<span class="badge-pill badge-pill--info">Canlı</span>')}
+        <div class="panel-card" style="margin-bottom:1rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+                <div>
+                    <div class="section-title">Bildirim Akışı</div>
+                    <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">Bildirime tıklayınca ilgili ekrana yönlendirilir.</div>
+                </div>
+                <button class="button-secondary" data-notifications-read-all style="padding:0.5rem 0.85rem;font-size:0.78rem">Tümünü Okundu Yap</button>
+            </div>
+        </div>
+        <div class="panel-card" data-invitations-list style="margin-bottom:1rem">${skeletonGrid(1)}</div>
+        <div class="list-stack" data-notifications-list>${skeletonGrid(4)}</div>
+    `;
+
+    const listNode = qs('[data-notifications-list]', root);
+    const invitationsNode = qs('[data-invitations-list]', root);
+
+    const renderInvitations = async () => {
+        const payload = await apiFetch('/staff-invitations').catch(() => ({ data: [] }));
+        const invitations = payload.data || [];
+        invitationsNode.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+                <div>
+                    <div class="section-eyebrow" style="margin-bottom:0.25rem">Çalışanlık</div>
+                    <div class="section-title">Davetler</div>
+                </div>
+                <span class="badge-pill">${invitations.length} davet</span>
+            </div>
+            <div class="list-stack">
+                ${invitations.map((invitation) => `
+                    <div class="list-card" data-invitation-id="${invitation.id}" style="padding:0.75rem 0.85rem">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
+                            <div>
+                                <div style="font-weight:650;color:var(--text-main);font-size:0.84rem">${escapeHtml(invitation.studio?.name || 'Stüdyo')}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${roleLabel(invitation.role)} · ${requestStatusLabel(invitation.status)}</div>
+                            </div>
+                            ${invitation.status === 'pending' ? `
+                                <div style="display:flex;gap:0.45rem">
+                                    <button class="button-primary" data-invitation-accept style="padding:0.38rem 0.7rem;font-size:0.72rem">Kabul</button>
+                                    <button class="button-ghost" data-invitation-reject style="padding:0.38rem 0.7rem;font-size:0.72rem">Reddet</button>
+                                </div>
+                            ` : `<span class="${requestStatusClass(invitation.status)}" style="font-size:0.62rem">${requestStatusLabel(invitation.status)}</span>`}
+                        </div>
+                    </div>
+                `).join('') || '<div class="empty-state" style="padding:1rem;border:none">Davet bulunmuyor.</div>'}
+            </div>
+        `;
+
+        invitationsNode.querySelectorAll('[data-invitation-accept]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const id = button.closest('[data-invitation-id]')?.getAttribute('data-invitation-id');
+                await apiFetch(`/staff-invitations/${id}/accept`, { method: 'PATCH', body: {} });
+                showToast('Davet kabul edildi.', 'success');
+                await renderInvitations();
+            }));
+        });
+        invitationsNode.querySelectorAll('[data-invitation-reject]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const id = button.closest('[data-invitation-id]')?.getAttribute('data-invitation-id');
+                await apiFetch(`/staff-invitations/${id}/reject`, { method: 'PATCH', body: {} });
+                showToast('Davet reddedildi.', 'success');
+                await renderInvitations();
+            }));
+        });
+    };
+
+    const renderNotifications = async () => {
+        listNode.innerHTML = skeletonGrid(4);
+        const payload = await apiFetch('/notifications');
+        const unread = payload.data?.unread || [];
+        const read = payload.data?.read || [];
+        const notifications = [...unread, ...read];
+
+        listNode.innerHTML = notifications.length
+            ? notifications.map((notification, i) => `
+                <button type="button" class="list-card animate-stagger-${(i % 3) + 1}" data-notification-id="${notification.id}" style="width:100%;text-align:left;padding:0.85rem 1rem;cursor:pointer;${notification.isRead ? 'opacity:0.72' : ''}">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem">
+                        <div>
+                            <div style="font-size:0.86rem;font-weight:700;color:var(--text-main)">${escapeHtml(notification.title)}</div>
+                            <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted);line-height:1.45">${escapeHtml(notification.body || notification.description || '')}</div>
+                            <div style="margin-top:0.25rem;font-size:0.68rem;color:var(--text-subtle)">${escapeHtml(notification.time || formatDateTime(notification.created_at))}</div>
+                        </div>
+                        <span class="badge-pill ${notification.isRead ? '' : 'badge-pill--info'}" style="font-size:0.6rem">${notification.isRead ? 'Okundu' : 'Yeni'}</span>
+                    </div>
+                </button>
+            `).join('')
+            : '<div class="empty-state">Bildirim bulunmuyor.</div>';
+
+        listNode.querySelectorAll('[data-notification-id]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const id = button.getAttribute('data-notification-id');
+                const notification = notifications.find((item) => String(item.id) === String(id));
+                await apiFetch(`/notifications/${id}/read`, { method: 'PATCH', body: {} });
+                const url = notificationTargetUrl(notification);
+                if (url) {
+                    window.location.href = url;
+                    return;
+                }
+                await renderNotifications();
+            }));
+        });
+    };
+
+    qs('[data-notifications-read-all]', root)?.addEventListener('click', () => handleAsync(async () => {
+        await apiFetch('/notifications/read-all', { method: 'PATCH', body: {} });
+        showToast('Bildirimler okundu.', 'success');
+        await renderNotifications();
+    }));
+
+    await Promise.all([renderInvitations(), renderNotifications()]);
+};
+
 /* ── Sayfa yönlendirici ─────────────────────────────────────── */
 
 const pageInitializers = [
@@ -1248,6 +1702,8 @@ const pageInitializers = [
     ['[data-admin-companies]',    renderCompaniesPage],
     ['[data-admin-users]',        renderUsersPage],
     ['[data-admin-appointments]', renderAppointmentsPage],
+    ['[data-admin-appointment-requests]', renderAppointmentRequestsPage],
+    ['[data-admin-my-notifications]', renderMyNotificationsPage],
     ['[data-admin-studios]',      renderStudiosPage],
     ['[data-admin-shops]',        renderShopsPage],
 ];

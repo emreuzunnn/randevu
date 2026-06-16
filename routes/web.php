@@ -32,6 +32,9 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
 
+    Route::view('/appointment-requests', 'admin.appointment-requests.index')->name('appointment-requests.index');
+    Route::view('/my-notifications', 'admin.my-notifications.index')->name('my-notifications.index');
+
     Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');
     Route::get('/content-reports', [AdminContentReportController::class, 'index'])->name('content-reports.index');
     Route::post('/content-reports/{contentReport}/resolve', [AdminContentReportController::class, 'resolve'])->name('content-reports.resolve');

@@ -21,6 +21,8 @@
             'info'       => 'Info',
             'sofor'      => 'Şoför',
             'calisan'    => 'Çalışan',
+            'kullanici_rol' => 'Kullanıcı (Rol)',
+            'kullanici'  => 'Kullanıcı',
         ];
         $roleLabel   = $roleLabels[$userRole] ?? ucfirst($userRole);
         $userName    = $u?->fullName() ?: $u?->name;
@@ -29,6 +31,8 @@
         $isAdmin          = $u?->hasRole(\App\Enums\UserRole::Admin);
         $isYonetici       = $u?->hasRole(\App\Enums\UserRole::Yonetici);
         $isSupervisor     = $u?->hasRole(\App\Enums\UserRole::Supervisor);
+        $isSofor          = $u?->hasRole(\App\Enums\UserRole::Sofor);
+        $isRegularUser    = $u?->hasAnyRole([\App\Enums\UserRole::Kullanici, \App\Enums\UserRole::KullaniciRol]);
         $canManageShops   = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]);
         $canManageStudios = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::Supervisor]);
         $canManageUsers   = $canManageStudios;
@@ -47,6 +51,8 @@
             $isAdmin      => 'Platform geneli yönetim',
             $isYonetici   => 'Şirket operasyon merkezi',
             $isSupervisor => 'Şube stüdyo yönetimi',
+            $isSofor      => 'Transfer operasyon paneli',
+            $isRegularUser => 'Kullanıcı paneli',
             default       => 'Operasyon paneli',
         };
     @endphp
@@ -97,6 +103,8 @@
                             @if($isAdmin) Platform Admin
                             @elseif($isYonetici) Operasyon Merkezi
                             @elseif($isSupervisor) Şube Paneli
+                            @elseif($isSofor) Şoför Paneli
+                            @elseif($isRegularUser) Kullanıcı Paneli
                             @else Personel Paneli
                             @endif
                         </div>
@@ -168,17 +176,38 @@
 
                 <div class="admin-nav-section">Operasyon</div>
 
-                <a href="{{ route('admin.appointments.index') }}"
-                   class="admin-nav-link {{ request()->routeIs('admin.appointments.*') ? 'is-active' : '' }}">
+                @unless($isRegularUser)
+                    <a href="{{ route('admin.appointments.index') }}"
+                       class="admin-nav-link {{ request()->routeIs('admin.appointments.*') ? 'is-active' : '' }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                            <line x1="8" y1="14" x2="8" y2="14" stroke-width="2.5"/>
+                            <line x1="12" y1="14" x2="12" y2="14" stroke-width="2.5"/>
+                        </svg>
+                        Randevular
+                    </a>
+                @endunless
+
+                <a href="{{ route('admin.appointment-requests.index') }}"
+                   class="admin-nav-link {{ request()->routeIs('admin.appointment-requests.*') ? 'is-active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                        <line x1="8" y1="14" x2="8" y2="14" stroke-width="2.5"/>
-                        <line x1="12" y1="14" x2="12" y2="14" stroke-width="2.5"/>
+                        <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h7"/>
+                        <path d="M16 3h5v5"/>
+                        <path d="m15 9 6-6"/>
                     </svg>
-                    Randevular
+                    Talepler
+                </a>
+
+                <a href="{{ route('admin.my-notifications.index') }}"
+                   class="admin-nav-link {{ request()->routeIs('admin.my-notifications.*') ? 'is-active' : '' }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    Bildirimlerim
                 </a>
 
                 @if($isAdmin)

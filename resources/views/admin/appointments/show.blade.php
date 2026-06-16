@@ -22,9 +22,7 @@
             $statusMap = [
                 'completed'   => ['label' => 'Tamamlandı',        'class' => 'badge-pill--success'],
                 'confirmed'   => ['label' => 'Aktif',             'class' => 'badge-pill--info'],
-                'pending'     => ['label' => 'Bekliyor',          'class' => 'badge-pill--warning'],
                 'cancelled'   => ['label' => 'İptal',             'class' => 'badge-pill--danger'],
-                'rescheduled' => ['label' => 'Yeniden Planlandı', 'class' => 'badge-pill--warning'],
             ];
             $statusInfo = $statusMap[$appointment->status] ?? ['label' => $appointment->status, 'class' => ''];
         @endphp
@@ -32,8 +30,12 @@
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.5rem">Randevu Kaydı</div>
                 <h1 class="page-hero-title" style="font-size:1.5rem">
-                    {{ $appointment->customer->first_name ?? $appointment->first_name }}
-                    {{ $appointment->customer->last_name ?? $appointment->last_name }}
+                    @if($limitedView ?? false)
+                        Atanan Dövme İşi
+                    @else
+                        {{ $appointment->customer->first_name ?? $appointment->first_name }}
+                        {{ $appointment->customer->last_name ?? $appointment->last_name }}
+                    @endif
                 </h1>
                 <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;flex-wrap:wrap">
                     <span style="font-size:0.8rem;color:var(--text-muted)">
@@ -62,9 +64,8 @@
             <div class="detail-grid">
                 @php
                     $typeLabels = [
-                        'designer' => 'Tasarımcı Randevusu',
-                        'tattoo'   => 'Dövme Randevusu',
-                        'standard' => 'Standart',
+                        'designer' => 'Tasarım',
+                        'tattoo'   => 'Dövme',
                     ];
                 @endphp
                 <div class="detail-row">
@@ -81,7 +82,7 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Yer</span>
-                    <span class="detail-value">{{ $appointment->place ?: '—' }}</span>
+                    <span class="detail-value">{{ ($limitedView ?? false) ? '—' : ($appointment->place ?: '—') }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Durum</span>
@@ -91,7 +92,7 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Pick up</span>
-                    <span class="detail-value">{{ $appointment->pickup_required ? 'Gerekli' : 'Gerekli değil' }}</span>
+                    <span class="detail-value">{{ ($limitedView ?? false) ? '—' : ($appointment->pickup_required ? 'Gerekli' : 'Gerekli değil') }}</span>
                 </div>
                 @if($appointment->driver_status)
                     @php
@@ -112,21 +113,29 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Otel</span>
-                    <span class="detail-value">{{ $appointment->hotel_name ?: '—' }}</span>
+                    <span class="detail-value">{{ ($limitedView ?? false) ? '—' : ($appointment->hotel_name ?: '—') }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Oda No</span>
-                    <span class="detail-value">{{ $appointment->room_number ?: '—' }}</span>
+                    <span class="detail-value">{{ ($limitedView ?? false) ? '—' : ($appointment->room_number ?: '—') }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Telefon</span>
                     <span class="detail-value">
-                        {{ $appointment->phone_country_code ? $appointment->phone_country_code . ' ' : '' }}{{ $appointment->phone_number ?: '—' }}
+                        @if($limitedView ?? false)
+                            —
+                        @else
+                            {{ $appointment->phone_country_code ? $appointment->phone_country_code . ' ' : '' }}{{ $appointment->phone_number ?: '—' }}
+                        @endif
                     </span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Kişi Sayısı</span>
-                    <span class="detail-value">{{ $appointment->pax }}</span>
+                    <span class="detail-value">{{ ($limitedView ?? false) ? '—' : $appointment->pax }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Fiyat</span>
+                    <span class="detail-value">{{ ($canSeePrice ?? false) && $appointment->price !== null ? number_format((float) $appointment->price, 2, ',', '.') . ' ₺' : '—' }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Eski Müşteri</span>
@@ -163,7 +172,7 @@
                 @endif
             </div>
 
-            @if($appointment->customer_notes)
+            @if(!($limitedView ?? false) && $appointment->customer_notes)
                 <div style="margin-top:1.25rem">
                     <div class="field-label" style="margin-bottom:0.5rem">Müşteri Notu</div>
                     <div class="list-card" style="font-size:0.845rem;line-height:1.6;color:var(--text-muted)">
@@ -172,12 +181,21 @@
                 </div>
             @endif
 
-            @if($appointment->notes)
+            @if(!($limitedView ?? false) && $appointment->notes)
                 <div style="margin-top:1rem">
                     <div class="field-label" style="margin-bottom:0.5rem">Operasyon Notu</div>
                     <div class="list-card" style="font-size:0.845rem;line-height:1.6;color:var(--text-muted)">
                         {{ $appointment->notes }}
                     </div>
+                </div>
+            @endif
+            @if(!($limitedView ?? false) && ($appointment->photo_path || $appointment->source_image_path))
+                <div style="margin-top:1rem">
+                    <div class="field-label" style="margin-bottom:0.5rem">Müşteri / Randevu Görseli</div>
+                    @php($mainImage = $appointment->photo_path ?: $appointment->source_image_path)
+                    <a href="{{ $mainImage }}" target="_blank" rel="noopener noreferrer">
+                        <img src="{{ $mainImage }}" alt="Randevu görseli" style="width:120px;height:120px;object-fit:cover;border-radius:0.65rem;border:1px solid var(--border)">
+                    </a>
                 </div>
             @endif
             @if(!empty($appointment->tattoo_image_paths))
