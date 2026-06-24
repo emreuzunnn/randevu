@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLog
 use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Webhook\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -17,6 +18,9 @@ Route::get('/', function () {
 
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+
+Route::get('/webhook/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhook.whatsapp.verify');
+Route::post('/webhook/whatsapp', [WhatsAppWebhookController::class, 'receive'])->name('webhook.whatsapp.receive');
 
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
