@@ -21,6 +21,7 @@ Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.
 
 Route::get('/webhook/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhook.whatsapp.verify');
 Route::post('/webhook/whatsapp', [WhatsAppWebhookController::class, 'receive'])->name('webhook.whatsapp.receive');
+Route::get('/test-whatsapp', [WhatsAppWebhookController::class, 'sendTestMessage'])->name('webhook.whatsapp.test');
 
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
