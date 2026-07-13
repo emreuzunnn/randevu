@@ -71,7 +71,7 @@ class AppointmentReportService
     }
 
     /**
-     * Eski format: üç dönemlik özet (daily/monthly/quarterly).
+     * Eski format: üç dönemlik özet (daily/monthly/yearly).
      *
      * @return array<string, array<string, int|string>>
      */
@@ -92,11 +92,11 @@ class AppointmentReportService
                 $now->endOfMonth(),
                 'Aylık'
             ),
-            'quarterly' => $this->summarize(
+            'yearly' => $this->summarize(
                 $this->baseQuery($user, $studioId),
-                $now->subMonths(2)->startOfMonth(),
-                $now->endOfMonth(),
-                '3 Aylık'
+                $now->startOfYear(),
+                $now->endOfYear(),
+                'Yıllık'
             ),
         ];
     }

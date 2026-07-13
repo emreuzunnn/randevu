@@ -283,6 +283,12 @@ const statBlock = (label, content) => `
     </div>
 `;
 
+const percentOf = (value, total) => {
+    const safeTotal = Math.max(0, Number(total || 0));
+    if (safeTotal === 0) return 0;
+    return Math.min(100, Math.round((Number(value || 0) / safeTotal) * 100));
+};
+
 const renderDiscoveryHome = (root, data = {}) => {
     const studios = data.studios || [];
     root.innerHTML = `
@@ -397,62 +403,63 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         </article>
     `).join('');
 
-    const staffReports = data.staff_reports || [];
+    const periodReports = Object.values(data.reports || {});
+    const maxPeriodTotal = Math.max(1, ...periodReports.map((report) => Number(report.total_appointments || 0)));
     qs('[data-dashboard-staff-reports]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
-                <div class="section-eyebrow" style="margin-bottom:0.3rem">Personel</div>
-                <div class="section-title">Ekip Bazlı Raporlar</div>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Grafik</div>
+                <div class="section-title">Randevu Oranları</div>
             </div>
-            <span class="badge-pill">${staffReports.length} personel</span>
+            <span class="badge-pill">Günlük · Aylık · Yıllık</span>
         </div>
-        <div class="data-grid">
-            ${staffReports.map((staff, i) => {
-                const stats  = staff.stats || {};
-                const weekly = staff.weekly_data || [];
-                const maxVal = Math.max(1, ...weekly.map((d) => Number(d.value || 0)));
+        <div class="appointment-ratio-grid">
+            ${periodReports.map((report, i) => {
+                const total = Number(report.total_appointments || 0);
+                const completed = Number(report.completed_appointments || 0);
+                const active = Number(report.confirmed_appointments ?? report.active_appointments ?? 0);
+                const cancelled = Number(report.cancelled_appointments || 0);
+                const totalHeight = total > 0 ? Math.max(16, Math.round((total / maxPeriodTotal) * 132)) : 10;
+                const completedRate = percentOf(completed, total);
+                const activeRate = percentOf(active, total);
+                const cancelledRate = percentOf(cancelled, total);
                 return `
-                    <article class="data-card animate-stagger-${(i % 3) + 1}" style="padding:1.1rem 1.25rem">
-                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:1rem">
-                            <div style="display:flex;align-items:center;gap:0.6rem;min-width:0">
-                                <div style="width:2rem;height:2rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-lo));display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#0C1220;flex-shrink:0">
-                                    ${escapeHtml((staff.name || '?').charAt(0).toUpperCase())}
-                                </div>
-                                <div style="min-width:0">
-                                    <div style="font-size:0.845rem;font-weight:600;color:var(--text-main)">${escapeHtml(staff.name)}</div>
-                                    <div style="font-size:0.72rem;color:var(--text-muted)">${escapeHtml(staff.role || 'Personel')}</div>
-                                </div>
+                    <article class="data-card appointment-ratio-card animate-stagger-${(i % 3) + 1}">
+                        <div class="appointment-ratio-card__head">
+                            <div>
+                                <div class="section-title" style="font-size:1rem">${escapeHtml(report.label)}</div>
+                                <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(report.date_from)} — ${escapeHtml(report.date_to)}</div>
                             </div>
-                            <span class="badge-pill" style="font-size:0.62rem;max-width:46%;overflow:hidden;text-overflow:ellipsis">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
+                            <span class="badge-pill">${total.toLocaleString('tr-TR')} kayıt</span>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:0.5rem;margin-bottom:1rem">
+                        <div class="appointment-ratio-visual">
+                            <div class="appointment-ratio-bars">
+                                <div class="appointment-ratio-mainbar" style="height:${totalHeight}px" title="${escapeHtml(report.label)} toplam: ${total}">
+                                    <span>${total.toLocaleString('tr-TR')}</span>
+                                </div>
+                                <div class="appointment-ratio-axis">Toplam kayıt</div>
+                            </div>
+                        </div>
+                        <div class="appointment-ratio-lines">
                             ${[
-                                ['Toplam', stats.total_appointments || 0],
-                                ['Tamam',  stats.completed || 0],
-                                ['İptal',  stats.cancelled || 0],
-                                ['Hafta',  stats.this_week || 0],
-                            ].map(([lbl, val]) => `
-                                <div class="stat-block" style="padding:0.55rem 0.65rem">
-                                    <div class="stat-label" style="font-size:0.58rem">${lbl}</div>
-                                    <div style="margin-top:0.3rem;font-size:1.1rem;font-weight:700;color:var(--text-main)" data-counter="${val}">0</div>
+                                ['Tamamlanan', completed, completedRate, 'var(--success)'],
+                                ['Aktif', active, activeRate, 'var(--warning)'],
+                                ['İptal', cancelled, cancelledRate, 'var(--danger)'],
+                            ].map(([label, value, rate, color]) => `
+                                <div class="appointment-ratio-line">
+                                    <div class="appointment-ratio-line__meta">
+                                        <span>${label}</span>
+                                        <strong>${rate}% · ${Number(value || 0).toLocaleString('tr-TR')}</strong>
+                                    </div>
+                                    <div class="appointment-ratio-track">
+                                        <div style="width:${rate}%;background:${color}"></div>
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
-                        <div style="display:flex;align-items:flex-end;gap:3px;height:72px">
-                            ${weekly.map((day) => {
-                                const val = Number(day.value || 0);
-                                const h   = Math.max(8, Math.round((val / maxVal) * 62));
-                                return `
-                                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-                                        <div title="${escapeHtml(day.day)}: ${val}" style="width:100%;height:${h}px;border-radius:3px 3px 2px 2px;background:linear-gradient(180deg,var(--accent),var(--accent-lo));opacity:${val > 0 ? 0.85 : 0.2}"></div>
-                                        <div style="font-size:0.58rem;color:var(--text-subtle)">${escapeHtml(day.day)}</div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
                     </article>
                 `;
-            }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bu kapsamda personel raporu bulunmuyor.</div>'}
+            }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Randevu oranı için kayıt bulunmuyor.</div>'}
         </div>
     `;
 

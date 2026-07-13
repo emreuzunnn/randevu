@@ -496,6 +496,108 @@
         min-width: 6px;
     }
 
+    .appointment-ratio-grid {
+        display: grid;
+        gap: 0.875rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .appointment-ratio-card {
+        display: grid;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+    }
+
+    .appointment-ratio-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .appointment-ratio-visual {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        min-height: 158px;
+        padding: 0.7rem 0.75rem 0.35rem;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #F8FAFC, #FFFFFF);
+    }
+
+    .appointment-ratio-bars {
+        width: min(100%, 9rem);
+        height: 142px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .appointment-ratio-mainbar {
+        width: 100%;
+        min-height: 10px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 0.45rem;
+        border-radius: 0.65rem 0.65rem 0.35rem 0.35rem;
+        background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo));
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
+        color: #FFFFFF;
+        font-size: 0.8rem;
+        font-weight: 800;
+        transition: height 180ms ease;
+    }
+
+    .appointment-ratio-axis {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-subtle);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .appointment-ratio-lines {
+        display: grid;
+        gap: 0.7rem;
+    }
+
+    .appointment-ratio-line {
+        display: grid;
+        gap: 0.35rem;
+    }
+
+    .appointment-ratio-line__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        font-size: 0.74rem;
+        color: var(--text-muted);
+    }
+
+    .appointment-ratio-line__meta strong {
+        color: var(--text-main);
+        font-size: 0.74rem;
+        white-space: nowrap;
+    }
+
+    .appointment-ratio-track {
+        height: 0.48rem;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #EEF2F6;
+    }
+
+    .appointment-ratio-track > div {
+        height: 100%;
+        border-radius: inherit;
+    }
+
     /* ─── Typography ──────────────────────────────────────── */
 
     .section-eyebrow {
