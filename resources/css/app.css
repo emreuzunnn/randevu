@@ -496,6 +496,139 @@
         min-width: 6px;
     }
 
+    .dashboard-period-chart {
+        display: grid;
+        gap: 1.25rem;
+        overflow: hidden;
+    }
+
+    .dashboard-period-chart__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-period-chart__legend {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    .dashboard-period-chart__legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+    }
+
+    .dashboard-period-chart__legend i {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 999px;
+        display: inline-block;
+    }
+
+    .dashboard-period-chart__plot {
+        min-height: 292px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        align-items: stretch;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.92)),
+            repeating-linear-gradient(0deg, transparent 0 47px, rgba(148,163,184,0.16) 48px);
+    }
+
+    .dashboard-period-group {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 0.85rem;
+        padding: 0.65rem;
+        border-radius: var(--r-md);
+        background: rgba(255, 255, 255, 0.58);
+        animation: revealUp 420ms ease both;
+    }
+
+    .dashboard-period-group__bars {
+        min-height: 210px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.55rem;
+        align-items: end;
+    }
+
+    .dashboard-period-bar-wrap {
+        min-width: 0;
+        height: 210px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .dashboard-period-bar-wrap span {
+        max-width: 100%;
+        color: var(--text-main);
+        font-size: 0.7rem;
+        font-weight: 800;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dashboard-period-bar {
+        width: 100%;
+        min-height: 8px;
+        border-radius: 0.7rem 0.7rem 0.3rem 0.3rem;
+        transform-origin: bottom;
+        animation: chartGrow 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    .dashboard-period-group__label {
+        display: grid;
+        gap: 0.25rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--border);
+        text-align: center;
+    }
+
+    .dashboard-period-group__label strong {
+        color: var(--text-main);
+        font-size: 0.88rem;
+    }
+
+    .dashboard-period-group__label span {
+        color: var(--text-muted);
+        font-size: 0.68rem;
+        line-height: 1.35;
+    }
+
+    @media (max-width: 900px) {
+        .dashboard-period-chart__plot {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-period-group__bars,
+        .dashboard-period-bar-wrap {
+            min-height: 180px;
+            height: 180px;
+        }
+    }
+
     .period-report-panel {
         display: grid;
         gap: 1.1rem;
