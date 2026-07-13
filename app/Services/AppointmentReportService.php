@@ -467,6 +467,8 @@ class AppointmentReportService
             'date_from'              => $start->toDateString(),
             'date_to'                => $end->toDateString(),
             'total_appointments'     => (clone $periodQuery)->count(),
+            'designer_appointments'  => (clone $periodQuery)->where('appointment_type', 'designer')->count(),
+            'ticket_appointments'    => (clone $periodQuery)->where('appointment_type', 'tattoo')->count(),
             'completed_appointments' => (clone $periodQuery)->where('status', 'completed')->count(),
             'cancelled_appointments' => (clone $periodQuery)->where('status', 'cancelled')->count(),
             'confirmed_appointments' => (clone $periodQuery)->where('status', 'confirmed')->count(),

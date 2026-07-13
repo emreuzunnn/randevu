@@ -110,7 +110,6 @@ class DashboardController extends Controller
                     'transfer_count' => $transferCount,
                 ],
                 'reports' => $reports,
-                'staff_reports' => $currentReport['staff_reports'] ?? [],
                 'hotel_sources' => $currentReport['hotel_sources'] ?? [],
                 'studio_revenues' => $currentReport['studio_revenues'] ?? [],
                 'company_revenues' => $currentReport['company_revenues'] ?? [],

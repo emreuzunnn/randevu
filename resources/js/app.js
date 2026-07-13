@@ -345,7 +345,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         ${adminConfig.isAdmin ? `<div class="panel-card" data-dashboard-companies>${skeletonGrid(2)}</div>` : ''}
         <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</div>
         <div class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</div>
-        <div class="panel-card" data-dashboard-staff-reports>${skeletonGrid(3)}</div>
+        <div class="panel-card" data-dashboard-ticket-appointment-chart>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-finance>${skeletonGrid(2)}</div>
         <div class="panel-card" data-dashboard-hotels>${skeletonGrid(1)}</div>
         <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
@@ -405,24 +405,23 @@ const renderDashboard = async (root, selectedStudioId = '') => {
 
     const periodReports = Object.values(data.reports || {});
     const maxPeriodTotal = Math.max(1, ...periodReports.map((report) => Number(report.total_appointments || 0)));
-    qs('[data-dashboard-staff-reports]', root).innerHTML = `
+    qs('[data-dashboard-ticket-appointment-chart]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.3rem">Grafik</div>
-                <div class="section-title">Randevu Oranları</div>
+                <div class="section-title">Genel Bilet / Randevu Grafikleri</div>
             </div>
             <span class="badge-pill">Günlük · Aylık · Yıllık</span>
         </div>
         <div class="appointment-ratio-grid">
             ${periodReports.map((report, i) => {
                 const total = Number(report.total_appointments || 0);
-                const completed = Number(report.completed_appointments || 0);
-                const active = Number(report.confirmed_appointments ?? report.active_appointments ?? 0);
-                const cancelled = Number(report.cancelled_appointments || 0);
-                const totalHeight = total > 0 ? Math.max(16, Math.round((total / maxPeriodTotal) * 132)) : 10;
-                const completedRate = percentOf(completed, total);
-                const activeRate = percentOf(active, total);
-                const cancelledRate = percentOf(cancelled, total);
+                const appointments = Number(report.designer_appointments || 0);
+                const tickets = Number(report.ticket_appointments || 0);
+                const appointmentsRate = percentOf(appointments, total);
+                const ticketsRate = percentOf(tickets, total);
+                const appointmentHeight = appointments > 0 ? Math.max(18, Math.round((appointments / maxPeriodTotal) * 132)) : 10;
+                const ticketHeight = tickets > 0 ? Math.max(18, Math.round((tickets / maxPeriodTotal) * 132)) : 10;
                 return `
                     <article class="data-card appointment-ratio-card animate-stagger-${(i % 3) + 1}">
                         <div class="appointment-ratio-card__head">
@@ -433,18 +432,25 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                             <span class="badge-pill">${total.toLocaleString('tr-TR')} kayıt</span>
                         </div>
                         <div class="appointment-ratio-visual">
-                            <div class="appointment-ratio-bars">
-                                <div class="appointment-ratio-mainbar" style="height:${totalHeight}px" title="${escapeHtml(report.label)} toplam: ${total}">
-                                    <span>${total.toLocaleString('tr-TR')}</span>
+                            <div class="appointment-ratio-bars appointment-ratio-bars--split">
+                                <div class="appointment-ratio-bar-column">
+                                    <div class="appointment-ratio-mainbar" style="height:${appointmentHeight}px" title="${escapeHtml(report.label)} randevu: ${appointments}">
+                                        <span>${appointments.toLocaleString('tr-TR')}</span>
+                                    </div>
+                                    <div class="appointment-ratio-axis">Randevu</div>
                                 </div>
-                                <div class="appointment-ratio-axis">Toplam kayıt</div>
+                                <div class="appointment-ratio-bar-column">
+                                    <div class="appointment-ratio-mainbar appointment-ratio-mainbar--ticket" style="height:${ticketHeight}px" title="${escapeHtml(report.label)} bilet: ${tickets}">
+                                        <span>${tickets.toLocaleString('tr-TR')}</span>
+                                    </div>
+                                    <div class="appointment-ratio-axis">Bilet</div>
+                                </div>
                             </div>
                         </div>
                         <div class="appointment-ratio-lines">
                             ${[
-                                ['Tamamlanan', completed, completedRate, 'var(--success)'],
-                                ['Aktif', active, activeRate, 'var(--warning)'],
-                                ['İptal', cancelled, cancelledRate, 'var(--danger)'],
+                                ['Randevu', appointments, appointmentsRate, 'var(--accent)'],
+                                ['Bilet', tickets, ticketsRate, 'var(--purple)'],
                             ].map(([label, value, rate, color]) => `
                                 <div class="appointment-ratio-line">
                                     <div class="appointment-ratio-line__meta">
@@ -459,7 +465,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                         </div>
                     </article>
                 `;
-            }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Randevu oranı için kayıt bulunmuyor.</div>'}
+            }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bilet / randevu grafiği için kayıt bulunmuyor.</div>'}
         </div>
     `;
 
