@@ -23,6 +23,300 @@
         ];
     @endphp
 
+    <style>
+        .admin-dashboard-page {
+            display: grid !important;
+            gap: 1rem !important;
+        }
+
+        .admin-dashboard-page .page-hero {
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1.25rem !important;
+            padding: 1.45rem 1.55rem !important;
+            border: 1px solid #d8dee8 !important;
+            border-radius: 10px !important;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #eef6ff 100%) !important;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08) !important;
+        }
+
+        .admin-dashboard-page .page-hero-subtitle {
+            margin-top: 0.5rem !important;
+            max-width: 48rem !important;
+            color: var(--text-muted) !important;
+            font-size: 0.9rem !important;
+            line-height: 1.65 !important;
+        }
+
+        .admin-dashboard-page .dashboard-hero__status {
+            display: grid !important;
+            justify-items: end !important;
+            gap: 0.55rem !important;
+            flex-shrink: 0 !important;
+        }
+
+        .admin-dashboard-page .dashboard-hero__date {
+            color: var(--text-subtle) !important;
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 1rem !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card {
+            min-height: 9.4rem !important;
+            display: grid !important;
+            align-content: space-between !important;
+            gap: 1rem !important;
+            padding: 1.2rem !important;
+            overflow: hidden !important;
+            position: relative !important;
+            border: 1px solid rgba(203, 213, 225, 0.9) !important;
+            border-radius: 12px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card::before {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 0 auto 0 !important;
+            width: 100% !important;
+            height: 4px !important;
+            background: var(--metric-accent, var(--accent)) !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card::after {
+            content: '' !important;
+            position: absolute !important;
+            right: -2.7rem !important;
+            bottom: -3.3rem !important;
+            width: 8.8rem !important;
+            height: 8.8rem !important;
+            border-radius: 999px !important;
+            background: var(--metric-soft, rgba(37, 99, 235, 0.1)) !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card--blue {
+            --metric-accent: var(--accent);
+            --metric-soft: rgba(37, 99, 235, 0.12);
+        }
+
+        .admin-dashboard-page .dashboard-metric-card--red {
+            --metric-accent: var(--danger);
+            --metric-soft: rgba(220, 38, 38, 0.12);
+        }
+
+        .admin-dashboard-page .dashboard-metric-card--teal {
+            --metric-accent: var(--teal);
+            --metric-soft: rgba(15, 118, 110, 0.12);
+        }
+
+        .admin-dashboard-page .dashboard-metric-card__top {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 0.85rem !important;
+            color: var(--text-muted) !important;
+            font-size: 0.78rem !important;
+            font-weight: 800 !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card__icon {
+            width: 2.35rem !important;
+            height: 2.35rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 10px !important;
+            background: var(--metric-soft) !important;
+            color: var(--metric-accent) !important;
+            flex-shrink: 0 !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card .metric-card__value {
+            color: var(--text-main) !important;
+            font-size: clamp(2.1rem, 4vw, 3.05rem) !important;
+            font-weight: 850 !important;
+            line-height: 0.95 !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .admin-dashboard-page .dashboard-metric-card .metric-card__helper {
+            color: var(--text-subtle) !important;
+            font-size: 0.78rem !important;
+            font-weight: 650 !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart {
+            display: grid !important;
+            gap: 1.35rem !important;
+            padding: 1.35rem !important;
+            border: 1px solid rgba(203, 213, 225, 0.95) !important;
+            border-radius: 12px !important;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+            box-shadow: 0 22px 52px rgba(15, 23, 42, 0.09) !important;
+            overflow: hidden !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart__head {
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
+            flex-wrap: wrap !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart__legend {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 0.55rem !important;
+            flex-wrap: wrap !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart__legend span {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.35rem !important;
+            padding: 0.38rem 0.58rem !important;
+            border: 1px solid #e5e9f0 !important;
+            border-radius: 999px !important;
+            background: #ffffff !important;
+            color: var(--text-muted) !important;
+            font-size: 0.72rem !important;
+            font-weight: 750 !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart__legend i {
+            width: 0.58rem !important;
+            height: 0.58rem !important;
+            border-radius: 999px !important;
+            display: inline-block !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-chart__plot {
+            min-height: 350px !important;
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 1.15rem !important;
+            padding: 1.15rem !important;
+            border: 1px solid #e5e9f0 !important;
+            border-radius: 12px !important;
+            background: repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.12) 0 1px, transparent 1px 56px), linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-group {
+            display: grid !important;
+            grid-template-rows: 1fr auto !important;
+            gap: 0.85rem !important;
+            padding: 0.9rem !important;
+            border: 1px solid #e5e9f0 !important;
+            border-radius: 12px !important;
+            background: rgba(255, 255, 255, 0.78) !important;
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07) !important;
+            animation: revealUp 420ms ease both !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-group__bars {
+            min-height: 250px !important;
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
+            align-items: end !important;
+            padding: 0.75rem 0.25rem 0 !important;
+            border-bottom: 1px solid #d8dee8 !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-bar-wrap {
+            height: 238px !important;
+            min-width: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-end !important;
+            align-items: center !important;
+            gap: 0.42rem !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-bar-wrap span {
+            color: var(--text-main) !important;
+            font-size: 0.72rem !important;
+            font-weight: 850 !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-bar {
+            width: min(100%, 2.75rem) !important;
+            min-height: 8px !important;
+            border-radius: 0.9rem 0.9rem 0.35rem 0.35rem !important;
+            transform-origin: bottom !important;
+            animation: chartGrow 760ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-group__label {
+            display: grid !important;
+            gap: 0.25rem !important;
+            padding-top: 0.8rem !important;
+            text-align: center !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-group__label strong {
+            color: var(--text-main) !important;
+            font-size: 0.98rem !important;
+        }
+
+        .admin-dashboard-page .dashboard-period-group__label span {
+            color: var(--text-muted) !important;
+            font-size: 0.68rem !important;
+        }
+
+        .admin-dashboard-page .dashboard-bottom-grid {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) !important;
+            gap: 1rem !important;
+            align-items: start !important;
+        }
+
+        .admin-dashboard-page .dashboard-card-head {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
+            margin-bottom: 1.25rem !important;
+        }
+
+        @media (max-width: 980px) {
+            .admin-dashboard-page .dashboard-metric-grid,
+            .admin-dashboard-page .dashboard-period-chart__plot,
+            .admin-dashboard-page .dashboard-bottom-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .admin-dashboard-page .page-hero,
+            .admin-dashboard-page .dashboard-command-bar,
+            .admin-dashboard-page .dashboard-card-head {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+
+            .admin-dashboard-page .dashboard-hero__status {
+                justify-items: start !important;
+            }
+        }
+    </style>
+
     <div class="admin-dashboard-page">
     <div class="page-hero dashboard-hero">
         <div class="dashboard-hero__copy">
