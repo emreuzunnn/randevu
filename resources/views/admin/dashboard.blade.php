@@ -10,9 +10,9 @@
         ])->max() ?: 1);
 
         $metricCards = [
-            ['label' => 'Toplam Kayıt', 'value' => $summary['total_appointments'] ?? 0, 'helper' => 'Seçili kapsam', 'color' => ''],
-            ['label' => 'İptal Edilen', 'value' => $summary['cancelled_appointments'] ?? 0, 'helper' => 'Operasyon riski', 'color' => 'var(--danger)'],
-            ['label' => 'Transfer Görevi', 'value' => $summary['transfer_count'] ?? 0, 'helper' => 'Planlanan transfer', 'color' => 'var(--info)'],
+            ['label' => 'Toplam Kayıt', 'value' => $summary['total_appointments'] ?? 0, 'helper' => 'Tüm randevu ve biletler', 'tone' => 'blue', 'icon' => 'calendar'],
+            ['label' => 'İptal Edilen', 'value' => $summary['cancelled_appointments'] ?? 0, 'helper' => 'İptal durumundaki kayıtlar', 'tone' => 'red', 'icon' => 'alert'],
+            ['label' => 'Transfer Görevi', 'value' => $summary['transfer_count'] ?? 0, 'helper' => 'Pickup işaretli kayıtlar', 'tone' => 'teal', 'icon' => 'route'],
         ];
 
         $barItems = [
@@ -23,18 +23,22 @@
         ];
     @endphp
 
-    <div class="page-hero">
-        <div>
+    <div class="admin-dashboard-page">
+    <div class="page-hero dashboard-hero">
+        <div class="dashboard-hero__copy">
             <div class="section-eyebrow" style="margin-bottom:0.4rem">Şirket Yönetimi</div>
             <h1 class="page-hero-title">Operasyon Merkezi</h1>
-            <p class="page-hero-subtitle">Stüdyoların ve randevu operasyonunun güncel görünümü.</p>
+            <p class="page-hero-subtitle">Randevu, bilet, transfer ve stüdyo performansını tek ekranda takip edin.</p>
         </div>
-        <span class="badge-pill badge-pill--success">
-            <span class="state-dot state-dot--success"></span> Güncel
-        </span>
+        <div class="dashboard-hero__status">
+            <span class="badge-pill badge-pill--success">
+                <span class="state-dot state-dot--success"></span> Canlı görünüm
+            </span>
+            <span class="dashboard-hero__date">{{ now()->format('d.m.Y H:i') }}</span>
+        </div>
     </div>
 
-    <div class="business-command-bar">
+    <div class="business-command-bar dashboard-command-bar">
         <div class="business-command-bar__label">
             <span class="section-eyebrow">Hızlı İşlemler</span>
             <span>Günlük yönetim akışlarına doğrudan erişin</span>
@@ -50,13 +54,28 @@
         </div>
     </div>
 
-    <div class="metric-grid">
+    <div class="metric-grid dashboard-metric-grid">
         @foreach($metricCards as $card)
-            <article class="metric-card">
-                <div class="metric-card__meta">
+            <article class="metric-card dashboard-metric-card dashboard-metric-card--{{ $card['tone'] }}">
+                <div class="dashboard-metric-card__top">
+                    <div class="dashboard-metric-card__icon" aria-hidden="true">
+                        @if($card['icon'] === 'calendar')
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>
+                            </svg>
+                        @elseif($card['icon'] === 'alert')
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+                            </svg>
+                        @else
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M8.6 17.4 15.4 6.6"/>
+                            </svg>
+                        @endif
+                    </div>
                     <span>{{ $card['label'] }}</span>
                 </div>
-                <div class="metric-card__value" @if($card['color'] !== '') style="color:{{ $card['color'] }}" @endif>
+                <div class="metric-card__value">
                     {{ number_format((int) $card['value'], 0, ',', '.') }}
                 </div>
                 <div class="metric-card__helper">{{ $card['helper'] }}</div>
@@ -64,7 +83,7 @@
         @endforeach
     </div>
 
-    <div class="panel-card dashboard-period-chart">
+    <div class="panel-card dashboard-period-chart dashboard-period-chart--admin">
         <div class="dashboard-period-chart__head">
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.3rem">Rapor Grafiği</div>
@@ -83,7 +102,7 @@
                         @foreach($barItems as $item)
                             @php
                                 $value = (int) ($report[$item['key']] ?? 0);
-                                $height = $value > 0 ? max(18, (int) round(($value / $chartMax) * 190)) : 8;
+                                $height = $value > 0 ? max(18, (int) round(($value / $chartMax) * 220)) : 8;
                             @endphp
                             <div class="dashboard-period-bar-wrap" title="{{ $report['label'] }} {{ $item['label'] }}: {{ $value }}">
                                 <span>{{ number_format($value, 0, ',', '.') }}</span>
@@ -102,9 +121,9 @@
         </div>
     </div>
 
-    <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
-        <div class="panel-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
+    <div class="dashboard-bottom-grid">
+        <div class="panel-card dashboard-table-card">
+            <div class="dashboard-card-head">
                 <div>
                     <div class="section-eyebrow" style="margin-bottom:0.3rem">Stüdyo</div>
                     <div class="section-title">Stüdyo Performansı</div>
@@ -135,8 +154,8 @@
             </div>
         </div>
 
-        <div class="panel-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
+        <div class="panel-card dashboard-table-card">
+            <div class="dashboard-card-head">
                 <div>
                     <div class="section-eyebrow" style="margin-bottom:0.3rem">Son Kayıtlar</div>
                     <div class="section-title">Randevu / Bilet Akışı</div>
@@ -166,5 +185,6 @@
                 @endforelse
             </div>
         </div>
+    </div>
     </div>
 @endsection
