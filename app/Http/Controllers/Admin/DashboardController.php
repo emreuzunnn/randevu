@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Studio;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -34,13 +33,6 @@ class DashboardController extends Controller
         $summary = [
             'total_appointments' => (clone $appointments)->count(),
             'cancelled_appointments' => (clone $appointments)->where('status', 'cancelled')->count(),
-            'employee_count' => $user?->hasRole(\App\Enums\UserRole::Admin)
-                ? User::query()->count()
-                : User::query()
-                    ->join('studio_user', 'users.id', '=', 'studio_user.user_id')
-                    ->whereIn('studio_user.studio_id', $accessibleStudioIds)
-                    ->distinct('users.id')
-                    ->count('users.id'),
             'transfer_count' => (clone $appointments)->where('pickup_required', true)->count(),
         ];
 
@@ -50,10 +42,7 @@ class DashboardController extends Controller
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $accessibleStudioIds)
             )
-            ->withCount([
-                'appointments',
-                'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
-            ])
+            ->withCount('appointments')
             ->orderBy('name')
             ->get();
 

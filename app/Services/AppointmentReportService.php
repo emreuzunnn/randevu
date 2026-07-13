@@ -29,7 +29,7 @@ class AppointmentReportService
      *
      * @return array<string, mixed>
      */
-    public function buildReport(User $user, string $period = 'monthly', ?int $studioId = null): array
+    public function buildReport(User $user, string $period = 'monthly', ?int $studioId = null, bool $includeStaff = true): array
     {
         $now = CarbonImmutable::now();
 
@@ -51,7 +51,7 @@ class AppointmentReportService
             ->whereBetween('appointment_at', [$weekStart->subWeek(), $weekEnd->subWeek()])
             ->count();
 
-        return [
+        $report = [
             'selected_period' => $periodLabel,
             'stats'           => [
                 'total_appointments' => (clone $periodQuery)->count(),
@@ -61,13 +61,18 @@ class AppointmentReportService
             ],
             'weekly_data'  => $this->buildWeeklyData($base, $weekStart),
             'performance'  => $this->buildPerformance($periodQuery),
-            'staff_reports' => $this->buildStaffReports($user, $start, $end, $weekStart, $studioId),
             'hotel_sources' => $this->buildHotelSources($periodQuery),
             'studio_revenues' => $this->buildStudioRevenues($user, $start, $end, $studioId),
             'company_revenues' => $this->buildCompanyRevenues($user, $start, $end, $studioId),
-            'staff_earnings' => $this->buildStaffEarnings($user, $start, $end, $studioId),
             'insight'      => $this->buildInsight($thisWeek, $lastWeekCount),
         ];
+
+        if ($includeStaff) {
+            $report['staff_reports'] = $this->buildStaffReports($user, $start, $end, $weekStart, $studioId);
+            $report['staff_earnings'] = $this->buildStaffEarnings($user, $start, $end, $studioId);
+        }
+
+        return $report;
     }
 
     /**

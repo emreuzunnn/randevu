@@ -54,26 +54,6 @@ class DashboardController extends Controller
         $transferCount = (clone $appointmentsQuery)
             ->where('pickup_required', true)
             ->count();
-        $activeStaffCount = $studioId > 0
-            ? \App\Models\Studio::query()
-                ->whereKey($studioId)
-                ->when(
-                    ! $user?->hasRole(\App\Enums\UserRole::Admin),
-                    fn ($query) => $query->whereIn('id', $accessibleStudioIds)
-                )
-                ->withCount([
-                    'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
-                ])
-                ->value('active_staff_count')
-            : \App\Models\Studio::query()
-                ->join('studio_user', 'studios.id', '=', 'studio_user.studio_id')
-                ->when(
-                    ! $user?->hasRole(\App\Enums\UserRole::Admin),
-                    fn ($query) => $query->whereIn('studios.id', $accessibleStudioIds)
-                )
-                ->where('studio_user.is_active', true)
-                ->count();
-
         $studios = Studio::query()
             ->when(
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
@@ -82,8 +62,6 @@ class DashboardController extends Controller
             ->when($studioId > 0, fn ($query) => $query->whereKey($studioId))
             ->withCount([
                 'appointments',
-                'users as total_staff_count',
-                'users as active_staff_count' => fn ($query) => $query->where('studio_user.is_active', true),
             ])
             ->get();
 
@@ -98,7 +76,7 @@ class DashboardController extends Controller
             ? $appointmentReportService->buildPeriodReports($user, $reportStudioId)
             : [];
         $currentReport = $user !== null
-            ? $appointmentReportService->buildReport($user, 'monthly', $reportStudioId)
+            ? $appointmentReportService->buildReport($user, 'monthly', $reportStudioId, includeStaff: false)
             : [];
 
         return response()->json([
@@ -106,7 +84,6 @@ class DashboardController extends Controller
                 'summary' => [
                     'total_appointments' => $totalAppointments,
                     'cancelled_appointments' => $cancelledAppointments,
-                    'active_staff_count' => $activeStaffCount,
                     'transfer_count' => $transferCount,
                 ],
                 'reports' => $reports,
@@ -117,8 +94,6 @@ class DashboardController extends Controller
                     'id' => $studio->id,
                     'name' => $studio->name,
                     'location' => $studio->location,
-                    'total_staff_count' => $studio->total_staff_count,
-                    'active_staff_count' => $studio->active_staff_count,
                     'appointments_count' => $studio->appointments_count,
                 ])->values(),
                 'today_appointments' => $todayAppointments->map(fn ($appointment): array => [
