@@ -334,6 +334,45 @@ class AppointmentApiTest extends TestCase
             ]);
     }
 
+    public function test_employee_can_filter_appointments_by_record_type(): void
+    {
+        [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
+
+        $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Design',
+                'last_name' => 'Only',
+            ],
+            'pax' => 1,
+            'appointment_at' => '2026-04-18 18:00:00',
+            'appointment_type' => 'designer',
+        ])->assertCreated();
+
+        $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Ticket',
+                'last_name' => 'Only',
+            ],
+            'pax' => 1,
+            'appointment_at' => '2026-04-19 18:00:00',
+            'appointment_type' => 'tattoo',
+        ])->assertCreated();
+
+        $this->actingAs($employee)
+            ->getJson("/api/studios/{$studio->id}/appointments?appointment_type=designer")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.appointment_type', 'designer')
+            ->assertJsonPath('data.0.customer.first_name', 'Design');
+
+        $this->actingAs($employee)
+            ->getJson("/api/studios/{$studio->id}/appointments?appointment_type=tattoo")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.appointment_type', 'tattoo')
+            ->assertJsonPath('data.0.customer.first_name', 'Ticket');
+    }
+
     public function test_second_appointment_for_same_customer_is_marked_old(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);

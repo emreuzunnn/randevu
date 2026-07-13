@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
-    // Randevu türü sabit listesi
+    // Sistem içinde tipler sabit kalır; kullanıcıya designer=randevu, tattoo=bilet olarak gösterilir.
     public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
 
     /** Mobil admin paneli için tüm stüdyolardaki randevuları döndürür */
@@ -28,6 +28,7 @@ class AppointmentController extends Controller
         $filters = $request->validate([
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'studio_id' => ['nullable', 'integer', 'exists:studios,id'],
+            'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
             'status' => ['nullable', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
@@ -42,6 +43,8 @@ class AppointmentController extends Controller
                     ->where('company_id', (int) $filters['company_id'])))
             ->when(isset($filters['status']), fn ($query) => $query
                 ->where('status', $filters['status']))
+            ->when(isset($filters['appointment_type']), fn ($query) => $query
+                ->where('appointment_type', $filters['appointment_type']))
             ->when(isset($filters['date_from']), fn ($query) => $query
                 ->whereDate('appointment_at', '>=', $filters['date_from']))
             ->when(isset($filters['date_to']), fn ($query) => $query
@@ -364,8 +367,20 @@ class AppointmentController extends Controller
     /** Stüdyo randevuları — tüm stüdyo çalışanları tüm randevuları görür */
     public function index(Request $request, Studio $studio): JsonResponse
     {
+        $filters = $request->validate([
+            'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
         $appointments = $studio->appointments()
             ->with(['createdBy', 'assignedArtist'])
+            ->when(isset($filters['appointment_type']), fn ($query) => $query
+                ->where('appointment_type', $filters['appointment_type']))
+            ->when(isset($filters['date_from']), fn ($query) => $query
+                ->whereDate('appointment_at', '>=', $filters['date_from']))
+            ->when(isset($filters['date_to']), fn ($query) => $query
+                ->whereDate('appointment_at', '<=', $filters['date_to']))
             ->orderBy('appointment_at')
             ->get();
 
@@ -472,10 +487,11 @@ class AppointmentController extends Controller
         $appointment->load('assignedArtist');
 
         if ($appointment->assignedArtist instanceof User) {
+            $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
             app(FcmService::class)->sendToUser(
                 $appointment->assignedArtist,
-                'Yeni Randevu Atandı',
-                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu size atandı.",
+                "Yeni {$recordLabel} Atandı",
+                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} size atandı.",
                 'artist_assigned',
                 [
                     'appointment_id' => $appointment->id,
@@ -511,7 +527,7 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'response' => ['required', 'string', 'in:accepted,rejected'],
         ]);
-        abort_if($appointment->artist_status === $validated['response'], 422, 'Bu randevuya daha önce yanıt verdiniz.');
+        abort_if($appointment->artist_status === $validated['response'], 422, 'Bu bilete daha önce yanıt verdiniz.');
 
         $appointment->forceFill([
             'artist_status' => $validated['response'],
@@ -522,8 +538,8 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => $validated['response'] === 'accepted'
-                ? 'Dövme randevusu kabul edildi.'
-                : 'Dövme randevusu reddedildi.',
+                ? 'Bilet kabul edildi.'
+                : 'Bilet reddedildi.',
             'data' => [
                 'id' => $appointment->id,
                 'artist_status' => $appointment->artist_status,
@@ -531,7 +547,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Artist bitmiş dövme fotoğrafını yükleyerek randevuyu tamamlar. */
+    /** Artist bitmiş dövme fotoğrafını yükleyerek bileti tamamlar. */
     public function artistComplete(Request $request, Appointment $appointment): JsonResponse
     {
         $user = $request->user();
@@ -558,7 +574,7 @@ class AppointmentController extends Controller
             ->notifyAppointmentUpdated($appointment, 'completed', $user);
 
         return response()->json([
-            'message' => 'Dövme fotoğrafı yüklendi ve randevu tamamlandı.',
+            'message' => 'Dövme fotoğrafı yüklendi ve bilet tamamlandı.',
             'data' => [
                 'id' => $appointment->id,
                 'status' => $appointment->status,
@@ -628,9 +644,10 @@ class AppointmentController extends Controller
         ]);
 
         $appointmentNotificationService->notifyStudioAppointmentCreated($appointment, $request->user());
+        $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
 
         return response()->json([
-            'message' => 'Randevu oluşturuldu.',
+            'message' => "{$recordLabel} oluşturuldu.",
             'data'    => ['id' => $appointment->id, 'status' => $appointment->status],
         ], 201);
     }
@@ -691,9 +708,10 @@ class AppointmentController extends Controller
             $event,
             $request->user(),
         );
+        $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
 
         return response()->json([
-            'message' => 'Randevu güncellendi.',
+            'message' => "{$recordLabel} güncellendi.",
             'data'    => ['id' => $appointment->id, 'status' => $appointment->status],
         ]);
     }
@@ -708,8 +726,9 @@ class AppointmentController extends Controller
             ->firstOrFail();
 
         $appointmentService->delete($studio, $appointment);
+        $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
 
-        return response()->json(['message' => 'Randevu silindi.']);
+        return response()->json(['message' => "{$recordLabel} silindi."]);
     }
 
     private function formatCustomer(Appointment $appointment): array

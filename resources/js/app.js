@@ -69,8 +69,8 @@ const ROLE_LABELS = {
 };
 
 const APPOINTMENT_TYPE_LABELS = {
-    designer: 'Tasarım',
-    tattoo:   'Dövme',
+    designer: 'Randevu',
+    tattoo:   'Bilet',
 };
 
 const statusLabel = (s) => STATUS_LABELS[s] ?? s;
@@ -322,7 +322,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                 ${adminConfig.isAdmin ? '<a href="/admin/companies" class="button-secondary">Şirketler</a>' : ''}
                 ${adminConfig.canManageStudios ? '<a href="/admin/studios" class="button-secondary">Stüdyolar</a>' : ''}
                 ${adminConfig.canManageUsers ? '<a href="/admin/users" class="button-secondary">Ekip Yönetimi</a>' : ''}
-                <a href="/admin/appointments" class="button-primary">Randevuları Aç</a>
+                <a href="/admin/appointments" class="button-primary">Randevu / Biletleri Aç</a>
             </div>
         </div>
         <div class="panel-card business-filter-bar">
@@ -342,7 +342,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         <div class="panel-card" data-dashboard-staff-reports>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-finance>${skeletonGrid(2)}</div>
         <div class="panel-card" data-dashboard-hotels>${skeletonGrid(1)}</div>
-        <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
+        <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
             <div class="panel-card" data-dashboard-studios>${skeletonGrid(1)}</div>
             <div class="panel-card" data-dashboard-appointments>${skeletonGrid(1)}</div>
         </div>
@@ -366,7 +366,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [
-        ['Toplam Randevu',  data.summary.total_appointments,    'Seçili kapsam',       '',                '1'],
+        ['Toplam Kayıt',    data.summary.total_appointments,    'Seçili kapsam',       '',                '1'],
         ['İptal Edilen',    data.summary.cancelled_appointments,'Operasyon riski',     'var(--danger)',   '2'],
         ['Aktif Personel',  data.summary.active_staff_count,    'Çalışan ekip',        'var(--success)',  '3'],
         ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',  'var(--info)',     '1'],
@@ -381,7 +381,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                 </div>
                 <span class="badge-pill">Dönem Raporu</span>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:0.6rem">
                 ${[
                     ['Toplam',     report.total_appointments,     ''],
                     ['Tamamlandı', report.completed_appointments, 'var(--success)'],
@@ -414,18 +414,18 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                 return `
                     <article class="data-card animate-stagger-${(i % 3) + 1}" style="padding:1.1rem 1.25rem">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:1rem">
-                            <div style="display:flex;align-items:center;gap:0.6rem">
+                            <div style="display:flex;align-items:center;gap:0.6rem;min-width:0">
                                 <div style="width:2rem;height:2rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-lo));display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#0C1220;flex-shrink:0">
                                     ${escapeHtml((staff.name || '?').charAt(0).toUpperCase())}
                                 </div>
-                                <div>
+                                <div style="min-width:0">
                                     <div style="font-size:0.845rem;font-weight:600;color:var(--text-main)">${escapeHtml(staff.name)}</div>
                                     <div style="font-size:0.72rem;color:var(--text-muted)">${escapeHtml(staff.role || 'Personel')}</div>
                                 </div>
                             </div>
-                            <span class="badge-pill" style="font-size:0.62rem">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
+                            <span class="badge-pill" style="font-size:0.62rem;max-width:46%;overflow:hidden;text-overflow:ellipsis">${escapeHtml((staff.studio_names || []).join(', ') || 'Stüdyo')}</span>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:0.5rem;margin-bottom:1rem">
                             ${[
                                 ['Toplam', stats.total_appointments || 0],
                                 ['Tamam',  stats.completed || 0],
@@ -469,7 +469,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
             </div>
             <span class="badge-pill">Bu ay</span>
         </div>
-        <div style="display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:1rem">
+        <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-bottom:1rem">
             <div class="table-shell">
                 <table>
                     <thead>
@@ -617,7 +617,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.3rem">Günlük</div>
-                <div class="section-title">Bugünün Randevuları</div>
+                <div class="section-title">Bugünün Randevu / Biletleri</div>
             </div>
             <span class="badge-pill badge-pill--warning">${data.today_appointments.length} kayıt</span>
         </div>
@@ -633,7 +633,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                         <span class="${statusClass(apt.status)}" style="font-size:0.65rem;flex-shrink:0">${statusLabel(apt.status)}</span>
                     </div>
                 </div>
-            `).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bugün için randevu bulunmuyor.</div>'}
+            `).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Bugün için kayıt bulunmuyor.</div>'}
         </div>
     `;
 
@@ -644,7 +644,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
             <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
                 <div>
                     <div class="section-eyebrow" style="margin-bottom:0.3rem">Platform</div>
-                    <div class="section-title">Şirket Randevu Hacimleri</div>
+                    <div class="section-title">Şirket Kayıt Hacimleri</div>
                 </div>
                 <span class="badge-pill">${companies.length} şirket</span>
             </div>
@@ -892,15 +892,15 @@ const renderUsersPage = async (root) => {
 /* ── Randevular ─────────────────────────────────────────────── */
 
 const renderAppointmentsPage = async (root) => {
-    const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Randevular' : 'Randevu Yönetimi';
+    const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Biletler' : 'Randevu ve Bilet Yönetimi';
     const desc = isDriverRole()
         ? 'Pick up seçili transferler, müşteri bilgileri ve sürücü aksiyonları.'
         : isArtistLikeRole()
-            ? 'Size atanan tasarım ve dövme randevuları.'
-            : 'Liste ve durum güncellemeleri tek merkezde.';
+            ? 'Size atanan dövme/piercing biletleri ve tasarım randevuları.'
+            : 'Tasarım işleri randevu, dövme/piercing işleri bilet olarak takip edilir.';
 
     root.innerHTML = `
-        ${pageHeader('Randevu Akışı', title, desc, '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
+        ${pageHeader('Randevu ve Bilet Akışı', title, desc, '<span class="badge-pill badge-pill--warning">Canlı Akış</span>')}
         <div style="display:grid;gap:1rem">
             <div class="panel-card">
                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
@@ -917,7 +917,7 @@ const renderAppointmentsPage = async (root) => {
             ${canCreateAppointmentWeb() ? `
             <div class="form-shell">
                 <div class="section-eyebrow" style="margin-bottom:0.4rem">Manuel Giriş</div>
-                <div class="section-title" style="margin-bottom:1rem">Randevu Oluştur</div>
+                <div class="section-title" style="margin-bottom:1rem">Randevu Oluştur / Bilet Aç</div>
                 <form class="form-grid" data-appointment-create-form enctype="multipart/form-data">
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap">
@@ -927,8 +927,8 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap">
                             <label class="field-label">Tür</label>
                             <select class="field-select" name="appointment_type">
-                                <option value="designer">Tasarım</option>
-                                <option value="tattoo">Dövme</option>
+                                <option value="designer">Randevu (Tasarım)</option>
+                                <option value="tattoo">Bilet (Dövme/Piercing)</option>
                             </select>
                         </div>
                     </div>
@@ -972,7 +972,7 @@ const renderAppointmentsPage = async (root) => {
                     <div class="field-wrap"><label class="field-label">Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
                     <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
                     <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
-                    <button class="button-primary" type="submit" style="justify-content:center">Randevu Oluştur</button>
+                    <button class="button-primary" type="submit" style="justify-content:center">Kaydı Oluştur</button>
                 </form>
             </div>
             ` : ''}
@@ -1011,7 +1011,7 @@ const renderAppointmentsPage = async (root) => {
     const renderAppointments = async () => {
         const endpoint = endpointForRole();
         if (!endpoint) {
-            listNode.innerHTML = '<div class="empty-state">Randevuları görüntülemek için bir stüdyo seçin.</div>';
+            listNode.innerHTML = '<div class="empty-state">Kayıtları görüntülemek için bir stüdyo seçin.</div>';
             return;
         }
 
@@ -1031,7 +1031,7 @@ const renderAppointmentsPage = async (root) => {
                         <div style="display:flex;align-items:flex-start;gap:0.75rem;min-width:0">
                             ${renderImageThumb(apt)}
                             <div>
-                                <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(limited ? 'Atanan dövme işi' : (customerName || 'İsimsiz'))}</div>
+                                <div style="font-size:0.875rem;font-weight:600;color:var(--text-main)">${escapeHtml(limited ? 'Atanan bilet' : (customerName || 'İsimsiz'))}</div>
                                 <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">Otel/Yer: ${escapeHtml(limited ? (apt.studio?.name || 'Stüdyo') : (apt.customer?.hotel_name || apt.place || '—'))}</div>
                                 <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Oda: ${escapeHtml(limited ? '—' : (apt.customer?.room_number || '—'))}</div>
                                 <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Tarih: ${formatDateTime(apt.appointment_at)}</div>
@@ -1081,7 +1081,7 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                 </article>
             `}).join('')
-            : '<div class="empty-state">Bu kapsamda randevu bulunmuyor.</div>';
+            : '<div class="empty-state">Bu kapsamda kayıt bulunmuyor.</div>';
 
         listNode.querySelectorAll('[data-appointment-save]').forEach((btn) => {
             btn.addEventListener('click', () => handleAsync(async () => {
@@ -1096,7 +1096,7 @@ const renderAppointmentsPage = async (root) => {
                         pickup_required: qs('[data-appointment-pickup]', card)?.checked || false,
                     },
                 });
-                showToast('Randevu güncellendi.', 'success');
+                showToast('Kayıt güncellendi.', 'success');
                 await renderAppointments();
             }));
         });
@@ -1122,7 +1122,7 @@ const renderAppointmentsPage = async (root) => {
                         method: 'POST',
                         body: new FormData(form),
                     });
-                    showToast('Randevu tamamlandı.', 'success');
+                    showToast('Bilet tamamlandı.', 'success');
                     await renderAppointments();
                 });
             });
@@ -1150,7 +1150,7 @@ const renderAppointmentsPage = async (root) => {
                 formData.set('appointment_at', new Date(formData.get('appointment_at')).toISOString());
             }
             await apiFetch(`/studios/${studioId}/appointments`, { method: 'POST', body: formData });
-            showToast('Randevu oluşturuldu.', 'success');
+            showToast((formData.get('appointment_type') === 'tattoo' ? 'Bilet açıldı.' : 'Randevu oluşturuldu.'), 'success');
             form.reset();
             await renderAppointments();
         });
@@ -1573,7 +1573,7 @@ const renderAppointmentRequestsPage = async (root) => {
     const initialArtistId = params.get('artist_id');
 
     root.innerHTML = `
-        ${pageHeader('Talep Yönetimi', 'Randevu Talepleri', 'Gelen talepler kabul edilince doğrudan randevuya dönüşür.', '<span class="badge-pill badge-pill--teal">Talep Akışı</span>')}
+        ${pageHeader('Talep Yönetimi', 'Randevu / Bilet Talepleri', 'Tasarım talepleri randevuya, dövme/piercing talepleri bilete dönüşür.', '<span class="badge-pill badge-pill--teal">Talep Akışı</span>')}
         <div class="form-shell" style="margin-bottom:1rem">
             <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Talep</div>
             <div class="section-title" style="margin-bottom:1rem">Stüdyoya Talep Gönder</div>
@@ -1586,8 +1586,8 @@ const renderAppointmentRequestsPage = async (root) => {
                     <div class="field-wrap">
                         <label class="field-label">Tür</label>
                         <select class="field-select" name="type" required>
-                            <option value="designer">Tasarım</option>
-                            <option value="tattoo">Dövme</option>
+                            <option value="designer">Randevu (Tasarım)</option>
+                            <option value="tattoo">Bilet (Dövme/Piercing)</option>
                         </select>
                     </div>
                 </div>
@@ -2189,11 +2189,11 @@ const renderProfilePage = async (root) => {
 
 const renderProfileAppointmentsPage = async (root) => {
     root.innerHTML = `
-        ${pageHeader('Profil', 'Randevularım', 'Tarih, durum ve tür filtresiyle kişisel randevu geçmişi.', '<span class="badge-pill badge-pill--warning">Arşiv</span>')}
+        ${pageHeader('Profil', 'Randevu ve Biletlerim', 'Tarih, durum ve tür filtresiyle kişisel kayıt geçmişi.', '<span class="badge-pill badge-pill--warning">Arşiv</span>')}
         <div class="panel-card">
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;margin-bottom:1rem">
                 <select class="field-select" data-pa-status><option value="">Tüm Durumlar</option><option value="confirmed">Aktif</option><option value="completed">Tamamlandı</option><option value="cancelled">İptal</option></select>
-                <select class="field-select" data-pa-type><option value="">Tüm Türler</option><option value="designer">Tasarım</option><option value="tattoo">Dövme</option></select>
+                <select class="field-select" data-pa-type><option value="">Tüm Türler</option><option value="designer">Randevu</option><option value="tattoo">Bilet</option></select>
                 <input class="field-input" data-pa-date-from type="date">
                 <input class="field-input" data-pa-search placeholder="Ara">
             </div>

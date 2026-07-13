@@ -456,6 +456,44 @@
         border-radius: var(--r-lg);
         padding: 1.25rem 1.4rem;
         animation: revealUp 420ms ease both;
+        min-width: 0;
+    }
+
+    [data-admin-dashboard] .panel-card,
+    [data-admin-dashboard] .data-card,
+    [data-admin-dashboard] .metric-card,
+    [data-admin-dashboard] .stat-block {
+        min-width: 0;
+    }
+
+    [data-admin-dashboard] .section-title,
+    [data-admin-dashboard] .stat-label,
+    [data-admin-dashboard] .table-shell td,
+    [data-admin-dashboard] .table-shell th {
+        overflow-wrap: anywhere;
+    }
+
+    [data-admin-dashboard] .badge-pill {
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    [data-dashboard-staff-reports] .data-card > div:first-child {
+        flex-wrap: wrap;
+    }
+
+    [data-dashboard-staff-reports] .data-card > div:first-child > div:first-child {
+        flex: 1 1 12rem;
+    }
+
+    [data-dashboard-staff-reports] .data-card > div:first-child .badge-pill {
+        flex: 0 1 12rem;
+    }
+
+    [data-dashboard-staff-reports] .data-card [title] {
+        min-width: 6px;
     }
 
     /* ─── Typography ──────────────────────────────────────── */
@@ -806,6 +844,7 @@
         border: 1px solid var(--border);
         border-radius: var(--r-sm);
         padding: 0.7rem 0.85rem;
+        min-width: 0;
     }
 
     .stat-label {
