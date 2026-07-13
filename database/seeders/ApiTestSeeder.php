@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\AppointmentRequest;
 use App\Models\Company;
-use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\StudioStaffInvitation;
 use App\Models\PushNotification;
@@ -205,6 +204,16 @@ class ApiTestSeeder extends Seeder
             'role'     => UserRole::Sofor,
         ]);
 
+        $supervisor3 = User::factory()->create([
+            'name'     => 'Süpervizör',
+            'surname'  => 'Üç',
+            'phone'    => '5550000025',
+            'email'    => 'supervisor3@example.com',
+            'password' => '123456',
+            'role'     => UserRole::Supervisor,
+            'bio'      => 'Stüdyo 3 yöneticisi ve süpervizörü.',
+        ]);
+
         // ── 4. DİĞER ROLLER ───────────────────────────────────────────────
         $calisan = User::factory()->create([
             'name'     => 'Çalışan',
@@ -281,42 +290,10 @@ class ApiTestSeeder extends Seeder
             'about'            => 'İstanbul\'un önde gelen dövme ve sanat stüdyoları zinciri.',
             'website'          => 'https://inkempire.com',
             'is_active'        => true,
-            'max_shop_count'   => 5,
             'max_studio_count' => 10,
         ]);
 
-        // ── 6. DÜKKANLAR ──────────────────────────────────────────────────
-        $shop1 = Shop::create([
-            'company_id'      => $company->id,
-            'name'            => 'Ink Empire Kadıköy',
-            'location'        => 'Bağdat Caddesi No:42, Kadıköy, İstanbul',
-            'about'           => 'Kadıköy\'ün merkezi konumundaki ana dükkanımız.',
-            'opening_time'    => '10:00',
-            'closing_time'    => '22:00',
-            'gallery_images'  => [
-                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
-            ],
-            'supervisor_user_id' => $supervisor1->id,
-            'is_active'       => true,
-        ]);
-
-        $shop2 = Shop::create([
-            'company_id'      => $company->id,
-            'name'            => 'Ink Empire Beşiktaş',
-            'location'        => 'Çırağan Caddesi No:17, Beşiktaş, İstanbul',
-            'about'           => 'Beşiktaş\'taki ikinci şubemiz.',
-            'opening_time'    => '11:00',
-            'closing_time'    => '21:00',
-            'gallery_images'  => [
-                'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80',
-                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
-            ],
-            'supervisor_user_id' => $supervisor2->id,
-            'is_active'       => true,
-        ]);
-
-        // ── 7. STÜDYOLAR ──────────────────────────────────────────────────
+        // ── 6. STÜDYOLAR ──────────────────────────────────────────────────
         $studio1 = Studio::create([
             'name'          => 'Ink Empire Kadıköy Tattoo',
             'slug'          => 'ink-empire-kadikoy-tattoo',
@@ -325,7 +302,7 @@ class ApiTestSeeder extends Seeder
             'opening_time'  => '10:00',
             'closing_time'  => '22:00',
             'owner_user_id' => $admin->id,
-            'shop_id'       => $shop1->id,
+            'company_id'    => $company->id,
             'gallery_images' => [
                 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
@@ -341,30 +318,29 @@ class ApiTestSeeder extends Seeder
             'opening_time'  => '11:00',
             'closing_time'  => '21:00',
             'owner_user_id' => $admin->id,
-            'shop_id'       => $shop2->id,
+            'company_id'    => $company->id,
             'gallery_images' => [
                 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80',
             ],
         ]);
 
-        // Bağımsız stüdyo — supervisor1 tarafından yönetilir
         $studio3 = Studio::create([
             'name'          => 'Bağımsız Piercing Studio',
             'slug'          => 'bagimsiz-piercing-studio',
             'location'      => 'Nişantaşı, İstanbul',
-            'about'         => 'Dükkan bağlantısız bağımsız piercing stüdyosu.',
+            'about'         => 'Piercing hizmetleri sunan şirket stüdyosu.',
             'opening_time'  => '12:00',
             'closing_time'  => '20:00',
-            'owner_user_id' => $supervisor1->id,
-            'shop_id'       => null,
+            'owner_user_id' => $supervisor3->id,
+            'company_id'    => $company->id,
             'gallery_images' => [
                 'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80',
                 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=1200&q=80',
             ],
         ]);
 
-        // ── 8. STÜDYO — KULLANICI ATAMALARI ───────────────────────────────
+        // ── 7. STÜDYO — KULLANICI ATAMALARI ───────────────────────────────
         foreach ([
             [$admin->id,       UserRole::Admin,      'working'],
             [$yonetici->id,    UserRole::Yonetici,   'working'],
@@ -378,6 +354,7 @@ class ApiTestSeeder extends Seeder
             $studio1->users()->attach($userId, [
                 'role'        => $role->value,
                 'work_status' => $workStatus,
+                'commission_rate' => $this->commissionRate($role),
                 'is_active'   => true,
                 'joined_at'   => now()->subMonths(rand(1, 12)),
             ]);
@@ -395,20 +372,23 @@ class ApiTestSeeder extends Seeder
             $studio2->users()->attach($userId, [
                 'role'        => $role->value,
                 'work_status' => $workStatus,
+                'commission_rate' => $this->commissionRate($role),
                 'is_active'   => true,
                 'joined_at'   => now()->subMonths(rand(1, 8)),
             ]);
         }
 
-        $studio3->users()->attach($supervisor1->id, [
+        $studio3->users()->attach($supervisor3->id, [
             'role'        => UserRole::Supervisor->value,
             'work_status' => 'working',
+            'commission_rate' => $this->commissionRate(UserRole::Supervisor),
             'is_active'   => true,
             'joined_at'   => now()->subMonths(3),
         ]);
         $studio3->users()->attach($artist1->id, [
             'role'        => UserRole::Artist->value,
             'work_status' => 'working',
+            'commission_rate' => $this->commissionRate(UserRole::Artist),
             'is_active'   => true,
             'joined_at'   => now()->subMonths(2),
         ]);
@@ -495,7 +475,7 @@ class ApiTestSeeder extends Seeder
                 'driver_status'           => 'picked_up',
                 'artist_status'           => null,
                 'is_old_customer'         => true,
-                'created_by_user_id'      => $supervisor1->id,
+                'created_by_user_id'      => $supervisor3->id,
                 'pickup_required'         => true,
                 'assigned_artist_user_id' => $artist1->id,
                 'appointment_at'          => now()->addDays(2)->setTime(11, 30),
@@ -595,7 +575,7 @@ class ApiTestSeeder extends Seeder
                 'driver_status'           => 'dropped_off',
                 'artist_status'           => null,
                 'is_old_customer'         => false,
-                'created_by_user_id'      => $supervisor1->id,
+                'created_by_user_id'      => $supervisor3->id,
                 'pickup_required'         => true,
                 'assigned_artist_user_id' => $artist1->id,
                 'appointment_at'          => now()->subDays(5)->setTime(14, 30),
@@ -967,5 +947,18 @@ class ApiTestSeeder extends Seeder
             'pickup_required'    => false,
             'status'             => 'pending',
         ]);
+    }
+
+    private function commissionRate(UserRole $role): int
+    {
+        return match ($role) {
+            UserRole::Supervisor => 12,
+            UserRole::Artist => 40,
+            UserRole::Designer => 25,
+            UserRole::Info => 10,
+            UserRole::Sofor => 5,
+            UserRole::Calisan => 8,
+            default => 0,
+        };
     }
 }

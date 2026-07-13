@@ -52,12 +52,12 @@ class RoleMiddleware
                 }
             }
 
-            // Şoför, çalıştığı şubedeki tüm stüdyoların randevu ekranlarına erişebilir.
+            // Şoför yalnızca çalıştığı stüdyonun randevu ekranlarına erişebilir.
             if (
                 ! $canPass
                 && in_array(UserRole::Sofor, $allowedRoles, true)
                 && $this->isStudioAppointmentRequest($request)
-                && $this->driverWorksInStudioBranch($request, $studio)
+                && $this->driverWorksInStudio($request, $studio)
             ) {
                 $canPass = true;
             }
@@ -94,20 +94,14 @@ class RoleMiddleware
         return false;
     }
 
-    private function driverWorksInStudioBranch(Request $request, Studio $studio): bool
+    private function driverWorksInStudio(Request $request, Studio $studio): bool
     {
         $user = $request->user();
-        if (! $user?->hasRole(UserRole::Sofor) || $studio->shop_id === null) {
+        if (! $user?->hasRole(UserRole::Sofor)) {
             return false;
         }
 
-        $driverShopIds = Studio::query()
-            ->whereIn('id', $user->studios()->pluck('studios.id'))
-            ->pluck('shop_id')
-            ->filter()
-            ->unique();
-
-        return $driverShopIds->contains((int) $studio->shop_id);
+        return $user->hasStudioRole($studio, [UserRole::Sofor]);
     }
 
     private function resolveStudio(Request $request): ?Studio

@@ -8,11 +8,39 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::create('customers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('studio_id')
+                ->nullable()
+                ->constrained('studios')
+                ->nullOnDelete();
+            $table->string('first_name')->nullable();
+            $table->string('last_name')->nullable();
+            $table->string('phone_country_code', 10)->nullable();
+            $table->string('phone_number', 30)->nullable();
+            $table->string('hotel_name')->nullable();
+            $table->string('room_number')->nullable();
+            $table->string('place')->nullable();
+            $table->string('photo_path')->nullable();
+            $table->text('customer_notes')->nullable();
+            $table->timestamp('first_appointment_at')->nullable();
+            $table->timestamp('last_appointment_at')->nullable();
+            $table->unsignedInteger('appointments_count')->default(0);
+            $table->timestamps();
+
+            $table->index(['studio_id', 'phone_country_code', 'phone_number']);
+            $table->index(['studio_id', 'last_name', 'first_name']);
+        });
+
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('studio_id')
                 ->nullable()
                 ->constrained('studios')
+                ->nullOnDelete();
+            $table->foreignId('customer_id')
+                ->nullable()
+                ->constrained('customers')
                 ->nullOnDelete();
             $table->foreignId('created_by_user_id')
                 ->constrained('users')
@@ -59,5 +87,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('appointments');
+        Schema::dropIfExists('customers');
     }
 };

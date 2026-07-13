@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? 'Admin Panel' }} — Randevu</title>
+    <title>{{ $title ?? 'Yönetim Paneli' }} — TattooDesk Business</title>
     @php
         $adminApiToken = session('admin_api_token');
         if (auth()->check() && (! is_string($adminApiToken) || $adminApiToken === '')) {
@@ -36,6 +36,22 @@
         $canManageShops   = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici]);
         $canManageStudios = $u?->hasAnyRole([\App\Enums\UserRole::Admin, \App\Enums\UserRole::Yonetici, \App\Enums\UserRole::Supervisor]);
         $canManageUsers   = $canManageStudios;
+        $primaryStudio    = $u?->studios()->with('company')->first();
+        $managedCompany   = $isYonetici ? $u?->managedCompanies()->first() : null;
+        $businessName     = match(true) {
+            $isAdmin => 'TattooDesk Platform',
+            $managedCompany !== null => $managedCompany->name,
+            $primaryStudio?->company !== null => $primaryStudio->company->name,
+            $primaryStudio !== null => $primaryStudio->name,
+            default => 'TattooDesk Business',
+        };
+        $businessScope = match(true) {
+            $isAdmin => 'Tüm şirketler',
+            $isYonetici => 'Şirket yönetimi',
+            $isSupervisor => 'Stüdyo operasyonu',
+            $isSofor => 'Transfer operasyonu',
+            default => $roleLabel,
+        };
 
         $roleBadgeClass = match($userRole) {
             'admin'      => 'badge-pill--danger',
@@ -50,7 +66,7 @@
         $topbarContext = match(true) {
             $isAdmin      => 'Platform geneli yönetim',
             $isYonetici   => 'Şirket operasyon merkezi',
-            $isSupervisor => 'Şube stüdyo yönetimi',
+            $isSupervisor => 'Stüdyo ve ekip yönetimi',
             $isSofor      => 'Transfer operasyon paneli',
             $isRegularUser => 'Kullanıcı paneli',
             default       => 'Operasyon paneli',
@@ -58,6 +74,7 @@
     @endphp
     <meta name="admin-api-base"             content="/api">
     <meta name="admin-api-token"            content="{{ $adminApiToken }}">
+    <meta name="admin-user-id"              content="{{ $u?->id }}">
     <meta name="admin-user-role"            content="{{ $userRole }}">
     <meta name="admin-can-manage-structure" content="{{ $canManageShops ? '1' : '0' }}">
     <meta name="admin-can-manage-shops"     content="{{ $canManageShops ? '1' : '0' }}">
@@ -98,15 +115,9 @@
                         </svg>
                     </div>
                     <div>
-                        <div class="sidebar-logo__text">Randevu</div>
+                        <div class="sidebar-logo__text">TattooDesk</div>
                         <div class="sidebar-logo__sub">
-                            @if($isAdmin) Platform Admin
-                            @elseif($isYonetici) Operasyon Merkezi
-                            @elseif($isSupervisor) Şube Paneli
-                            @elseif($isSofor) Şoför Paneli
-                            @elseif($isRegularUser) Kullanıcı Paneli
-                            @else Personel Paneli
-                            @endif
+                            Business Management
                         </div>
                     </div>
                 </div>
@@ -135,18 +146,6 @@
                             <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/>
                         </svg>
                         Şirketler
-                    </a>
-                @endif
-
-                @if($canManageShops)
-                    <div class="admin-nav-section">Yönetim</div>
-                    <a href="{{ route('admin.shops.index') }}"
-                       class="admin-nav-link {{ request()->routeIs('admin.shops.*') ? 'is-active' : '' }}">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                            <polyline points="9 22 9 12 15 12 15 22"/>
-                        </svg>
-                        Dükkanlar
                     </a>
                 @endif
 
@@ -188,6 +187,14 @@
                             <line x1="12" y1="14" x2="12" y2="14" stroke-width="2.5"/>
                         </svg>
                         Randevular
+                    </a>
+                    <a href="{{ route('admin.earnings.index') }}"
+                       class="admin-nav-link {{ request()->routeIs('admin.earnings.*') ? 'is-active' : '' }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="5" width="20" height="14" rx="2"/>
+                            <path d="M16 13h4"/><path d="M2 10h20"/>
+                        </svg>
+                        Hakedişler
                     </a>
                 @endunless
 
@@ -278,11 +285,17 @@
 
             {{-- Topbar --}}
             <header class="admin-topbar">
-                <div>
-                    <div class="topbar-title">{{ $title ?? 'Admin Panel' }}</div>
+                <div class="topbar-context">
+                    <div class="topbar-breadcrumb">{{ $businessScope }} / {{ $title ?? 'Genel Bakış' }}</div>
+                    <div class="topbar-title">{{ $businessName }}</div>
                     <div class="topbar-subtitle">{{ $topbarContext }}</div>
                 </div>
                 <div class="topbar-right">
+                    <div class="business-status" title="Sistem durumu">
+                        <span class="state-dot state-dot--success"></span>
+                        <span>Operasyon aktif</span>
+                    </div>
+                    <div class="topbar-date">{{ now()->format('d.m.Y') }}</div>
                     <div class="topbar-user">
                         <div class="topbar-avatar">{{ $userInitial }}</div>
                         <div>

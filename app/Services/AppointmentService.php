@@ -180,21 +180,42 @@ class AppointmentService
 
         $phoneCountryCode = trim((string) ($customer['phone_country_code'] ?? ''));
         $phoneNumber = trim((string) ($customer['phone_number'] ?? ''));
+        $normalizedPhoneNumber = $this->normalizePhoneNumber($phoneNumber);
+        $phoneTail = mb_strlen($normalizedPhoneNumber) >= 10
+            ? mb_substr($normalizedPhoneNumber, -10)
+            : null;
         $firstName = trim((string) ($customer['first_name'] ?? ''));
         $lastName = trim((string) ($customer['last_name'] ?? ''));
 
-        $hasPhone = filled($phoneNumber);
+        $hasPhone = filled($normalizedPhoneNumber);
         $hasFullName = filled($firstName) && filled($lastName);
         if (! $hasPhone && ! $hasFullName) {
             return new Collection();
         }
 
+        $customerIds = app(CustomerService::class)
+            ->findMatchingCustomers($studio->id, $customer)
+            ->pluck('id')
+            ->all();
+
         return $query
-            ->where(function ($customerQuery) use ($hasPhone, $phoneNumber, $phoneCountryCode, $hasFullName, $firstName, $lastName): void {
+            ->where(function ($customerQuery) use ($customerIds, $hasPhone, $normalizedPhoneNumber, $phoneTail, $phoneCountryCode, $hasFullName, $firstName, $lastName): void {
+                if ($customerIds !== []) {
+                    $customerQuery->whereIn('customer_id', $customerIds);
+                }
+
                 if ($hasPhone) {
-                    $customerQuery->where(function ($phoneQuery) use ($phoneNumber, $phoneCountryCode): void {
+                    $method = $customerIds !== [] ? 'orWhere' : 'where';
+                    $customerQuery->{$method}(function ($phoneQuery) use ($normalizedPhoneNumber, $phoneTail, $phoneCountryCode): void {
+                        $phoneExpression = $this->phoneComparableExpression('phone_number');
                         $phoneQuery
-                            ->where('phone_number', $phoneNumber)
+                            ->where(function ($normalizedPhoneQuery) use ($phoneExpression, $normalizedPhoneNumber, $phoneTail): void {
+                                $normalizedPhoneQuery->whereRaw("{$phoneExpression} = ?", [$normalizedPhoneNumber]);
+
+                                if ($phoneTail !== null) {
+                                    $normalizedPhoneQuery->orWhereRaw("substr({$phoneExpression}, -10) = ?", [$phoneTail]);
+                                }
+                            })
                             ->when(
                                 filled($phoneCountryCode),
                                 fn ($phoneWithCountryQuery) => $phoneWithCountryQuery
@@ -208,7 +229,7 @@ class AppointmentService
                 }
 
                 if ($hasFullName) {
-                    $method = $hasPhone ? 'orWhere' : 'where';
+                    $method = ($hasPhone || $customerIds !== []) ? 'orWhere' : 'where';
                     $customerQuery->{$method}(function ($nameQuery) use ($firstName, $lastName): void {
                         $nameQuery
                             ->whereRaw('LOWER(first_name) = ?', [mb_strtolower($firstName)])
@@ -216,7 +237,7 @@ class AppointmentService
                     });
                 }
             })
-            ->limit(5)
+            ->limit(20)
             ->get();
     }
 
@@ -253,5 +274,15 @@ class AppointmentService
                 'appointment_at' => ['Bu stüdyoda aynı tarih ve saatte başka bir randevu zaten bulunuyor.'],
             ]);
         }
+    }
+
+    private function normalizePhoneNumber(string $value): string
+    {
+        return preg_replace('/\D+/', '', $value) ?? '';
+    }
+
+    private function phoneComparableExpression(string $column): string
+    {
+        return "replace(replace(replace(replace(replace(replace({$column}, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''), '.', '')";
     }
 }

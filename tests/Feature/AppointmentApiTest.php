@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Customer;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,6 +44,14 @@ class AppointmentApiTest extends TestCase
             'phone_number' => '5551112233',
             'is_old_customer' => 0,
         ]);
+
+        $this->assertDatabaseHas('customers', [
+            'studio_id' => $studio->id,
+            'first_name' => 'Fabian',
+            'last_name' => 'Uzun',
+            'phone_number' => '5551112233',
+            'appointments_count' => 1,
+        ]);
     }
 
     public function test_can_check_customer_status_from_previous_appointments(): void
@@ -71,6 +80,68 @@ class AppointmentApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.is_old_customer', true);
+
+        $secondAppointmentId = $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Fabian',
+                'last_name' => 'Uzun',
+                'phone_country_code' => '+90',
+                'phone_number' => '5551112233',
+            ],
+            'pax' => 1,
+            'appointment_at' => '2026-04-19 18:00:00',
+        ])->assertCreated()
+            ->json('data.id');
+
+        $customer = Customer::query()
+            ->where('studio_id', $studio->id)
+            ->where('phone_number', '5551112233')
+            ->firstOrFail();
+
+        $this->assertSame(2, $customer->appointments_count);
+        $this->assertDatabaseHas('appointments', [
+            'id' => $secondAppointmentId,
+            'studio_id' => $studio->id,
+            'phone_number' => '5551112233',
+            'customer_id' => $customer->id,
+            'is_old_customer' => 1,
+        ]);
+    }
+
+    public function test_can_find_old_customer_by_normalized_phone_number_and_returns_history(): void
+    {
+        [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
+
+        $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Telefon',
+                'last_name' => 'Musteri',
+                'phone_country_code' => '+90',
+                'phone_number' => '0 (555) 111-22-33',
+                'hotel_name' => 'Demo Hotel',
+                'room_number' => '201',
+                'customer_notes' => 'Eski müşteri notu',
+            ],
+            'pax' => 2,
+            'appointment_at' => '2026-04-18 18:00:00',
+            'appointment_type' => 'tattoo',
+            'price' => 5000,
+        ])->assertCreated();
+
+        $response = $this->actingAs($employee)->postJson("/api/studios/{$studio->id}/appointments/check-customer", [
+            'customer' => [
+                'phone_country_code' => '+90',
+                'phone_number' => '5551112233',
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.is_old_customer', true)
+            ->assertJsonPath('data.customer.first_name', 'Telefon')
+            ->assertJsonPath('data.previous_appointments.0.hotel_name', 'Demo Hotel')
+            ->assertJsonPath('data.previous_appointments.0.room_number', '201')
+            ->assertJsonPath('data.previous_appointments.0.pax', 2)
+            ->assertJsonPath('data.previous_appointments.0.customer_notes', 'Eski müşteri notu');
     }
 
     public function test_studio_request_stays_on_studio_and_accept_assigns_staff_by_selected_type(): void
@@ -288,7 +359,7 @@ class AppointmentApiTest extends TestCase
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.status', 'pending');
+            ->assertJsonPath('data.status', 'confirmed');
 
         $this->assertDatabaseHas('appointments', [
             'studio_id' => $studio->id,

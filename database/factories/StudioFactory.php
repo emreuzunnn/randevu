@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,7 +27,7 @@ class StudioFactory extends Factory
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(100, 999),
             'logo_path' => null,
             'owner_user_id' => User::factory(),
-            'shop_id' => Shop::factory(),
+            'company_id' => null,
         ];
     }
 }

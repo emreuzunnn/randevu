@@ -6,7 +6,6 @@ use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
 use App\Http\Controllers\Admin\ContentReportController as AdminContentReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLogController;
-use App\Http\Controllers\Admin\ShopController as AdminShopController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Webhook\WhatsAppWebhookController;
@@ -36,6 +35,7 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
 
     Route::get('/appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
+    Route::view('/earnings', 'admin.earnings.index')->name('earnings.index');
 
     Route::view('/appointment-requests', 'admin.appointment-requests.index')->name('appointment-requests.index');
     Route::view('/my-notifications', 'admin.my-notifications.index')->name('my-notifications.index');
@@ -55,7 +55,4 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/studios', [AdminStudioController::class, 'index'])->name('studios.index');
     Route::post('/studios/{studio}', [AdminStudioController::class, 'update'])->name('studios.update');
 
-    Route::get('/shops', [AdminShopController::class, 'index'])->name('shops.index');
-    Route::post('/shops', [AdminShopController::class, 'store'])->name('shops.store');
-    Route::post('/shops/{shop}', [AdminShopController::class, 'update'])->name('shops.update');
 });

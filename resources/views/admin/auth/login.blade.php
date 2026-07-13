@@ -37,7 +37,7 @@
                     Operasyonunuzu<br>tek merkezden<br>yönetin.
                 </h1>
                 <p style="font-size:0.845rem;line-height:1.7;color:var(--text-muted);max-width:36ch">
-                    Dükkanlar, stüdyolar, personel ve randevu akışları — hepsi tek panelde birleşir.
+                    Şirketler, stüdyolar, personel ve randevu akışları tek panelde birleşir.
                 </p>
             </div>
 
@@ -46,7 +46,7 @@
                 @foreach([
                     ['Anlık takip', 'Randevu ve ekip hareketlerini canlı izleyin'],
                     ['Rol bazlı erişim', 'Admin, yönetici ve süpervizör kademeli yetki'],
-                    ['Çoklu şube', 'Dükkan ve stüdyo ağını tek yerden denetleyin'],
+                    ['Çoklu stüdyo', 'Şirket ve stüdyo ağını tek yerden denetleyin'],
                 ] as [$title, $desc])
                 <div style="display:flex;align-items:flex-start;gap:0.75rem">
                     <div style="width:1.4rem;height:1.4rem;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:0.1rem">

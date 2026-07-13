@@ -16,7 +16,7 @@ class AppointmentController extends Controller
         $user = $request->user();
         $studioId = $request->integer('studio_id');
         $studios = Studio::query()
-            ->with('shop')
+            ->with('company')
             ->when(
                 ! $user?->hasRole(UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
@@ -41,7 +41,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): View
     {
-        $appointment->load(['assignedArtist', 'createdBy', 'studio.shop']);
+        $appointment->load(['assignedArtist', 'createdBy', 'studio.company']);
         $user = request()->user();
         $canAccess = false;
 
@@ -51,15 +51,8 @@ class AppointmentController extends Controller
                 (int) $appointment->created_by_user_id === (int) $user->id ||
                 (int) $appointment->assigned_artist_user_id === (int) $user->id;
 
-            if (! $canAccess && $user->hasRole(UserRole::Sofor) && $appointment->pickup_required && $appointment->studio?->shop_id !== null) {
-                $driverShopIds = Studio::query()
-                    ->whereIn('id', $user->studios()->pluck('studios.id'))
-                    ->pluck('shop_id')
-                    ->filter()
-                    ->map(fn ($id): int => (int) $id)
-                    ->all();
-
-                $canAccess = in_array((int) $appointment->studio->shop_id, $driverShopIds, true);
+            if (! $canAccess && $user->hasRole(UserRole::Sofor) && $appointment->pickup_required && $appointment->studio !== null) {
+                $canAccess = $user->hasStudioRole($appointment->studio, [UserRole::Sofor]);
             }
         }
 

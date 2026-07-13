@@ -46,7 +46,7 @@ class DashboardController extends Controller
         ];
 
         $studios = Studio::query()
-            ->with('shop')
+            ->with('company')
             ->when(
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $accessibleStudioIds)

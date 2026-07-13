@@ -4,15 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use App\Services\StudioStaffService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class UserDirectoryController extends Controller
 {
@@ -109,10 +105,7 @@ class UserDirectoryController extends Controller
             )
             ->when($companyId, fn ($q) => $q->whereHas(
                 'studios',
-                fn ($sq) => $sq->whereHas(
-                    'shop',
-                    fn ($shq) => $shq->where('company_id', (int) $companyId)
-                )
+                fn ($sq) => $sq->where('company_id', (int) $companyId)
             ))
             ->orderBy('name')
             ->get();
@@ -140,18 +133,7 @@ class UserDirectoryController extends Controller
             'surname'  => ['nullable', 'string', 'max:255'],
             'phone'    => ['nullable', 'string', 'max:30'],
             'role'     => ['required', 'string', 'in:supervisor,designer,artist,info,sofor,calisan'],
-            'studio_id' => [
-                Rule::requiredIf(fn (): bool => $this->usesStudioAssignment($request->input('role'))),
-                'nullable',
-                'integer',
-                'exists:studios,id',
-            ],
-            'shop_id' => [
-                Rule::requiredIf(fn (): bool => ! $this->usesStudioAssignment($request->input('role')) && ! $request->filled('studio_id')),
-                'nullable',
-                'integer',
-                'exists:shops,id',
-            ],
+            'studio_id' => ['required', 'integer', 'exists:studios,id'],
             'email'    => ['required', 'string', 'email', 'max:255'],
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
         ]);
@@ -159,130 +141,27 @@ class UserDirectoryController extends Controller
         $role = UserRole::fromValue($validated['role']);
         abort_unless($request->user()?->canManageStaffRole($role), 403);
 
-        if ($this->usesStudioAssignment($role)) {
-            $studio = Studio::query()->findOrFail($validated['studio_id']);
-            abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
+        $studio = Studio::query()->findOrFail($validated['studio_id']);
+        abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
 
-            $result = $studioStaffService->createOrAttach($studio, $role, $validated, $request->user());
-            $isInvitation = $result['action'] === 'invited_existing_freelancer';
-
-            return response()->json([
-                'message' => $isInvitation
-                    ? 'Kullanıcıya çalışanlık daveti gönderildi.'
-                    : 'Kullanıcı başarıyla oluşturuldu.',
-                'data' => [
-                    'id' => $result['user']->id,
-                    'name' => $result['user']->fullName(),
-                    'email' => $result['user']->email,
-                    'role' => $result['studio_role'],
-                    'is_active' => ! $isInvitation,
-                    'action' => $result['action'],
-                    'invitation_id' => $result['invitation']->id ?? null,
-                ],
-            ], $isInvitation ? 202 : 201);
-        }
-
-        $shop = isset($validated['shop_id'])
-            ? Shop::query()->with('studios')->findOrFail($validated['shop_id'])
-            : Studio::query()->with('shop.studios')->findOrFail($validated['studio_id'])->shop;
-
-        abort_if($shop === null, 422, 'Seçilen stüdyoya bağlı şube bulunamadı.');
-        abort_unless($request->user()?->canManageShop($shop), 403);
-
-        $result = $this->createOrAttachBranchStaff($shop, $role, $validated);
+        $result = $studioStaffService->createOrAttach($studio, $role, $validated, $request->user());
+        $isInvitation = $result['action'] === 'invited_existing_freelancer';
 
         return response()->json([
-            'message' => 'Kullanıcı şubeye atandı.',
+            'message' => $isInvitation
+                ? 'Kullanıcıya çalışanlık daveti gönderildi.'
+                : 'Kullanıcı başarıyla oluşturuldu.',
             'data' => [
                 'id' => $result['user']->id,
                 'name' => $result['user']->fullName(),
                 'email' => $result['user']->email,
-                'role' => $role->value,
-                'shop_id' => $shop->id,
-                'is_active' => true,
+                'role' => $result['studio_role'],
+                'studio_id' => $studio->id,
+                'is_active' => ! $isInvitation,
                 'action' => $result['action'],
+                'invitation_id' => $result['invitation']->id ?? null,
             ],
-        ], $result['action'] === 'created_new_user' ? 201 : 200);
-    }
-
-    private function usesStudioAssignment(UserRole|string|null $role): bool
-    {
-        if ($role === null) {
-            return false;
-        }
-
-        $role = $role instanceof UserRole ? $role : UserRole::fromValue($role);
-
-        return in_array($role, [UserRole::Artist, UserRole::Designer], true);
-    }
-
-    private function createOrAttachBranchStaff(Shop $shop, UserRole $role, array $attributes): array
-    {
-        abort_unless(in_array($role, [UserRole::Supervisor, UserRole::Info, UserRole::Sofor, UserRole::Calisan], true), 422);
-
-        return DB::transaction(function () use ($shop, $role, $attributes): array {
-            $user = User::query()->where('email', $attributes['email'])->first();
-            $action = 'attached_existing_user';
-
-            if ($user === null) {
-                if (blank($attributes['password'] ?? null)) {
-                    throw ValidationException::withMessages([
-                        'password' => ['Yeni kullanıcı oluşturmak için şifre zorunludur.'],
-                    ]);
-                }
-
-                $user = User::query()->create([
-                    'name' => $attributes['name'] ?? '',
-                    'surname' => $attributes['surname'] ?? null,
-                    'email' => $attributes['email'],
-                    'phone' => $attributes['phone'] ?? null,
-                    'password' => $attributes['password'],
-                    'role' => $role,
-                ]);
-                $action = 'created_new_user';
-            } else {
-                $user->fill(array_filter([
-                    'name' => $attributes['name'] ?? null,
-                    'surname' => $attributes['surname'] ?? null,
-                    'phone' => $attributes['phone'] ?? null,
-                ], static fn ($value) => $value !== null));
-                $user->role = $role;
-                $user->save();
-            }
-
-            if ($role === UserRole::Supervisor) {
-                $shop->forceFill(['supervisor_user_id' => $user->id])->save();
-            }
-
-            $studios = $shop->studios()->get();
-            if ($studios->isEmpty() && $role !== UserRole::Supervisor) {
-                throw ValidationException::withMessages([
-                    'shop_id' => ['Bu şubede personel atanacak stüdyo bulunamadı.'],
-                ]);
-            }
-
-            foreach ($studios as $studio) {
-                $membership = $studio->users()->where('users.id', $user->id)->first();
-                $pivot = [
-                    'role' => $role->value,
-                    'work_status' => 'working',
-                    'is_active' => true,
-                    'joined_at' => now(),
-                    'left_at' => null,
-                ];
-
-                if ($membership === null) {
-                    $studio->users()->attach($user->id, $pivot);
-                } else {
-                    $studio->users()->updateExistingPivot($user->id, $pivot);
-                }
-            }
-
-            return [
-                'user' => $user->fresh(),
-                'action' => $action,
-            ];
-        });
+        ], $isInvitation ? 202 : 201);
     }
 
     public function studioOptions(): JsonResponse

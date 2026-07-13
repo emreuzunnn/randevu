@@ -31,9 +31,12 @@ class StudioStaffService
 
             $existingUser = User::query()
                 ->where('email', $attributes['email'])
+                ->lockForUpdate()
                 ->first();
 
             if ($existingUser !== null) {
+                $this->ensureSingleStudioRoleAvailable($studio, $role, $existingUser);
+
                 if (in_array($role, UserRole::studioRoles(), true)) {
                     return $this->inviteRegisteredStaff(
                         $studio,
@@ -130,6 +133,8 @@ class StudioStaffService
             }
 
             $role = UserRole::fromValue($invitation->role);
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            $this->ensureSingleStudioRoleAvailable($invitation->studio, $role, $user);
             $this->ensureStudioProfessionalSlotAvailable($invitation->studio, $role, $user->id);
 
             $membership = $invitation->studio->users()
@@ -234,6 +239,13 @@ class StudioStaffService
         $user->save();
 
         if (array_key_exists('is_active', $attributes)) {
+            if ($attributes['is_active']) {
+                $targetRole = isset($attributes['role'])
+                    ? UserRole::fromValue($attributes['role'])
+                    : $role;
+                $this->ensureSingleStudioRoleAvailable($studio, $targetRole, $user);
+            }
+
             $pivotUpdates['is_active'] = (bool) $attributes['is_active'];
             $pivotUpdates['left_at'] = $attributes['is_active'] ? null : now();
         }
@@ -244,6 +256,7 @@ class StudioStaffService
 
         if (array_key_exists('role', $attributes)) {
             $newRole = UserRole::fromValue($attributes['role']);
+            $this->ensureSingleStudioRoleAvailable($studio, $newRole, $user);
             $this->ensureStudioProfessionalSlotAvailable($studio, $newRole, $user->id);
             $pivotUpdates['role'] = $newRole->value;
             $user->role = $newRole;
@@ -302,6 +315,8 @@ class StudioStaffService
                 'email' => ['Daveti gönderen kullanıcı bulunamadı.'],
             ]);
         }
+
+        $this->ensureSingleStudioRoleAvailable($studio, $role, $applicant);
 
         if ($applicant->studios()->wherePivot('is_active', true)->exists()) {
             throw ValidationException::withMessages([
@@ -363,6 +378,29 @@ class StudioStaffService
         if ($exists) {
             throw ValidationException::withMessages([
                 'role' => ["Bir stüdyoda sadece 1 {$role->label()} olabilir."],
+            ]);
+        }
+    }
+
+    private function ensureSingleStudioRoleAvailable(
+        Studio $studio,
+        UserRole $role,
+        User $user
+    ): void {
+        if (! in_array($role, [UserRole::Supervisor, UserRole::Sofor], true)) {
+            return;
+        }
+
+        $hasOtherActiveStudio = $user->studios()
+            ->where('studios.id', '!=', $studio->id)
+            ->wherePivot('is_active', true)
+            ->exists();
+
+        if ($hasOtherActiveStudio) {
+            throw ValidationException::withMessages([
+                'studio_id' => [
+                    $role->label().' yalnızca bir aktif stüdyoya atanabilir.',
+                ],
             ]);
         }
     }

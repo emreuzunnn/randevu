@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentRequestController;
 use App\Http\Controllers\Api\AppointmentSlipOcrController;
+use App\Http\Controllers\Api\AppVersionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ContentModerationController;
@@ -13,9 +14,9 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\StudioController;
 use App\Http\Controllers\Api\StudioManagerController;
+use App\Http\Controllers\Api\StaffEarningController;
 use App\Http\Controllers\Api\StudioStaffController;
 use App\Http\Controllers\Api\StudioStaffInvitationController;
 use App\Http\Controllers\Api\UserDirectoryController;
@@ -30,6 +31,9 @@ use Illuminate\Support\Facades\Route;
 
 // Görsel yüklenip AI ile randevu fişindeki alanları okuyarak JSON döndürür.
 Route::post('/ocr/appointment-slip', AppointmentSlipOcrController::class);
+
+// Mobil uygulama açılışında minimum sürüm ve zorunlu güncelleme kontrolü.
+Route::get('/app-version', AppVersionController::class);
 
 // Kullanıcı girişi yapar ve sonraki API isteklerinde kullanılacak bearer token üretir.
 Route::post('/login', [AuthController::class, 'login']);
@@ -81,6 +85,9 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::patch('/notifications/{pushNotification}/read', [NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{pushNotification}', [NotificationController::class, 'destroy']);
 
+    // Kullanıcının tamamlanan dövmelerden oluşan kendi hakedişleri.
+    Route::get('/earnings/me', [StaffEarningController::class, 'mine']);
+
     // Freelancer çalışanlık davetleri: kullanıcı kabul ettiğinde stüdyo üyeliği açılır.
     Route::get('/staff-invitations', [StudioStaffInvitationController::class, 'index']);
     Route::post('/users/{user}/staff-invitations', [StudioStaffInvitationController::class, 'store']);
@@ -112,8 +119,6 @@ Route::middleware(['api.auth'])->group(function (): void {
     // Çıkış
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Dükkan listesi
-    Route::get('/shops', [ShopController::class, 'index']);
 });
 
 /*
@@ -134,11 +139,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 });
 
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
-    // Yönetici yalnızca sahibi olduğu şirkete bağlı şubeleri oluşturabilir.
     Route::get('/companies', [CompanyController::class, 'index']);
-    Route::post('/shops', [ShopController::class, 'store']);
-    // Dükkan güncelleme.
-    Route::patch('/shops/{shop}', [ShopController::class, 'update']);
 });
 
 /*
@@ -181,9 +182,6 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     // Şirket yönetimi
     Route::post('/companies', [CompanyController::class, 'store']);
     Route::patch('/companies/{company}', [CompanyController::class, 'update']);
-
-    // Dükkan sil
-    Route::delete('/shops/{shop}', [ShopController::class, 'destroy']);
 
     // Yönetici (yonetici) atamaları
     Route::get('/studios/{studio}/managers', [StudioStaffController::class, 'index'])
@@ -260,6 +258,11 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
         ->defaults('role', 'calisan');
     Route::delete('/studios/{studio}/employees/{user}', [StudioStaffController::class, 'destroy'])
         ->defaults('role', 'calisan');
+
+    // Personel komisyonu ve stüdyo hakediş yönetimi.
+    Route::get('/studios/{studio}/earnings', [StaffEarningController::class, 'studio']);
+    Route::patch('/studios/{studio}/users/{user}/commission', [StaffEarningController::class, 'updateCommission']);
+    Route::patch('/studios/{studio}/earnings/{staffEarning}/paid', [StaffEarningController::class, 'markPaid']);
 });
 
 /*
@@ -300,9 +303,9 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::patch('/studios/{studio}/appointments/{appointment}/assign-artist', [AppointmentController::class, 'assignArtist']);
 });
 
-// Şoför şubesindeki pick up gereken randevuları görür ve durum güncelleyebilir.
+// Şoför atandığı stüdyodaki pick up gereken randevuları görür ve durum güncelleyebilir.
 Route::middleware(['api.auth', 'role:sofor'])->group(function (): void {
-    // Şoförün bağlı olduğu şubedeki pick up gereken randevuları listeler.
+    // Şoförün bağlı olduğu stüdyolardaki pick up gereken randevuları listeler.
     Route::get('/my-appointments', [AppointmentController::class, 'myAppointments']);
     // driver_status: picked_up (aldım) | dropped_off (bıraktım) | cancelled (iptal ettim)
     Route::patch('/studios/{studio}/appointments/{appointment}/driver-action', [AppointmentController::class, 'driverAction']);
@@ -322,6 +325,8 @@ Route::middleware(['api.auth'])->group(function (): void {
 Route::middleware(['api.auth', 'role:artist,designer,kullanici_rol'])->group(function (): void {
     // Stüdyodan bağımsız, artiste atanmış randevuları listeler.
     Route::get('/my-artist-appointments', [AppointmentController::class, 'myArtistAppointments']);
+    // Atanan artist dövme randevusunu kabul eder veya reddeder.
+    Route::patch('/appointments/{appointment}/artist-response', [AppointmentController::class, 'artistResponse']);
     // Artist tamamlanan dövmenin fotoğrafını yükler; fiyat bundan sonra görünür.
     Route::post('/appointments/{appointment}/artist-complete', [AppointmentController::class, 'artistComplete']);
 });
@@ -337,12 +342,7 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::get('/studios/{studio}/profile', [ProfileController::class, 'studioProfile']);
 });
 
-// Şube profili: bağlı stüdyolar, toplu istatistikler, galeri
-Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
-    Route::get('/shops/{shop}/profile', [ProfileController::class, 'shopProfile']);
-});
-
-// Şirket profili: tüm şubeler, stüdyolar, toplu portfolio
+// Şirket profili: stüdyolar ve toplu portfolio
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     Route::get('/companies/{company}/profile', [ProfileController::class, 'companyProfile']);
 });
@@ -358,13 +358,6 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::post('/studios/{studio}/logo', [MediaController::class, 'uploadStudioLogo']);
     Route::post('/studios/{studio}/gallery', [MediaController::class, 'addStudioGalleryImage']);
     Route::delete('/studios/{studio}/gallery', [MediaController::class, 'removeStudioGalleryImage']);
-});
-
-// Şube medya yönetimi (admin, yönetici)
-Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
-    Route::post('/shops/{shop}/logo', [MediaController::class, 'uploadShopLogo']);
-    Route::post('/shops/{shop}/gallery', [MediaController::class, 'addShopGalleryImage']);
-    Route::delete('/shops/{shop}/gallery', [MediaController::class, 'removeShopGalleryImage']);
 });
 
 // Şirket medya yönetimi (yalnızca admin)

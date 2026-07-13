@@ -21,13 +21,10 @@ class CompanyController extends Controller
 
         $companies = Company::query()
             ->with('manager')
-            ->withCount(['shops', 'studios'])
+            ->withCount('studios')
             ->when(
                 ! $user?->hasRole(UserRole::Admin),
-                fn ($query) => $query->where(function ($query) use ($user): void {
-                    $query->where('manager_user_id', $user?->id)
-                        ->orWhereHas('shops', fn ($shopQuery) => $shopQuery->where('manager_user_id', $user?->id));
-                })
+                fn ($query) => $query->where('manager_user_id', $user?->id)
             )
             ->orderBy('name')
             ->get();
@@ -43,9 +40,7 @@ class CompanyController extends Controller
                 'phone'             => $company->phone,
                 'email'             => $company->email,
                 'is_active'         => $company->is_active,
-                'max_shop_count'    => $company->max_shop_count,
                 'max_studio_count'  => $company->max_studio_count,
-                'shop_count'        => $company->shops_count,
                 'studio_count'      => $company->studios_count,
                 'appointment_count' => $this->companyAppointmentCount($company),
                 'manager'           => $company->manager ? [
@@ -72,7 +67,6 @@ class CompanyController extends Controller
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
             'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
-            'max_shop_count'   => ['required', 'integer', 'min:0'],
             'max_studio_count' => ['required', 'integer', 'min:0'],
             'create_manager'   => ['sometimes', 'boolean'],
             'manager_name'     => ['required_if:create_manager,true', 'nullable', 'string', 'max:255'],
@@ -104,7 +98,6 @@ class CompanyController extends Controller
                 'phone',
                 'email',
                 'manager_user_id',
-                'max_shop_count',
                 'max_studio_count',
             ])
             ->all() + ['is_active' => true]);
@@ -136,7 +129,6 @@ class CompanyController extends Controller
             'about'            => ['nullable', 'string', 'max:5000'],
             'website'          => ['nullable', 'string', 'url', 'max:255'],
             'is_active'        => ['sometimes', 'boolean'],
-            'max_shop_count'   => ['sometimes', 'integer', 'min:0'],
             'max_studio_count' => ['sometimes', 'integer', 'min:0'],
         ]);
 
@@ -157,7 +149,7 @@ class CompanyController extends Controller
     private function companyAppointmentCount(Company $company): int
     {
         $studioIds = Studio::query()
-            ->whereHas('shop', fn ($q) => $q->where('company_id', $company->id))
+            ->where('company_id', $company->id)
             ->pluck('id');
 
         return Appointment::query()->whereIn('studio_id', $studioIds)->count();

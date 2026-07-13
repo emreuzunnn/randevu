@@ -67,6 +67,88 @@ class StudioStaffApiTest extends TestCase
             ->assertJsonPath('data.studio_role', 'sofor');
     }
 
+    public function test_supervisor_cannot_be_assigned_to_a_second_active_studio(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $firstStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $secondStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $supervisor = User::factory()->create([
+            'role' => UserRole::Supervisor,
+            'email' => 'single.supervisor@example.com',
+        ]);
+
+        $firstStudio->users()->attach($supervisor->id, [
+            'role' => UserRole::Supervisor->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/api/studios/{$secondStudio->id}/supervisors", [
+                'name' => $supervisor->fullName(),
+                'email' => $supervisor->email,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['studio_id']);
+    }
+
+    public function test_driver_cannot_be_assigned_to_a_second_active_studio(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $firstStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $secondStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $driver = User::factory()->create([
+            'role' => UserRole::Sofor,
+            'email' => 'single.driver@example.com',
+        ]);
+
+        $firstStudio->users()->attach($driver->id, [
+            'role' => UserRole::Sofor->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/api/studios/{$secondStudio->id}/drivers", [
+                'name' => $driver->fullName(),
+                'email' => $driver->email,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['studio_id']);
+    }
+
+    public function test_role_change_cannot_bypass_single_studio_rule(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $firstStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $secondStudio = Studio::factory()->create(['owner_user_id' => $admin->id]);
+        $user = User::factory()->create(['role' => UserRole::Sofor]);
+
+        $firstStudio->users()->attach($user->id, [
+            'role' => UserRole::Sofor->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+        $secondStudio->users()->attach($user->id, [
+            'role' => UserRole::Calisan->value,
+            'work_status' => 'working',
+            'is_active' => false,
+            'joined_at' => now()->subMonth(),
+            'left_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson("/api/studios/{$secondStudio->id}/users/{$user->id}", [
+                'role' => UserRole::Sofor->value,
+                'is_active' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['studio_id']);
+    }
+
     public function test_manager_can_update_employee(): void
     {
         [$manager, $studio] = $this->createStudioMember(UserRole::Yonetici);
@@ -158,14 +240,9 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
-    public function test_supervisor_can_deactivate_employee_in_assigned_branch(): void
+    public function test_supervisor_can_deactivate_employee_in_assigned_studio(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
         $employee = User::factory()->create(['role' => UserRole::Calisan]);
 
         $studio->users()->attach($employee->id, [
@@ -210,12 +287,7 @@ class StudioStaffApiTest extends TestCase
             ])
             ->assertForbidden();
 
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $supervisorStudio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $supervisorStudio] = $this->createStudioMember(UserRole::Supervisor);
         $independentUser = User::factory()->create(['role' => UserRole::KullaniciRol]);
 
         $supervisorStudio->users()->attach($independentUser->id, [
@@ -240,12 +312,7 @@ class StudioStaffApiTest extends TestCase
 
     public function test_legacy_freelancer_can_receive_artist_invitation(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
         $freelancer = User::factory()->create([
             'role' => UserRole::KullaniciRol,
             'requested_staff_role' => null,
@@ -268,14 +335,9 @@ class StudioStaffApiTest extends TestCase
         ]);
     }
 
-    public function test_supervisor_can_invite_freelancer_from_profile_for_branch_studio(): void
+    public function test_supervisor_can_invite_freelancer_from_profile_for_assigned_studio(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
         $freelancer = User::factory()->create([
             'role' => UserRole::KullaniciRol,
             'requested_staff_role' => UserRole::Artist,
@@ -307,12 +369,7 @@ class StudioStaffApiTest extends TestCase
 
     public function test_studio_can_only_have_one_active_artist_and_one_active_designer(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
         $activeArtist = User::factory()->create(['role' => UserRole::Artist]);
         $candidate = User::factory()->create([
             'role' => UserRole::KullaniciRol,
@@ -335,14 +392,9 @@ class StudioStaffApiTest extends TestCase
             ->assertJsonValidationErrors(['role']);
     }
 
-    public function test_supervisor_cannot_invite_freelancer_for_other_branch(): void
+    public function test_supervisor_cannot_invite_freelancer_for_other_studio(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor] = $this->createStudioMember(UserRole::Supervisor);
         $outsideStudio = Studio::factory()->create();
         $freelancer = User::factory()->create([
             'role' => UserRole::KullaniciRol,
@@ -364,11 +416,7 @@ class StudioStaffApiTest extends TestCase
             'name' => 'Manager Company',
             'manager_user_id' => $manager->id,
         ]);
-        $shop = \App\Models\Shop::factory()->create([
-            'company_id' => $company->id,
-            'manager_user_id' => null,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $studio = Studio::factory()->create(['company_id' => $company->id]);
         $freelancer = User::factory()->create([
             'role' => UserRole::KullaniciRol,
             'requested_staff_role' => UserRole::Designer,
@@ -385,12 +433,7 @@ class StudioStaffApiTest extends TestCase
 
     public function test_profile_invitation_rejects_user_who_already_works_for_studio(): void
     {
-        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
-        $shop = \App\Models\Shop::factory()->create([
-            'manager_user_id' => null,
-            'supervisor_user_id' => $supervisor->id,
-        ]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        [$supervisor, $studio] = $this->createStudioMember(UserRole::Supervisor);
         $artist = User::factory()->create(['role' => UserRole::Artist]);
         $studio->users()->attach($artist->id, [
             'role' => UserRole::Artist->value,

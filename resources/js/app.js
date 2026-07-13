@@ -17,6 +17,7 @@ const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.getAttrib
 const adminConfig = {
     apiBase:            meta('admin-api-base') || '/api',
     token:              meta('admin-api-token'),
+    userId:             meta('admin-user-id'),
     role:               meta('admin-user-role'),
     canManageStructure: meta('admin-can-manage-structure') === '1',
     canManageShops:     meta('admin-can-manage-shops') === '1',
@@ -44,6 +45,7 @@ const firebaseWebVapidKey = meta('firebase-web-vapid-key');
 const STATUS_LABELS = {
     completed:   'Tamamlandı',
     confirmed:   'Onaylandı',
+    in_progress: 'Devam Ediyor',
     pending:     'Bekliyor',
     cancelled:   'İptal',
     rescheduled: 'Yeniden Planlandı',
@@ -191,11 +193,19 @@ const formatDateTime = (value) => {
     }).format(new Date(value));
 };
 
+const formatMoney = (value) =>
+    new Intl.NumberFormat('tr-TR', {
+        style: 'currency',
+        currency: 'TRY',
+        minimumFractionDigits: 2,
+    }).format(Number(value || 0));
+
 /* ── Durum badge CSS ────────────────────────────────────────── */
 
 const statusClass = (status) => ({
     completed:   'badge-pill badge-pill--success',
     confirmed:   'badge-pill badge-pill--info',
+    in_progress: 'badge-pill badge-pill--purple',
     pending:     'badge-pill badge-pill--warning',
     cancelled:   'badge-pill badge-pill--danger',
     rescheduled: 'badge-pill badge-pill--warning',
@@ -283,9 +293,9 @@ const renderDiscoveryHome = (root, data = {}) => {
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                         <div>
                             <div class="section-title">${escapeHtml(studio.name)}</div>
-                            <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || studio.shop?.location || 'Konum yok')}</div>
+                            <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || 'Konum yok')}</div>
                         </div>
-                        <span class="badge-pill" style="font-size:0.62rem">${escapeHtml(studio.shop?.company?.name || studio.shop?.name || 'Stüdyo')}</span>
+                        <span class="badge-pill" style="font-size:0.62rem">${escapeHtml(studio.company?.name || 'Stüdyo')}</span>
                     </div>
                     <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;min-height:2.4rem">${escapeHtml(studio.about || 'Bu stüdyo için henüz açıklama eklenmemiş.')}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:0.65rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border)">
@@ -302,15 +312,27 @@ const renderDiscoveryHome = (root, data = {}) => {
 
 const renderDashboard = async (root, selectedStudioId = '') => {
     root.innerHTML = `
-        ${pageHeader('Genel Bakış', 'Operasyon Özeti', 'Canlı metrikler, dönemsel raporlar ve sahadaki hareketler tek akışta.', '<span class="badge-pill badge-pill--info">Canlı</span>')}
-        <div class="panel-card" style="padding:0.85rem 1rem">
+        ${pageHeader('Şirket Yönetimi', 'Operasyon Merkezi', 'Stüdyoların, ekiplerin ve randevu operasyonunun güncel görünümü.', '<span class="badge-pill badge-pill--success"><span class="state-dot state-dot--success"></span> Güncel</span>')}
+        <div class="business-command-bar">
+            <div class="business-command-bar__label">
+                <span class="section-eyebrow">Hızlı İşlemler</span>
+                <span>Günlük yönetim akışlarına doğrudan erişin</span>
+            </div>
+            <div class="action-row">
+                ${adminConfig.isAdmin ? '<a href="/admin/companies" class="button-secondary">Şirketler</a>' : ''}
+                ${adminConfig.canManageStudios ? '<a href="/admin/studios" class="button-secondary">Stüdyolar</a>' : ''}
+                ${adminConfig.canManageUsers ? '<a href="/admin/users" class="button-secondary">Ekip Yönetimi</a>' : ''}
+                <a href="/admin/appointments" class="button-primary">Randevuları Aç</a>
+            </div>
+        </div>
+        <div class="panel-card business-filter-bar">
             <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
                 <div>
-                    <div class="section-eyebrow" style="margin-bottom:0.2rem">İstatistik Kapsamı</div>
-                    <div style="font-size:0.78rem;color:var(--text-muted)">Genel toplamı veya tek bir stüdyoyu görüntüleyin.</div>
+                    <div class="section-eyebrow" style="margin-bottom:0.2rem">Raporlama Kapsamı</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted)">Şirket geneli veya tek stüdyo performansı</div>
                 </div>
                 <select data-dashboard-studio-filter style="margin-left:auto;min-width:220px">
-                    <option value="">Genel istatistikler</option>
+                    <option value="">Şirket geneli</option>
                 </select>
             </div>
         </div>
@@ -318,6 +340,8 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</div>
         <div class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-staff-reports>${skeletonGrid(3)}</div>
+        <div class="panel-card" data-dashboard-finance>${skeletonGrid(2)}</div>
+        <div class="panel-card" data-dashboard-hotels>${skeletonGrid(1)}</div>
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-dashboard-studios>${skeletonGrid(1)}</div>
             <div class="panel-card" data-dashboard-appointments>${skeletonGrid(1)}</div>
@@ -328,7 +352,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     const studioOptions = studioPayload.data || [];
     const studioSelect = qs('[data-dashboard-studio-filter]', root);
     studioSelect.innerHTML = `
-        <option value="">Genel istatistikler</option>
+        <option value="">Şirket geneli</option>
         ${studioOptions.map((studio) => `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`).join('')}
     `;
     studioSelect.value = selectedStudioId;
@@ -342,10 +366,10 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [
-        ['Toplam Randevu',  data.summary.total_appointments,    'Tüm dönem',       '',                '1'],
-        ['İptal',           data.summary.cancelled_appointments,'Risk takibi',     'var(--danger)',   '2'],
-        ['Aktif Ekip',      data.summary.active_staff_count,    'Canlı personel',  'var(--success)',  '3'],
-        ['Transfer',        data.summary.transfer_count,        'Sürücü görevleri','var(--info)',     '1'],
+        ['Toplam Randevu',  data.summary.total_appointments,    'Seçili kapsam',       '',                '1'],
+        ['İptal Edilen',    data.summary.cancelled_appointments,'Operasyon riski',     'var(--danger)',   '2'],
+        ['Aktif Personel',  data.summary.active_staff_count,    'Çalışan ekip',        'var(--success)',  '3'],
+        ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',  'var(--info)',     '1'],
     ].map(([label, value, helper, color, delay]) => metricCard(label, value, helper, color, delay)).join('');
 
     qs('[data-dashboard-reports]', root).innerHTML = Object.values(data.reports || {}).map((report, i) => `
@@ -432,6 +456,131 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         </div>
     `;
 
+    const studioRevenues = data.studio_revenues || [];
+    const companyRevenues = data.company_revenues || [];
+    const staffEarnings = data.staff_earnings || [];
+    const hotelSources = data.hotel_sources || [];
+
+    qs('[data-dashboard-finance]', root).innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
+            <div>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Finans</div>
+                <div class="section-title">Ciro ve Hakediş Özeti</div>
+            </div>
+            <span class="badge-pill">Bu ay</span>
+        </div>
+        <div style="display:grid;gap:1rem;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:1rem">
+            <div class="table-shell">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Stüdyo</th>
+                            <th>Randevu</th>
+                            <th>Ciro</th>
+                            <th>Tamamlanan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${studioRevenues.map((studio) => `
+                            <tr>
+                                <td>
+                                    <div style="font-weight:600">${escapeHtml(studio.name || '—')}</div>
+                                    <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(studio.company_name || 'Şirket yok')}</div>
+                                </td>
+                                <td>${studio.appointment_count || 0}</td>
+                                <td style="font-weight:700">${formatMoney(studio.revenue)}</td>
+                                <td>${formatMoney(studio.completed_revenue)}</td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Ciro kaydı bulunamadı.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-shell">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Şirket</th>
+                            <th>Stüdyo</th>
+                            <th>Ciro</th>
+                            <th>Tamamlanan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${companyRevenues.map((company) => `
+                            <tr>
+                                <td style="font-weight:600">${escapeHtml(company.name || '—')}</td>
+                                <td>${company.studio_count || 0}</td>
+                                <td style="font-weight:700">${formatMoney(company.revenue)}</td>
+                                <td>${formatMoney(company.completed_revenue)}</td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Şirket cirosu bulunamadı.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="table-shell">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Personel</th>
+                        <th>Stüdyo</th>
+                        <th>İş</th>
+                        <th>Hakediş</th>
+                        <th>Bekleyen</th>
+                        <th>Ödenen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${staffEarnings.map((earning) => `
+                        <tr>
+                            <td>
+                                <div style="font-weight:600">${escapeHtml(earning.name || '—')}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(earning.role || 'Personel')}</div>
+                            </td>
+                            <td style="color:var(--text-muted)">${escapeHtml((earning.studio_names || []).join(', ') || '—')}</td>
+                            <td>${earning.earning_count || 0}</td>
+                            <td style="font-weight:700">${formatMoney(earning.earning_amount)}</td>
+                            <td>${formatMoney(earning.pending_amount)}</td>
+                            <td>${formatMoney(earning.paid_amount)}</td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:1.5rem">Hakediş kaydı bulunamadı.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    qs('[data-dashboard-hotels]', root).innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
+            <div>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Müşteri Kaynağı</div>
+                <div class="section-title">Otele Göre Gelen Müşteriler</div>
+            </div>
+            <span class="badge-pill">${hotelSources.length} otel</span>
+        </div>
+        <div class="table-shell">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Otel</th>
+                        <th>Müşteri</th>
+                        <th>Randevu</th>
+                        <th>Ciro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${hotelSources.map((hotel) => `
+                        <tr>
+                            <td style="font-weight:600">${escapeHtml(hotel.hotel_name || 'Belirtilmeyen')}</td>
+                            <td><span class="badge-pill badge-pill--success" style="font-size:0.65rem">${hotel.customer_count || 0}</span></td>
+                            <td>${hotel.appointment_count || 0}</td>
+                            <td style="font-weight:700">${formatMoney(hotel.revenue)}</td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Otel kaynaklı müşteri kaydı bulunamadı.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+
     qs('[data-dashboard-studios]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
@@ -504,7 +653,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     <thead>
                         <tr>
                             <th>Şirket Adı</th>
-                            <th>Dükkan</th>
                             <th>Stüdyo</th>
                             <th>Randevu</th>
                         </tr>
@@ -513,11 +661,10 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                         ${companies.map((company) => `
                             <tr>
                                 <td style="font-weight:600">${escapeHtml(company.name)}</td>
-                                <td style="color:var(--text-muted)">${company.shop_count} / ${company.max_shop_count === 0 ? '∞' : company.max_shop_count}</td>
                                 <td style="color:var(--text-muted)">${company.studio_count} / ${company.max_studio_count === 0 ? '∞' : company.max_studio_count}</td>
                                 <td style="font-weight:700" data-counter="${company.appointment_count}">0</td>
                             </tr>
-                        `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Şirket bulunamadı.</td></tr>'}
+                        `).join('') || '<tr><td colspan="3" style="color:var(--text-muted);text-align:center;padding:1.5rem">Şirket bulunamadı.</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -578,13 +725,9 @@ const renderUsersPage = async (root) => {
                             <label class="field-label">Stüdyo</label>
                             <select class="field-select" name="studio_id" data-users-create-studio></select>
                         </div>
-                        <div class="field-wrap" data-users-create-shop-wrap style="display:none">
-                            <label class="field-label">Şube</label>
-                            <select class="field-select" name="shop_id" data-users-create-shop></select>
-                        </div>
                     </div>
                     <div class="form-grid form-grid--split" data-users-password-wrap>
-                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(şube rolleri için zorunlu)</span></label><input class="field-input" name="password" type="password"></div>
+                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(yeni kullanıcı için)</span></label><input class="field-input" name="password" type="password"></div>
                         <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password"></div>
                     </div>
                     <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Kullanıcı Oluştur / Ata</button>
@@ -605,8 +748,6 @@ const renderUsersPage = async (root) => {
     const studioSelect       = qs('[data-users-studio-select]', root);
     const createStudioSelect = qs('[data-users-create-studio]', root);
     const createStudioWrap   = qs('[data-users-create-studio-wrap]', root);
-    const createShopSelect   = qs('[data-users-create-shop]', root);
-    const createShopWrap     = qs('[data-users-create-shop-wrap]', root);
     const passwordWrap       = qs('[data-users-password-wrap]', root);
     const assignmentHelp     = qs('[data-users-assignment-help]', root);
     const listNode           = qs('[data-users-list]', root);
@@ -628,24 +769,12 @@ const renderUsersPage = async (root) => {
         return studios;
     };
 
-    const loadShops = async () => {
-        if (!createShopSelect) return [];
-        const payload = await apiFetch('/shops');
-        const shops = uniqueById(payload.data || []);
-        createShopSelect.innerHTML = shops.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-        return shops;
-    };
-
     const updateCreateAssignmentMode = () => {
-        if (!roleSelect || !createStudioWrap || !createShopWrap) return;
-        const studioMode = usesStudioAssignment(roleSelect.value);
-        createStudioWrap.style.display = studioMode ? '' : 'none';
-        createShopWrap.style.display = studioMode ? 'none' : '';
-        if (passwordWrap) passwordWrap.style.display = studioMode ? 'none' : '';
+        if (!roleSelect || !createStudioWrap) return;
+        createStudioWrap.style.display = '';
+        if (passwordWrap) passwordWrap.style.display = '';
         if (assignmentHelp) {
-            assignmentHelp.textContent = studioMode
-                ? 'Artist ve tasarımcılar stüdyoya davet edilir; şifre gerekmez.'
-                : 'Supervisor, şoför, info ve çalışan rolleri şubeye atanır.';
+            assignmentHelp.textContent = 'Tüm personel doğrudan seçilen stüdyoya atanır; kayıtlı profesyonellere davet gönderilir.';
         }
     };
 
@@ -729,7 +858,7 @@ const renderUsersPage = async (root) => {
         });
     };
 
-    await Promise.all([loadStudios(), loadShops()]);
+    await loadStudios();
     updateCreateAssignmentMode();
     await renderUsers();
 
@@ -742,14 +871,13 @@ const renderUsersPage = async (root) => {
             e.preventDefault();
             handleAsync(async () => {
                 const data = Object.fromEntries(new FormData(form).entries());
-                if (usesStudioAssignment(data.role)) {
-                    delete data.shop_id;
+                if (['artist', 'designer'].includes(data.role)) {
                     delete data.password;
                     delete data.password_confirmation;
                 } else {
-                    delete data.studio_id;
-                    if (!data.password) throw new Error('Şube rolleri için şifre zorunludur.');
-                    data.password_confirmation = data.password_confirmation || data.password;
+                    if (data.password) {
+                        data.password_confirmation = data.password_confirmation || data.password;
+                    }
                 }
                 await apiFetch('/users', { method: 'POST', body: data });
                 form.reset();
@@ -921,7 +1049,7 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap">
                             <label class="field-label">Durum</label>
                             <select class="field-select" data-appointment-status style="font-size:0.78rem;padding:0.42rem 0.65rem">
-                                ${['confirmed','completed','cancelled'].map((s) => `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
+                                ${['confirmed','in_progress','completed','cancelled'].map((s) => `<option value="${s}" ${apt.status === s ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
                             </select>
                         </div>
                         <div class="field-wrap">
@@ -1045,14 +1173,14 @@ const renderStudiosPage = async (root) => {
         )}
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="data-grid" data-studios-grid>${skeletonGrid(isStudioAdminOnly ? 1 : 3)}</div>
-            ${adminConfig.canManageStudios ? `
+            ${adminConfig.canManageShops ? `
             <div class="form-shell" data-studio-create-shell style="align-self:start">
                 <div class="section-eyebrow" style="margin-bottom:0.4rem">Yeni Stüdyo</div>
                 <div class="section-title" style="margin-bottom:1.25rem">Stüdyo Oluştur</div>
                 <form class="form-grid" data-studio-create-form>
                     <div class="field-wrap">
-                        <label class="field-label">Bağlı Şube</label>
-                        <select class="field-select" name="shop_id" data-studio-create-shop required></select>
+                        <label class="field-label">Bağlı Şirket</label>
+                        <select class="field-select" name="company_id" data-studio-create-company required></select>
                     </div>
                     <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" required></div>
                     <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
@@ -1064,18 +1192,18 @@ const renderStudiosPage = async (root) => {
     `;
 
     const grid    = qs('[data-studios-grid]', root);
-    const [payload, shopsPayload] = await Promise.all([
+    const [payload, companiesPayload] = await Promise.all([
         apiFetch('/studios/overview'),
-        adminConfig.canManageStudios ? apiFetch('/shops') : Promise.resolve({ data: [] }),
+        adminConfig.canManageShops ? apiFetch('/companies') : Promise.resolve({ data: [] }),
     ]);
     const studios = payload.data || [];
-    const shops   = uniqueById(shopsPayload.data || []);
-    const createShopSelect = qs('[data-studio-create-shop]', root);
-    if (createShopSelect) {
-        createShopSelect.innerHTML = shops.length
-            ? shops.map((shop) => `<option value="${shop.id}">${escapeHtml(shop.name)}</option>`).join('')
-            : '<option value="">Önce şube oluşturun</option>';
-        createShopSelect.disabled = shops.length === 0;
+    const companies = uniqueById(companiesPayload.data || []);
+    const createCompanySelect = qs('[data-studio-create-company]', root);
+    if (createCompanySelect) {
+        createCompanySelect.innerHTML = companies.length
+            ? companies.map((company) => `<option value="${company.id}">${escapeHtml(company.name)}</option>`).join('')
+            : '<option value="">Önce şirket oluşturun</option>';
+        createCompanySelect.disabled = companies.length === 0;
     }
 
     grid.innerHTML = studios.length
@@ -1083,7 +1211,7 @@ const renderStudiosPage = async (root) => {
             <article class="data-card animate-stagger-${(i % 3) + 1}">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:1rem">
                     <div>
-                        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.10em;color:var(--text-muted);margin-bottom:0.3rem">${escapeHtml(studio.shop?.name || 'Dükkan bilgisi yok')}</div>
+                        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.10em;color:var(--text-muted);margin-bottom:0.3rem">${escapeHtml(studio.company?.name || 'Şirket bilgisi yok')}</div>
                         <div class="section-title">${escapeHtml(studio.name)}</div>
                     </div>
                     <span class="badge-pill badge-pill--info" style="font-size:0.65rem;flex-shrink:0">${studio.appointments_count} randevu</span>
@@ -1123,7 +1251,7 @@ const renderStudiosPage = async (root) => {
         handleAsync(async () => {
             const form = e.target;
             const data = Object.fromEntries(new FormData(form).entries());
-            if (!data.shop_id) throw new Error('Stüdyo oluşturmak için önce şube seçin.');
+            if (!data.company_id) throw new Error('Stüdyo oluşturmak için önce şirket seçin.');
             await apiFetch('/studios', { method: 'POST', body: data });
             showToast('Stüdyo oluşturuldu.', 'success');
             await renderStudiosPage(root);
@@ -1313,7 +1441,7 @@ const renderCompaniesPage = async (root) => {
         ).join('')}`;
 
     root.innerHTML = `
-        ${pageHeader('Şirket Yönetimi', 'Şirket Ağı', 'Şirket bazlı dükkan, stüdyo ve randevu verilerini anlık görün.', '<span class="badge-pill badge-pill--info">Platform Yönetimi</span>')}
+        ${pageHeader('Şirket Yönetimi', 'Şirket Ağı', 'Şirket bazlı stüdyo ve randevu verilerini anlık görün.', '<span class="badge-pill badge-pill--info">Platform Yönetimi</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1.1fr 0.9fr">
             <div class="panel-card" data-companies-list>${skeletonGrid(3)}</div>
             <div class="form-shell" style="align-self:start">
@@ -1339,10 +1467,7 @@ const renderCompaniesPage = async (root) => {
                         </div>
                         <div class="field-wrap"><label class="field-label">Yönetici Şifre</label><input class="field-input" name="manager_password" type="password" required minlength="6"></div>
                     </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Max Dükkan <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_shop_count" value="0"></div>
-                        <div class="field-wrap"><label class="field-label">Max Stüdyo <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_studio_count" value="0"></div>
-                    </div>
+                    <div class="field-wrap"><label class="field-label">Max Stüdyo <span style="color:var(--text-subtle)">(0=∞)</span></label><input class="field-input" type="number" min="0" name="max_studio_count" value="0"></div>
                     <button class="button-primary" type="submit" style="justify-content:center">Şirket Oluştur</button>
                 </form>
             </div>
@@ -1380,14 +1505,10 @@ const renderCompaniesPage = async (root) => {
                             </div>
                             <span class="badge-pill badge-pill--info" style="font-size:0.62rem;flex-shrink:0">${company.appointment_count} randevu</span>
                         </div>
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem">
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-bottom:1rem">
                             <div class="stat-block">
                                 <div class="stat-label">Randevu</div>
                                 <div style="margin-top:0.4rem;font-size:1.35rem;font-weight:800;letter-spacing:-0.02em;color:var(--text-main)" data-counter="${company.appointment_count}">0</div>
-                            </div>
-                            <div class="stat-block">
-                                <div class="stat-label">Dükkan</div>
-                                <div style="margin-top:0.5rem">${limitBadge(company.shop_count, company.max_shop_count)}</div>
                             </div>
                             <div class="stat-block">
                                 <div class="stat-label">Stüdyo</div>
@@ -1404,10 +1525,7 @@ const renderCompaniesPage = async (root) => {
                                     <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" value="${escapeHtml(company.phone || '')}"></div>
                                     <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email" value="${escapeHtml(company.email || '')}"></div>
                                 </div>
-                                <div class="form-grid form-grid--split">
-                                    <div class="field-wrap"><label class="field-label">Max Dükkan</label><input class="field-input" type="number" min="0" name="max_shop_count" value="${company.max_shop_count}"></div>
-                                    <div class="field-wrap"><label class="field-label">Max Stüdyo</label><input class="field-input" type="number" min="0" name="max_studio_count" value="${company.max_studio_count}"></div>
-                                </div>
+                                <div class="field-wrap"><label class="field-label">Max Stüdyo</label><input class="field-input" type="number" min="0" name="max_studio_count" value="${company.max_studio_count}"></div>
                                 <button class="button-primary" type="submit" style="justify-content:center;padding:0.5rem">Kaydet</button>
                             </form>
                         </div>
@@ -1838,10 +1956,10 @@ const renderDiscoveryPage = async (root) => {
                     <article class="data-card animate-stagger-${(i % 3) + 1}">
                         ${portfolio[0] ? `<img src="${escapeHtml(portfolio[0])}" alt="${escapeHtml(studio.name)}" style="width:100%;height:150px;object-fit:cover;border-radius:0.75rem;border:1px solid var(--border);margin-bottom:0.85rem">` : ''}
                         <div class="section-title">${escapeHtml(studio.name)}</div>
-                        <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || studio.shop?.location || 'Konum yok')}</div>
+                        <div style="margin-top:0.25rem;font-size:0.75rem;color:var(--text-muted)">${escapeHtml(studio.location || 'Konum yok')}</div>
                         <div style="margin-top:0.75rem;font-size:0.78rem;color:var(--text-muted);line-height:1.55;min-height:2.4rem">${escapeHtml(studio.about || 'Açıklama eklenmemiş.')}</div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border)">
-                            <span class="badge-pill" style="font-size:0.6rem">${escapeHtml(studio.shop?.company?.name || studio.shop?.name || 'Stüdyo')}</span>
+                            <span class="badge-pill" style="font-size:0.6rem">${escapeHtml(studio.company?.name || 'Stüdyo')}</span>
                             <a class="button-secondary" href="/admin/discovery/studios/${studio.id}" style="padding:0.45rem 0.75rem;font-size:0.74rem">Detay</a>
                         </div>
                     </article>
@@ -1906,7 +2024,7 @@ const renderPublicStudioDetailPage = async (root) => {
     const reviews = reviewsPayload.data?.items || reviewsPayload.data || [];
 
     root.innerHTML = `
-        ${pageHeader('Stüdyo', escapeHtml(studio.name || 'Stüdyo Detayı'), escapeHtml(studio.location || studio.shop?.location || ''), '<span class="badge-pill badge-pill--teal">Public Profil</span>')}
+        ${pageHeader('Stüdyo', escapeHtml(studio.name || 'Stüdyo Detayı'), escapeHtml(studio.location || ''), '<span class="badge-pill badge-pill--teal">Public Profil</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1fr 0.9fr">
             <div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Portfolyo</div>
@@ -1915,8 +2033,7 @@ const renderPublicStudioDetailPage = async (root) => {
             <div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Bilgiler</div>
                 <div class="detail-grid">
-                    <div class="detail-row"><span class="detail-label">Şube</span><span class="detail-value">${escapeHtml(studio.shop?.name || '—')}</span></div>
-                    <div class="detail-row"><span class="detail-label">Şirket</span><span class="detail-value">${escapeHtml(studio.shop?.company?.name || '—')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Şirket</span><span class="detail-value">${escapeHtml(studio.company?.name || '—')}</span></div>
                     <div class="detail-row"><span class="detail-label">Puan</span><span class="detail-value">${escapeHtml(studio.rating || '—')}</span></div>
                     <div class="detail-row"><span class="detail-label">Tamamlanan</span><span class="detail-value">${escapeHtml(studio.appointment_stats?.completed ?? 0)}</span></div>
                     <div class="detail-row"><span class="detail-label">İptal</span><span class="detail-value">${escapeHtml(studio.appointment_stats?.cancelled ?? 0)}</span></div>
@@ -2146,6 +2263,224 @@ const renderSettingsPage = async (root) => {
     }));
 };
 
+/* ── Hakedişler ─────────────────────────────────────────────── */
+
+const renderEarningsPage = async (root) => {
+    const canManage = ['admin', 'yonetici', 'supervisor'].includes(adminConfig.role);
+    const hasPersonalEarnings = ['supervisor', 'artist', 'designer', 'info', 'sofor', 'calisan'].includes(adminConfig.role);
+    let managing = canManage && !hasPersonalEarnings;
+    let studios = [];
+    let selectedStudioId = '';
+
+    root.innerHTML = `
+        ${pageHeader('Finans', 'Hakedişler', 'Tamamlanan dövme işlemlerinin personel komisyonları ve ödeme durumu.', '<span class="badge-pill badge-pill--success">Komisyon Takibi</span>')}
+        <div class="panel-card">
+            <div class="earnings-toolbar">
+                ${canManage && hasPersonalEarnings ? `
+                    <div style="display:flex;gap:0.5rem" data-earnings-modes>
+                        <button class="button-primary" data-earnings-mode="mine">Hakedişlerim</button>
+                        <button class="button-secondary" data-earnings-mode="staff">Personel</button>
+                    </div>
+                ` : '<div></div>'}
+                ${canManage ? `
+                    <div class="field-wrap" data-earnings-studio-wrap style="min-width:min(100%,280px);${managing ? '' : 'display:none'}">
+                        <label class="field-label">Stüdyo</label>
+                        <select class="field-select" data-earnings-studio></select>
+                    </div>
+                ` : ''}
+            </div>
+            <div data-earnings-content style="margin-top:1rem">${skeletonGrid(5)}</div>
+        </div>
+    `;
+
+    const content = qs('[data-earnings-content]', root);
+    const studioWrap = qs('[data-earnings-studio-wrap]', root);
+    const studioSelect = qs('[data-earnings-studio]', root);
+
+    const summaryCards = (summary = {}) => `
+        <div class="earnings-metrics">
+            <article class="metric-card">
+                <div class="section-eyebrow" style="color:var(--warning)">Bekleyen</div>
+                <div class="earnings-metric-value">${formatMoney(summary.pending_total)}</div>
+                <div class="earnings-metric-helper">${Number(summary.pending_count || 0)} ödeme bekliyor</div>
+            </article>
+            <article class="metric-card">
+                <div class="section-eyebrow" style="color:var(--success)">Ödenen</div>
+                <div class="earnings-metric-value">${formatMoney(summary.paid_total)}</div>
+                <div class="earnings-metric-helper">${Number(summary.paid_count || 0)} ödeme tamamlandı</div>
+            </article>
+            <article class="metric-card">
+                <div class="section-eyebrow">Toplam Hakediş</div>
+                <div class="earnings-metric-value">${formatMoney(summary.total)}</div>
+                <div class="earnings-metric-helper">Tamamlanan dövme işlemleri</div>
+            </article>
+        </div>
+    `;
+
+    const earningCard = (earning, showUser = false) => {
+        const paid = earning.status === 'paid';
+        return `
+            <article class="list-card" data-earning-id="${earning.id}" style="padding:0.9rem 1rem">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
+                    <div style="min-width:0">
+                        <div style="font-size:0.86rem;font-weight:650;color:var(--text-main)">
+                            ${escapeHtml(showUser ? (earning.user_name || 'Personel') : (earning.studio_name || 'Stüdyo'))}
+                        </div>
+                        <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">
+                            ${escapeHtml(earning.appointment?.customer_name || 'Dövme randevusu')} · ${formatDateTime(earning.appointment?.appointment_at)}
+                        </div>
+                    </div>
+                    <span class="badge-pill ${paid ? 'badge-pill--success' : 'badge-pill--warning'}">${paid ? 'Ödendi' : 'Bekliyor'}</span>
+                </div>
+                <div class="earnings-detail-grid">
+                    ${statBlock('Dövme Fiyatı', formatMoney(earning.gross_amount))}
+                    ${statBlock('Komisyon', `%${Number(earning.commission_rate || 0).toLocaleString('tr-TR')}`)}
+                    ${statBlock('Hakediş', `<span style="color:var(--success)">${formatMoney(earning.earning_amount)}</span>`)}
+                    ${statBlock('Ödeme Bilgisi', paid ? `${formatDateTime(earning.paid_at)}${earning.paid_by ? ` · ${escapeHtml(earning.paid_by)}` : ''}` : 'Ödeme bekliyor')}
+                </div>
+                ${managing && !paid ? `
+                    <div style="display:flex;justify-content:flex-end;margin-top:0.75rem">
+                        <button class="button-primary" data-mark-earning-paid style="padding:0.45rem 0.8rem;font-size:0.75rem">Ödendi Olarak İşaretle</button>
+                    </div>
+                ` : ''}
+            </article>
+        `;
+    };
+
+    const staffCard = (person) => {
+        const isCurrentUser = String(person.id) === String(adminConfig.userId);
+        return `
+            <article class="list-card" data-earning-user="${person.id}" style="padding:0.9rem 1rem">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem">
+                    <div>
+                        <div style="font-size:0.86rem;font-weight:650;color:var(--text-main)">${escapeHtml(person.name || 'Personel')}</div>
+                        <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(roleLabel(person.role))} · ${Number(person.earning_count || 0)} kayıt</div>
+                    </div>
+                    <span class="badge-pill ${roleBadgeClass(person.role)}">${escapeHtml(roleLabel(person.role))}</span>
+                </div>
+                <div class="earnings-detail-grid">
+                    ${statBlock('Bekleyen', formatMoney(person.pending_total))}
+                    ${statBlock('Ödenen', formatMoney(person.paid_total))}
+                    <div class="field-wrap">
+                        <label class="field-label">Komisyon Oranı</label>
+                        <div style="display:flex;gap:0.4rem">
+                            <input class="field-input" data-commission-rate type="number" min="0" max="100" step="0.01" value="${Number(person.commission_rate || 0)}" ${isCurrentUser && adminConfig.isSupervisor ? 'disabled' : ''}>
+                            <button class="button-secondary" data-save-commission style="padding:0.45rem 0.7rem;font-size:0.74rem" ${isCurrentUser && adminConfig.isSupervisor ? 'disabled' : ''}>Kaydet</button>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        `;
+    };
+
+    const bindManagementActions = (data) => {
+        root.querySelectorAll('[data-save-commission]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const card = button.closest('[data-earning-user]');
+                const userId = card?.getAttribute('data-earning-user');
+                const commissionRate = Number(qs('[data-commission-rate]', card)?.value);
+                if (!Number.isFinite(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+                    throw new Error('Komisyon oranı 0 ile 100 arasında olmalıdır.');
+                }
+                await apiFetch(`/studios/${selectedStudioId}/users/${userId}/commission`, {
+                    method: 'PATCH',
+                    body: { commission_rate: commissionRate },
+                });
+                showToast('Komisyon oranı güncellendi.', 'success');
+                await load();
+            }));
+        });
+
+        root.querySelectorAll('[data-mark-earning-paid]').forEach((button) => {
+            button.addEventListener('click', () => handleAsync(async () => {
+                const card = button.closest('[data-earning-id]');
+                const earning = data.earnings.find((item) => String(item.id) === card?.getAttribute('data-earning-id'));
+                if (!window.confirm(`${earning?.user_name || 'Personel'} için ${formatMoney(earning?.earning_amount)} ödendi olarak işaretlensin mi?`)) return;
+                await apiFetch(`/studios/${selectedStudioId}/earnings/${earning.id}/paid`, {
+                    method: 'PATCH',
+                    body: {},
+                });
+                showToast('Hakediş ödendi olarak işaretlendi ve personele bildirim gönderildi.', 'success');
+                await load();
+            }));
+        });
+    };
+
+    const load = async () => {
+        if (managing && !selectedStudioId) {
+            content.innerHTML = '<div class="empty-state">Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.</div>';
+            return;
+        }
+
+        content.innerHTML = skeletonGrid(5);
+        const payload = await apiFetch(managing
+            ? `/studios/${selectedStudioId}/earnings`
+            : '/earnings/me');
+        const data = payload.data || {};
+        const earnings = data.earnings || [];
+
+        content.innerHTML = `
+            ${summaryCards(data.summary)}
+            ${managing ? `
+                <div class="earnings-layout">
+                    <section>
+                        <div class="section-title" style="margin-bottom:0.75rem">Personel Komisyonları</div>
+                        <div class="list-stack">
+                            ${(data.staff || []).map(staffCard).join('') || '<div class="empty-state">Aktif personel bulunmuyor.</div>'}
+                        </div>
+                    </section>
+                    <section>
+                        <div class="section-title" style="margin-bottom:0.75rem">Ödeme Detayları</div>
+                        <div class="list-stack">
+                            ${earnings.map((earning) => earningCard(earning, true)).join('') || '<div class="empty-state">Hakediş kaydı bulunmuyor.</div>'}
+                        </div>
+                    </section>
+                </div>
+            ` : `
+                <section style="margin-top:1rem">
+                    <div class="section-title" style="margin-bottom:0.75rem">Hakediş Geçmişim</div>
+                    <div class="list-stack">
+                        ${earnings.map((earning) => earningCard(earning)).join('') || '<div class="empty-state">Tamamlanan dövmelerden oluşmuş hakediş bulunmuyor.</div>'}
+                    </div>
+                </section>
+            `}
+        `;
+
+        if (managing) bindManagementActions(data);
+    };
+
+    if (canManage) {
+        const payload = await apiFetch('/studios/options');
+        studios = uniqueById(payload.data || []);
+        selectedStudioId = studios[0]?.id ? String(studios[0].id) : '';
+        if (studioSelect) {
+            studioSelect.innerHTML = studios.map((studio) =>
+                `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
+            ).join('');
+            studioSelect.value = selectedStudioId;
+            studioSelect.addEventListener('change', () => {
+                selectedStudioId = studioSelect.value;
+                handleAsync(load);
+            });
+        }
+    }
+
+    root.querySelectorAll('[data-earnings-mode]').forEach((button) => {
+        button.addEventListener('click', () => {
+            managing = button.getAttribute('data-earnings-mode') === 'staff';
+            root.querySelectorAll('[data-earnings-mode]').forEach((item) => {
+                const active = (item.getAttribute('data-earnings-mode') === 'staff') === managing;
+                item.classList.toggle('button-primary', active);
+                item.classList.toggle('button-secondary', !active);
+            });
+            if (studioWrap) studioWrap.style.display = managing ? '' : 'none';
+            handleAsync(load);
+        });
+    });
+
+    await load();
+};
+
 /* ── Sayfa yönlendirici ─────────────────────────────────────── */
 
 const pageInitializers = [
@@ -2160,9 +2495,9 @@ const pageInitializers = [
     ['[data-admin-public-artist-detail]', renderPublicArtistDetailPage],
     ['[data-admin-profile]', renderProfilePage],
     ['[data-admin-profile-appointments]', renderProfileAppointmentsPage],
+    ['[data-admin-earnings]', renderEarningsPage],
     ['[data-admin-settings]', renderSettingsPage],
     ['[data-admin-studios]',      renderStudiosPage],
-    ['[data-admin-shops]',        renderShopsPage],
 ];
 
 /* ── Firebase Web Push ──────────────────────────────────────── */

@@ -15,38 +15,122 @@ class AppointmentNotificationService
         private readonly FcmService $fcmService,
     ) {}
 
-    public function notifyBranchAppointmentCreated(Appointment $appointment, ?User $actor = null): int
+    public function notifyStudioAppointmentCreated(Appointment $appointment, ?User $actor = null): int
     {
-        $appointment->loadMissing(['studio.shop']);
-        $studio = $appointment->studio;
+        $appointment->loadMissing(['studio.company.manager', 'createdBy', 'assignedArtist']);
 
-        if (! $studio instanceof Studio) {
+        if (! $appointment->studio instanceof Studio) {
             return 0;
         }
 
-        $recipients = $this->branchStaff($studio)
-            ->when($actor instanceof User, fn (Collection $users) => $users
-                ->reject(fn (User $user): bool => (int) $user->id === (int) $actor->id))
-            ->values();
-
-        foreach ($recipients as $recipient) {
-            $this->fcmService->sendToUser(
-                $recipient,
-                'Yeni Randevu',
-                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu oluşturuldu.",
-                'appointment_created',
+        if ($appointment->appointment_type === 'designer') {
+            return $this->send(
+                $this->designRecipients($appointment),
+                'Yeni Tasarım Rezervasyonu',
+                "{$appointment->studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli tasarım rezervasyonu oluşturuldu.",
+                'design_reservation_created',
                 $this->appointmentPayload($appointment),
             );
         }
 
-        return $recipients->count();
+        return $this->send(
+            $this->saleRecipients($appointment),
+            'Yeni Satış',
+            "{$appointment->studio->name} için dövme/piercing satışı gerçekleşti. Randevu: {$appointment->appointment_at?->format('d.m.Y H:i')}.",
+            'sale_created',
+            $this->appointmentPayload($appointment),
+        );
     }
 
-    public function sendDueReminders(int $minutes = 45): int
+    public function notifyAppointmentUpdated(
+        Appointment $appointment,
+        string $event = 'updated',
+        ?User $actor = null
+    ): int {
+        $appointment->loadMissing(['studio.company.manager', 'createdBy', 'assignedArtist']);
+        $studioName = $appointment->studio?->name ?? 'Randevu';
+        [$title, $body, $type] = match ($event) {
+            'cancelled' => [
+                'Randevu İptal Edildi',
+                "{$studioName} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu iptal edildi.",
+                'appointment_cancelled',
+            ],
+            'started' => [
+                'Dövme Randevusu Başladı',
+                "{$studioName} için dövme/piercing randevusu başladı.",
+                'appointment_started',
+            ],
+            'completed' => [
+                'Randevu Tamamlandı',
+                "{$studioName} için dövme/piercing randevusu tamamlandı.",
+                'appointment_completed',
+            ],
+            default => [
+                'Randevu Güncellendi',
+                "{$studioName} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli randevu bilgileri güncellendi.",
+                'appointment_updated',
+            ],
+        };
+
+        return $this->send(
+            $this->allRelevantRecipients($appointment),
+            $title,
+            $body,
+            $type,
+            [
+                ...$this->appointmentPayload($appointment),
+                'status' => (string) $appointment->status,
+                'actor_user_id' => (string) ($actor?->id ?? ''),
+            ],
+        );
+    }
+
+    public function notifyDriverAction(Appointment $appointment, string $statusLabel, ?User $actor = null): int
+    {
+        $appointment->loadMissing(['studio.company.manager', 'createdBy', 'assignedArtist']);
+
+        return $this->send(
+            $this->allRelevantRecipients($appointment),
+            'Şoför Hareketi',
+            $statusLabel,
+            'driver_action',
+            [
+                ...$this->appointmentPayload($appointment),
+                'driver_status' => (string) $appointment->driver_status,
+                'status' => (string) $appointment->status,
+                'actor_user_id' => (string) ($actor?->id ?? ''),
+            ],
+        );
+    }
+
+    public function notifyArtistResponse(Appointment $appointment, User $artist): int
+    {
+        $appointment->loadMissing(['studio.company.manager', 'createdBy', 'assignedArtist']);
+        $accepted = $appointment->artist_status === 'accepted';
+        $recipients = $this->allRelevantRecipients($appointment)
+            ->reject(fn (User $user): bool => (int) $user->id === (int) $artist->id)
+            ->values();
+
+        return $this->send(
+            $recipients,
+            $accepted ? 'Artist Randevuyu Kabul Etti' : 'Artist Randevuyu Reddetti',
+            "{$artist->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli dövme randevusunu "
+                .($accepted ? 'kabul etti.' : 'reddetti.'),
+            'artist_response',
+            [
+                ...$this->appointmentPayload($appointment),
+                'artist_id' => (string) $artist->id,
+                'artist_status' => (string) $appointment->artist_status,
+            ],
+        );
+    }
+
+    public function sendDueReminders(int $minutes = 15): int
     {
         $now = now();
         $appointments = Appointment::query()
-            ->with(['assignedArtist', 'studio.shop'])
+            ->with(['assignedArtist', 'createdBy', 'studio.company.manager'])
+            ->where('appointment_type', 'designer')
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->whereBetween('appointment_at', [$now, $now->copy()->addMinutes($minutes)])
             ->get();
@@ -54,22 +138,21 @@ class AppointmentNotificationService
         $sent = 0;
 
         foreach ($appointments as $appointment) {
-            foreach ($this->reminderRecipients($appointment) as $recipient) {
+            foreach ($this->designRecipients($appointment) as $recipient) {
                 if ($this->reminderAlreadySent($appointment, $recipient, $minutes)) {
                     continue;
                 }
 
                 $this->fcmService->sendToUser(
                     $recipient,
-                    'Randevu Hatırlatması',
-                    $this->reminderBody($appointment, $minutes),
+                    'Tasarım Rezervasyonu Hatırlatması',
+                    "{$appointment->studio?->name} için {$appointment->appointment_at?->format('H:i')} saatindeki tasarım rezervasyonuna {$minutes} dakika kaldı.",
                     'appointment_reminder',
                     [
                         ...$this->appointmentPayload($appointment),
                         'reminder_minutes' => (string) $minutes,
                     ],
                 );
-
                 $sent++;
             }
         }
@@ -80,73 +163,134 @@ class AppointmentNotificationService
     /**
      * @return Collection<int, User>
      */
-    private function reminderRecipients(Appointment $appointment): Collection
+    private function designRecipients(Appointment $appointment): Collection
     {
-        $recipients = collect();
-
-        if ($appointment->assignedArtist instanceof User) {
-            $recipients->push($appointment->assignedArtist);
-        } elseif ($appointment->studio instanceof Studio) {
-            $recipients = $recipients->merge(
-                $this->branchStaff($appointment->studio, [$this->professionalRoleFor($appointment)])
-            );
+        if (! $appointment->studio instanceof Studio) {
+            return collect();
         }
 
-        if ($appointment->pickup_required && $appointment->studio instanceof Studio) {
-            $recipients = $recipients->merge(
-                $this->branchStaff($appointment->studio, [UserRole::Sofor])
-            );
+        return $this->mergeRecipients(
+            $this->studioStaff($appointment->studio, [
+                UserRole::Admin,
+                UserRole::Yonetici,
+                UserRole::Supervisor,
+                UserRole::Designer,
+                UserRole::Info,
+                UserRole::Sofor,
+                UserRole::Calisan,
+            ]),
+            $this->managementUsers($appointment->studio),
+            collect([$appointment->assignedArtist])
+                ->filter(fn ($user): bool => $user instanceof User && ! $user->hasRole(UserRole::Artist)),
+        );
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function saleRecipients(Appointment $appointment): Collection
+    {
+        if (! $appointment->studio instanceof Studio) {
+            return collect([$appointment->createdBy, $appointment->assignedArtist])
+                ->filter()
+                ->unique('id')
+                ->values();
         }
 
-        return $recipients
+        return $this->mergeRecipients(
+            $this->studioStaff($appointment->studio, [
+                UserRole::Admin,
+                UserRole::Yonetici,
+                UserRole::Supervisor,
+                UserRole::Info,
+                UserRole::Designer,
+            ]),
+            $this->managementUsers($appointment->studio),
+        );
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function allRelevantRecipients(Appointment $appointment): Collection
+    {
+        $collections = [
+            collect([$appointment->createdBy, $appointment->assignedArtist])->filter(),
+        ];
+
+        if ($appointment->studio instanceof Studio) {
+            $collections[] = $this->studioStaff($appointment->studio);
+            $collections[] = $this->managementUsers($appointment->studio);
+        }
+
+        return $this->mergeRecipients(...$collections);
+    }
+
+    /**
+     * @param  array<int, UserRole>|null  $roles
+     * @return Collection<int, User>
+     */
+    private function studioStaff(Studio $studio, ?array $roles = null): Collection
+    {
+        $roleValues = array_map(
+            static fn (UserRole $role): string => $role->value,
+            $roles ?? UserRole::studioRoles(),
+        );
+
+        return User::query()
+            ->whereHas('studios', fn ($query) => $query
+                ->where('studios.id', $studio->id)
+                ->where('studio_user.is_active', true)
+                ->whereIn('studio_user.role', $roleValues))
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function managementUsers(Studio $studio): Collection
+    {
+        $admins = User::query()
+            ->where('role', UserRole::Admin->value)
+            ->whereNull('banned_at')
+            ->get();
+        $manager = $studio->company?->manager;
+
+        return $this->mergeRecipients(
+            $admins,
+            collect([$manager])->filter(),
+        );
+    }
+
+    /**
+     * @param  Collection<int, User>  ...$collections
+     * @return Collection<int, User>
+     */
+    private function mergeRecipients(Collection ...$collections): Collection
+    {
+        return collect($collections)
+            ->flatten(1)
+            ->filter(fn ($user): bool => $user instanceof User && $user->banned_at === null)
             ->unique(fn (User $user): int => (int) $user->id)
             ->values();
     }
 
     /**
-     * @param  array<int, UserRole>  $roles
-     * @return Collection<int, User>
+     * @param  Collection<int, User>  $recipients
+     * @param  array<string, string>  $payload
      */
-    private function branchStaff(Studio $studio, ?array $roles = null): Collection
-    {
-        $studioIds = $this->branchStudioIds($studio);
-        $roleValues = array_map(
-            static fn (UserRole $role): string => $role->value,
-            $roles ?? [
-                UserRole::Yonetici,
-                UserRole::Supervisor,
-                UserRole::Designer,
-                UserRole::Artist,
-                UserRole::Info,
-                UserRole::Sofor,
-                UserRole::Calisan,
-            ],
-        );
-
-        return User::query()
-            ->whereHas('studios', fn ($query) => $query
-                ->whereIn('studios.id', $studioIds)
-                ->where('studio_user.is_active', true)
-                ->whereIn('studio_user.role', $roleValues))
-            ->get()
-            ->unique('id')
-            ->values();
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function branchStudioIds(Studio $studio): array
-    {
-        if ($studio->shop_id === null) {
-            return [(int) $studio->id];
+    private function send(
+        Collection $recipients,
+        string $title,
+        string $body,
+        string $type,
+        array $payload
+    ): int {
+        foreach ($recipients as $recipient) {
+            $this->fcmService->sendToUser($recipient, $title, $body, $type, $payload);
         }
 
-        return Studio::query()
-            ->where('shop_id', $studio->shop_id)
-            ->pluck('id')
-            ->map(static fn ($id): int => (int) $id)
-            ->all();
+        return $recipients->count();
     }
 
     private function reminderAlreadySent(Appointment $appointment, User $recipient, int $minutes): bool
@@ -163,13 +307,6 @@ class AppointmentNotificationService
             });
     }
 
-    private function professionalRoleFor(Appointment $appointment): UserRole
-    {
-        return $appointment->appointment_type === 'designer'
-            ? UserRole::Designer
-            : UserRole::Artist;
-    }
-
     /**
      * @return array<string, string>
      */
@@ -177,17 +314,9 @@ class AppointmentNotificationService
     {
         return [
             'appointment_id' => (string) $appointment->id,
-            'studio_id' => (string) $appointment->studio_id,
-            'shop_id' => (string) ($appointment->studio?->shop_id ?? ''),
+            'studio_id' => (string) ($appointment->studio_id ?? ''),
+            'company_id' => (string) ($appointment->studio?->company_id ?? ''),
             'appointment_type' => (string) $appointment->appointment_type,
         ];
-    }
-
-    private function reminderBody(Appointment $appointment, int $minutes): string
-    {
-        $studioName = $appointment->studio?->name ?? 'Randevu';
-        $typeLabel = $appointment->appointment_type === 'tattoo' ? 'dövme' : 'tasarım';
-
-        return "{$studioName} için {$appointment->appointment_at?->format('H:i')} saatindeki {$typeLabel} randevusuna {$minutes} dakika kaldı.";
     }
 }

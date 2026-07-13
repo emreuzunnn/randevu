@@ -6,14 +6,24 @@ use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Appointment extends Model
 {
     /** @use HasFactory<AppointmentFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saved(function (Appointment $appointment): void {
+            app(\App\Services\CustomerService::class)->syncForAppointment($appointment);
+            app(\App\Services\StaffEarningService::class)->syncForAppointment($appointment);
+        });
+    }
+
     protected $fillable = [
         'studio_id',
+        'customer_id',
         'created_by_user_id',
         'assigned_artist_user_id',
         'appointment_type',
@@ -57,6 +67,11 @@ class Appointment extends Model
         return $this->belongsTo(Studio::class);
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
@@ -65,5 +80,10 @@ class Appointment extends Model
     public function assignedArtist(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_artist_user_id');
+    }
+
+    public function earning(): HasOne
+    {
+        return $this->hasOne(StaffEarning::class);
     }
 }

@@ -17,7 +17,7 @@ class CompanyController extends Controller
         abort_unless(auth()->user()?->hasRole(UserRole::Admin), 403);
 
         $companies = Company::query()
-            ->withCount(['shops', 'studios'])
+            ->withCount('studios')
             ->orderBy('name')
             ->get();
 
@@ -34,7 +34,6 @@ class CompanyController extends Controller
             'phone'            => ['nullable', 'string', 'max:30'],
             'email'            => ['nullable', 'string', 'email', 'max:255'],
             'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
-            'max_shop_count'   => ['required', 'integer', 'min:0'],
             'max_studio_count' => ['required', 'integer', 'min:0'],
         ]);
 
@@ -57,7 +56,6 @@ class CompanyController extends Controller
             'email'            => ['nullable', 'string', 'email', 'max:255'],
             'manager_user_id'  => ['nullable', 'integer', 'exists:users,id'],
             'is_active'        => ['sometimes', 'boolean'],
-            'max_shop_count'   => ['sometimes', 'integer', 'min:0'],
             'max_studio_count' => ['sometimes', 'integer', 'min:0'],
         ]);
 

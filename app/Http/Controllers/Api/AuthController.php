@@ -140,7 +140,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()?->load(['studios', 'managedShops']);
+        $user = $request->user()?->load(['studios', 'managedCompanies']);
         $primaryStudio = $user ? $this->resolvePrimaryStudio($user) : null;
         $membership = $primaryStudio?->users()->where('users.id', $user?->id)->first()?->pivot;
 
@@ -252,7 +252,7 @@ class AuthController extends Controller
             $primaryStudio->users()->updateExistingPivot($user->id, ['work_status' => $validated['status']]);
         }
 
-        $refreshedUser = $user->fresh()?->load(['studios', 'managedShops']);
+        $refreshedUser = $user->fresh()?->load(['studios', 'managedCompanies']);
         $primaryStudio = $refreshedUser ? $this->resolvePrimaryStudio($refreshedUser) : null;
         $membership = $primaryStudio?->users()->where('users.id', $refreshedUser?->id)->first()?->pivot;
 

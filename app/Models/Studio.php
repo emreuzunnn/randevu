@@ -25,7 +25,7 @@ class Studio extends Model
         'closing_time',
         'gallery_images',
         'owner_user_id',
-        'shop_id',
+        'company_id',
     ];
 
     protected function casts(): array
@@ -66,9 +66,9 @@ class Studio extends Model
         return $this->belongsTo(User::class, 'owner_user_id');
     }
 
-    public function shop(): BelongsTo
+    public function company(): BelongsTo
     {
-        return $this->belongsTo(Shop::class);
+        return $this->belongsTo(Company::class);
     }
 
     public function users(): BelongsToMany
@@ -77,6 +77,7 @@ class Studio extends Model
             ->withPivot([
                 'role',
                 'work_status',
+                'commission_rate',
                 'is_active',
                 'joined_at',
                 'left_at',

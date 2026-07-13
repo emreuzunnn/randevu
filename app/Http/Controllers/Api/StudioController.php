@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
-use App\Models\Shop;
+use App\Models\Company;
 use App\Models\Studio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +17,7 @@ class StudioController extends Controller
         $user = $request->user();
 
         $studios = Studio::query()
-            ->with('shop')
+            ->with('company')
             ->when(
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
@@ -37,9 +37,9 @@ class StudioController extends Controller
                 'location' => $studio->location,
                 'slug' => $studio->slug,
                 'logo_path' => $studio->logo_path,
-                'shop' => $studio->shop ? [
-                    'id' => $studio->shop->id,
-                    'name' => $studio->shop->name,
+                'company' => $studio->company ? [
+                    'id' => $studio->company->id,
+                    'name' => $studio->company->name,
                 ] : null,
                 'total_staff_count' => $studio->total_staff_count,
                 'active_staff_count' => $studio->active_staff_count,
@@ -50,33 +50,40 @@ class StudioController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
+        $user = $request->user();
+        abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici]), 403);
 
         $validated = $request->validate([
-            'shop_id'                    => ['required', 'integer', 'exists:shops,id'],
+            'company_id'                 => ['nullable', 'integer', 'exists:companies,id'],
             'name'                       => ['required', 'string', 'max:255'],
             'location'                   => ['nullable', 'string', 'max:255'],
         ]);
 
-        $shop = Shop::query()->with('company')->findOrFail($validated['shop_id']);
+        $company = isset($validated['company_id'])
+            ? Company::query()->findOrFail($validated['company_id'])
+            : $user->managedCompanies()->first();
 
-        abort_unless($request->user()?->canManageStudiosInShop($shop), 403);
+        abort_if($company === null, 422, 'Stüdyo için bir şirket bulunamadı.');
+        abort_unless(
+            $user->hasRole(UserRole::Admin)
+                || (int) $company->manager_user_id === (int) $user->id,
+            403
+        );
 
-        // Şirket stüdyo limiti kontrolü
-        if ($shop->company !== null && ! $shop->company->canAddStudio()) {
+        if (! $company->canAddStudio()) {
             return response()->json([
                 'status'  => 'error',
                 'code'    => 422,
                 'message' => 'Stüdyo limitinize ulaştınız. Daha fazla stüdyo oluşturmak için lütfen admin ile iletişime geçin.',
                 'data'    => [
-                    'current' => $shop->company->currentStudioCount(),
-                    'limit'   => $shop->company->max_studio_count,
+                    'current' => $company->currentStudioCount(),
+                    'limit'   => $company->max_studio_count,
                 ],
             ], 422);
         }
 
         $studio = Studio::query()->create([
-            'shop_id'                   => $shop->id,
+            'company_id'                => $company->id,
             'owner_user_id'             => $request->user()->id,
             'name'                      => $validated['name'],
             'location'                  => $validated['location'] ?? null,
@@ -92,7 +99,7 @@ class StudioController extends Controller
                 'name'     => $studio->name,
                 'location' => $studio->location,
                 'slug'     => $studio->slug,
-                'shop_id'  => $studio->shop_id,
+                'company_id' => $studio->company_id,
             ],
         ], 201);
     }
@@ -117,7 +124,17 @@ class StudioController extends Controller
             'opening_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'closing_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'logo_path'    => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'company_id'   => ['sometimes', 'integer', 'exists:companies,id'],
         ]);
+
+        if (isset($validated['company_id'])) {
+            $company = Company::query()->findOrFail($validated['company_id']);
+            abort_unless(
+                $request->user()?->hasRole(UserRole::Admin)
+                    || (int) $company->manager_user_id === (int) $request->user()?->id,
+                403
+            );
+        }
 
         $studio->fill($validated)->save();
 
@@ -133,7 +150,7 @@ class StudioController extends Controller
                 'opening_time',
                 'closing_time',
                 'gallery_images',
-                'shop_id',
+                'company_id',
             ]),
         ]);
     }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
-use App\Models\Shop;
 use App\Models\Studio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -75,27 +74,6 @@ class MediaController extends Controller
         ]);
     }
 
-    // ── Şube Logo ─────────────────────────────────────────────────────────────
-
-    public function uploadShopLogo(Request $request, Shop $shop): JsonResponse
-    {
-        abort_unless($request->user()?->canManageShop($shop) || $request->user()?->hasRole(UserRole::Admin), 403);
-
-        $request->validate([
-            'logo' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
-        ]);
-
-        $this->deleteOldImage($shop->logo_path);
-        $url = $this->storeImage($request, 'logo', 'logos/shops');
-        $shop->update(['logo_path' => $url]);
-
-        return response()->json([
-            'status'   => 'success',
-            'message'  => 'Şube logosu güncellendi.',
-            'logo_path' => $url,
-        ]);
-    }
-
     // ── Stüdyo Logo ──────────────────────────────────────────────────────────
 
     public function uploadStudioLogo(Request $request, Studio $studio): JsonResponse
@@ -152,49 +130,6 @@ class MediaController extends Controller
             fn ($u) => $u !== $request->input('url')
         ));
         $company->update(['gallery_images' => $images]);
-
-        return response()->json([
-            'status'         => 'success',
-            'message'        => 'Görsel silindi.',
-            'gallery_images' => $images,
-        ]);
-    }
-
-    // ── Şube Galeri ──────────────────────────────────────────────────────────
-
-    public function addShopGalleryImage(Request $request, Shop $shop): JsonResponse
-    {
-        abort_unless($request->user()?->canManageShop($shop) || $request->user()?->hasRole(UserRole::Admin), 403);
-
-        $request->validate([
-            'image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
-        ]);
-
-        $url = $this->storeImage($request, 'image', 'gallery/shops/' . $shop->id);
-        $images = array_merge($shop->gallery_images ?? [], [$url]);
-        $shop->update(['gallery_images' => $images]);
-
-        return response()->json([
-            'status'         => 'success',
-            'message'        => 'Görsel eklendi.',
-            'gallery_images' => $images,
-        ]);
-    }
-
-    public function removeShopGalleryImage(Request $request, Shop $shop): JsonResponse
-    {
-        abort_unless($request->user()?->canManageShop($shop) || $request->user()?->hasRole(UserRole::Admin), 403);
-
-        $request->validate([
-            'url' => ['required', 'string'],
-        ]);
-
-        $this->deleteOldImage($request->input('url'));
-        $images = array_values(array_filter(
-            $shop->gallery_images ?? [],
-            fn ($u) => $u !== $request->input('url')
-        ));
-        $shop->update(['gallery_images' => $images]);
 
         return response()->json([
             'status'         => 'success',

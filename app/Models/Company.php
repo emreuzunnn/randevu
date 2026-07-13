@@ -20,7 +20,6 @@ class Company extends Model
         'website',
         'gallery_images',
         'is_active',
-        'max_shop_count',
         'max_studio_count',
     ];
 
@@ -28,15 +27,9 @@ class Company extends Model
     {
         return [
             'is_active'        => 'boolean',
-            'max_shop_count'   => 'integer',
             'max_studio_count' => 'integer',
             'gallery_images'   => 'array',
         ];
-    }
-
-    public function shops(): HasMany
-    {
-        return $this->hasMany(Shop::class);
     }
 
     public function manager(): BelongsTo
@@ -44,9 +37,9 @@ class Company extends Model
         return $this->belongsTo(User::class, 'manager_user_id');
     }
 
-    public function studios(): HasManyThrough
+    public function studios(): HasMany
     {
-        return $this->hasManyThrough(Studio::class, Shop::class);
+        return $this->hasMany(Studio::class);
     }
 
     public function appointments(): HasManyThrough
@@ -54,7 +47,7 @@ class Company extends Model
         return $this->hasManyThrough(
             Appointment::class,
             Studio::class,
-            'shop_id',   // Studio → Shop FK (aslında studio shop_id üzerinden gidiyor; HasManyThrough zinciri için ara tablo gerekiyor)
+            'company_id',
             'studio_id', // Appointment → Studio FK
             'id',
             'id',
@@ -63,17 +56,7 @@ class Company extends Model
 
     // ── Sınır kontrolleri ──────────────────────────────────
 
-    /** Dükkan oluşturulabilir mi? */
-    public function canAddShop(): bool
-    {
-        if ($this->max_shop_count === 0) {
-            return true;
-        }
-
-        return $this->shops()->count() < $this->max_shop_count;
-    }
-
-    /** Stüdyo oluşturulabilir mi? (tüm dükkanlar genelinde) */
+    /** Stüdyo oluşturulabilir mi? */
     public function canAddStudio(): bool
     {
         if ($this->max_studio_count === 0) {
@@ -81,12 +64,6 @@ class Company extends Model
         }
 
         return $this->studios()->count() < $this->max_studio_count;
-    }
-
-    /** Mevcut dükkan sayısı */
-    public function currentShopCount(): int
-    {
-        return $this->shops()->count();
     }
 
     /** Mevcut stüdyo sayısı */

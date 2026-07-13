@@ -40,6 +40,7 @@ class AppointmentRequestController extends Controller
                         UserRole::Supervisor->value,
                         UserRole::Yonetici->value,
                         UserRole::Info->value,
+                        UserRole::Designer->value,
                     ])
                     ->pluck('studios.id')
                     ->map(static fn ($id): int => (int) $id))
@@ -269,7 +270,7 @@ class AppointmentRequestController extends Controller
         }
 
         app(AppointmentNotificationService::class)
-            ->notifyBranchAppointmentCreated($appointment, $request->user());
+            ->notifyStudioAppointmentCreated($appointment, $request->user());
 
         return response()->json([
             'message' => 'Talep kabul edildi ve randevu oluşturuldu.',
@@ -423,7 +424,13 @@ class AppointmentRequestController extends Controller
         return $user instanceof User && (
             (int) $appointmentRequest->requester_user_id === (int) $user->id ||
             (int) $appointmentRequest->target_user_id === (int) $user->id ||
-            ($appointmentRequest->studio && $user->canManageStudioAppointments($appointmentRequest->studio))
+            ($appointmentRequest->studio && (
+                $user->canManageStudioAppointments($appointmentRequest->studio)
+                || $user->studios()
+                    ->where('studios.id', $appointmentRequest->studio->id)
+                    ->wherePivot('is_active', true)
+                    ->exists()
+            ))
         );
     }
 
@@ -609,14 +616,30 @@ class AppointmentRequestController extends Controller
 
     private function notifyStudio(Studio $studio, User $requester, AppointmentRequest $appointmentRequest): void
     {
-        $users = $studio->users()
+        $studio->loadMissing('company.manager');
+        $studioUsers = $studio->users()
             ->wherePivot('is_active', true)
             ->wherePivotIn('role', [
+                UserRole::Admin->value,
                 UserRole::Supervisor->value,
                 UserRole::Yonetici->value,
                 UserRole::Info->value,
+                UserRole::Designer->value,
             ])
-            ->get(['users.id']);
+            ->get();
+        $admins = User::query()
+            ->where('role', UserRole::Admin->value)
+            ->whereNull('banned_at')
+            ->get();
+        $users = $studioUsers
+            ->merge($admins)
+            ->when(
+                $studio->company?->manager instanceof User,
+                fn ($items) => $items->push($studio->company->manager)
+            )
+            ->filter(fn ($user): bool => $user instanceof User && $user->banned_at === null)
+            ->unique('id')
+            ->values();
 
         foreach ($users as $user) {
             app(FcmService::class)->sendToUser(

@@ -205,7 +205,11 @@ class NotificationController extends Controller
     {
         return match ($type) {
             'appointment_created',
+            'design_reservation_created',
             'appointment_completed',
+            'appointment_updated',
+            'appointment_cancelled',
+            'appointment_started',
             'appointment_reminder',
             'appointment_request',
             'appointment_request_accepted',
@@ -216,6 +220,8 @@ class NotificationController extends Controller
             'studio_staff_invitation_accepted',
             'studio_staff_invitation_rejected' => 'person',
             'driver_action' => 'transfer',
+            'sale_created' => 'payment',
+            'earning_paid' => 'payment',
             'warning' => 'warning',
             default => 'notification',
         };
@@ -225,7 +231,11 @@ class NotificationController extends Controller
     {
         return match ($type) {
             'appointment_created' => '001B5E',
+            'design_reservation_created' => '4ECDC4',
             'appointment_completed' => '22C55E',
+            'appointment_updated' => '3B82F6',
+            'appointment_cancelled' => 'EF4444',
+            'appointment_started' => '8B5CF6',
             'appointment_reminder' => 'F59E0B',
             'appointment_request' => '4ECDC4',
             'appointment_request_accepted' => '22C55E',
@@ -236,6 +246,8 @@ class NotificationController extends Controller
             'studio_staff_invitation_accepted' => '22C55E',
             'studio_staff_invitation_rejected' => 'EF4444',
             'driver_action' => 'F59E0B',
+            'sale_created' => '22C55E',
+            'earning_paid' => '22C55E',
             default => '001B5E',
         };
     }

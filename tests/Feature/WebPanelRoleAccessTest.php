@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
-use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -51,16 +50,14 @@ class WebPanelRoleAccessTest extends TestCase
             $user = User::factory()->create(['role' => $role]);
 
             $this->actingAs($user)->get('/admin/companies')->assertForbidden();
-            $this->actingAs($user)->get('/admin/shops')->assertForbidden();
             $this->actingAs($user)->get('/admin/studios')->assertForbidden();
             $this->actingAs($user)->get('/admin/users')->assertForbidden();
         }
     }
 
-    public function test_appointment_detail_is_available_to_assigned_artist_branch_driver_and_creator(): void
+    public function test_appointment_detail_is_available_to_assigned_artist_studio_driver_and_creator(): void
     {
-        $shop = Shop::factory()->create(['manager_user_id' => null]);
-        $studio = Studio::factory()->create(['shop_id' => $shop->id]);
+        $studio = Studio::factory()->create();
         $artist = User::factory()->create(['role' => UserRole::Artist]);
         $driver = User::factory()->create(['role' => UserRole::Sofor]);
         $creator = User::factory()->create(['role' => UserRole::Kullanici]);

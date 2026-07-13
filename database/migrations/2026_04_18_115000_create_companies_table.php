@@ -23,7 +23,6 @@ return new class extends Migration
             $table->string('website', 255)->nullable();
             $table->json('gallery_images')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->unsignedSmallInteger('max_shop_count')->default(0);
             $table->unsignedSmallInteger('max_studio_count')->default(0);
             $table->timestamps();
         });

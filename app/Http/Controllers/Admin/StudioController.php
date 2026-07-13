@@ -17,7 +17,7 @@ class StudioController extends Controller
         abort_unless($user?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
 
         $studios = Studio::query()
-            ->with('shop')
+            ->with('company')
             ->when(
                 ! $user?->hasRole(UserRole::Admin),
                 fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])

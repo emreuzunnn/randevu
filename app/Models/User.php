@@ -218,25 +218,15 @@ class User extends Authenticatable
         return $this->hasMany(PushToken::class);
     }
 
-    public function managedShops(): HasMany
-    {
-        return $this->hasMany(Shop::class, 'manager_user_id');
-    }
-
     public function managedCompanies(): HasMany
     {
         return $this->hasMany(Company::class, 'manager_user_id');
     }
 
-    public function supervisedShops(): HasMany
-    {
-        return $this->hasMany(Shop::class, 'supervisor_user_id');
-    }
-
     public function studios(): BelongsToMany
     {
         return $this->belongsToMany(Studio::class)
-            ->withPivot(['role', 'work_status', 'is_active', 'joined_at', 'left_at'])
+            ->withPivot(['role', 'work_status', 'commission_rate', 'is_active', 'joined_at', 'left_at'])
             ->withTimestamps();
     }
 
@@ -265,40 +255,6 @@ class User extends Authenticatable
             ->exists();
     }
 
-    public function canManageShop(Shop|int $shop): bool
-    {
-        if ($this->hasRole(UserRole::Admin)) {
-            return true;
-        }
-
-        $shopModel = $shop instanceof Shop ? $shop : Shop::query()->find($shop);
-
-        if ($shopModel === null) {
-            return false;
-        }
-
-        $shopId = $shopModel->getKey();
-
-        if ($this->hasRole(UserRole::Yonetici)) {
-            return (
-                $shopModel->company_id !== null
-                && $this->managedCompanies()->whereKey($shopModel->company_id)->exists()
-            )
-                || $this->managedShops()->whereKey($shopId)->exists();
-        }
-
-        return $this->hasRole(UserRole::Supervisor)
-            && (
-                $this->supervisedShops()->whereKey($shopId)->exists()
-                || $this->managedShops()->whereKey($shopId)->exists()
-            );
-    }
-
-    public function canManageStudiosInShop(Shop|int $shop): bool
-    {
-        return $this->canManageShop($shop);
-    }
-
     public function canManageStudio(Studio|int $studio): bool
     {
         if ($this->hasRole(UserRole::Admin)) {
@@ -311,20 +267,17 @@ class User extends Authenticatable
             return false;
         }
 
-        if (
-            $this->hasAnyRole([UserRole::Yonetici, UserRole::Supervisor])
-            && in_array($studioModel->id, $this->staffScopeStudioIds(), true)
-        ) {
+        if ($this->hasRole(UserRole::Yonetici)) {
+            return $studioModel->company_id !== null
+                && $this->managedCompanies()->whereKey($studioModel->company_id)->exists();
+        }
+
+        if ($this->hasRole(UserRole::Supervisor)
+            && $this->hasStudioRole($studioModel, [UserRole::Supervisor])) {
             return true;
         }
 
-        // Platform yöneticisi ve şube supervisor'ı
-        if ($this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor])) {
-            return true;
-        }
-
-        return $studioModel->shop_id !== null
-            && $this->canManageStudiosInShop($studioModel->shop_id);
+        return $this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici]);
     }
 
     public function canManageStudioAppointments(Studio|int $studio): bool
@@ -350,13 +303,7 @@ class User extends Authenticatable
             return true;
         }
 
-        // Shop supervisor
-        if (! $this->hasRole(UserRole::Supervisor)) {
-            return false;
-        }
-
-        return $studioModel->shop_id !== null
-            && $this->canManageShop($studioModel->shop_id);
+        return false;
     }
 
     /** Sanatçıya randevu atama yetkisi (supervisor ve üstü) */
@@ -399,29 +346,13 @@ class User extends Authenticatable
         $studioIds = $this->studios()->pluck('studios.id')->all();
 
         if ($this->hasRole(UserRole::Yonetici)) {
-            $companyIds = $this->managedCompanies()->pluck('id')
-                ->merge($this->managedShops()->whereNotNull('company_id')->pluck('company_id'))
-                ->unique();
+            $companyIds = $this->managedCompanies()->pluck('id');
             $studioIds = array_merge(
                 $studioIds,
                 Studio::query()
-                    ->whereHas('shop', fn ($query) => $query->whereIn('company_id', $companyIds))
+                    ->whereIn('company_id', $companyIds)
                     ->pluck('id')
                     ->all(),
-                Studio::query()
-                    ->whereIn('shop_id', $this->managedShops()->pluck('id'))
-                    ->pluck('id')
-                    ->all(),
-            );
-        }
-
-        if ($this->hasRole(UserRole::Supervisor)) {
-            $shopIds = $this->supervisedShops()->pluck('id')
-                ->merge($this->managedShops()->pluck('id'))
-                ->unique();
-            $studioIds = array_merge(
-                $studioIds,
-                Studio::query()->whereIn('shop_id', $shopIds)->pluck('id')->all(),
             );
         }
 
@@ -429,7 +360,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Personel yönetimi kapsamı: admin tüm proje, yönetici şirket, supervisor şube.
+     * Personel yönetimi kapsamı: admin tüm proje, yönetici şirket, supervisor atandığı stüdyo.
      *
      * @return array<int, int>
      */
@@ -440,19 +371,10 @@ class User extends Authenticatable
         }
 
         if ($this->hasRole(UserRole::Yonetici)) {
-            $companyIds = $this->managedCompanies()->pluck('id')
-                ->merge($this->managedShops()->whereNotNull('company_id')->pluck('company_id'))
-                ->unique();
+            $companyIds = $this->managedCompanies()->pluck('id');
             $studioIds = Studio::query()
-                ->whereIn('shop_id', $this->managedShops()->pluck('id'))
+                ->whereIn('company_id', $companyIds)
                 ->pluck('id');
-
-            if ($companyIds->isNotEmpty()) {
-                $studioIds = $studioIds->merge(Studio::query()
-                    ->whereHas('shop', fn ($query) => $query->whereIn('company_id', $companyIds))
-                    ->pluck('id')
-                );
-            }
 
             if ($studioIds->isNotEmpty()) {
                 return $studioIds->unique()->map('intval')->values()->all();
@@ -460,25 +382,12 @@ class User extends Authenticatable
         }
 
         if ($this->hasRole(UserRole::Supervisor)) {
-            $shopIds = $this->supervisedShops()->pluck('id')
-                ->merge($this->managedShops()->pluck('id'))
-                ->unique();
-
-            if ($shopIds->isEmpty()) {
-                $shopIds = $this->studios()
-                    ->wherePivot('role', UserRole::Supervisor->value)
-                    ->wherePivot('is_active', true)
-                    ->pluck('studios.shop_id')
-                    ->filter();
-            }
-
-            if ($shopIds->isNotEmpty()) {
-                return Studio::query()
-                    ->whereIn('shop_id', $shopIds)
-                    ->pluck('id')
-                    ->map('intval')
-                    ->all();
-            }
+            return $this->studios()
+                ->wherePivot('role', UserRole::Supervisor->value)
+                ->wherePivot('is_active', true)
+                ->pluck('studios.id')
+                ->map('intval')
+                ->all();
         }
 
         return $this->accessibleStudioIds();

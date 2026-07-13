@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\ContentReport;
 use App\Models\Review;
-use App\Models\Shop;
 use App\Models\Studio;
 use App\Models\User;
 use Carbon\Carbon;
@@ -22,7 +21,7 @@ class PublicController extends Controller
     /** Stüdyo herkese açık detay + portfolio + istatistikler */
     public function studio(Studio $studio): JsonResponse
     {
-        $studio->load(['shop.company']);
+        $studio->load('company');
 
         $artists = $studio->users()
             ->whereNull('users.banned_at')
@@ -75,7 +74,7 @@ class PublicController extends Controller
             ->first();
 
         $studioPortfolio = $this->galleryItems($studio->gallery_images ?? []);
-        $shopPortfolio = $this->galleryItems($studio->shop?->gallery_images ?? []);
+        $companyPortfolio = $this->galleryItems($studio->company?->gallery_images ?? []);
 
         return response()->json([
             'status' => 'success',
@@ -88,26 +87,18 @@ class PublicController extends Controller
                 'logo_path'      => $studio->logo_path,
                 'rating'         => $reviewStats?->avg_rating !== null ? round((float) $reviewStats->avg_rating, 1) : null,
                 'review_count'   => (int) ($reviewStats->total ?? 0),
-                'opening_time'   => $studio->opening_time ?? $studio->shop?->opening_time,
-                'closing_time'   => $studio->closing_time ?? $studio->shop?->closing_time,
+                'opening_time'   => $studio->opening_time,
+                'closing_time'   => $studio->closing_time,
                 'gallery_images' => $studioPortfolio,
                 'portfolio'      => $studioPortfolio,
-                'aggregated_gallery' => array_values(array_unique(array_merge($studioPortfolio, $shopPortfolio))),
-                'shop'           => $studio->shop ? [
-                    'id'           => $studio->shop->id,
-                    'name'         => $studio->shop->name,
-                    'location'     => $studio->shop->location,
-                    'logo_path'    => $studio->shop->logo_path,
-                    'opening_time' => $studio->shop->opening_time,
-                    'closing_time' => $studio->shop->closing_time,
-                    'gallery_images' => $shopPortfolio,
-                    'company'      => $studio->shop->company ? [
-                        'id'        => $studio->shop->company->id,
-                        'name'      => $studio->shop->company->name,
-                        'logo_path' => $studio->shop->company->logo_path,
-                        'about'     => $studio->shop->company->about,
-                        'website'   => $studio->shop->company->website,
-                    ] : null,
+                'aggregated_gallery' => array_values(array_unique(array_merge($studioPortfolio, $companyPortfolio))),
+                'company'        => $studio->company ? [
+                    'id'        => $studio->company->id,
+                    'name'      => $studio->company->name,
+                    'logo_path' => $studio->company->logo_path,
+                    'about'     => $studio->company->about,
+                    'website'   => $studio->company->website,
+                    'gallery_images' => $companyPortfolio,
                 ] : null,
                 'appointment_stats' => [
                     'total'     => $stats->sum(),
@@ -574,7 +565,7 @@ class PublicController extends Controller
     public function studios(): JsonResponse
     {
         $studios = Studio::query()
-            ->with(['shop.company'])
+            ->with('company')
             ->orderBy('name')
             ->get();
 
@@ -589,20 +580,12 @@ class PublicController extends Controller
                 'location'     => $studio->location,
                 'about'        => $studio->about,
                 'logo_path'    => $studio->logo_path,
-                'opening_time' => $studio->opening_time ?? $studio->shop?->opening_time,
-                'closing_time' => $studio->closing_time ?? $studio->shop?->closing_time,
-                'shop'         => $studio->shop ? [
-                    'id'           => $studio->shop->id,
-                    'name'         => $studio->shop->name,
-                    'location'     => $studio->shop->location,
-                    'logo_path'    => $studio->shop->logo_path,
-                    'opening_time' => $studio->shop->opening_time,
-                    'closing_time' => $studio->shop->closing_time,
-                    'company'      => $studio->shop->company ? [
-                        'id'        => $studio->shop->company->id,
-                        'name'      => $studio->shop->company->name,
-                        'logo_path' => $studio->shop->company->logo_path,
-                    ] : null,
+                'opening_time' => $studio->opening_time,
+                'closing_time' => $studio->closing_time,
+                'company'      => $studio->company ? [
+                    'id'        => $studio->company->id,
+                    'name'      => $studio->company->name,
+                    'logo_path' => $studio->company->logo_path,
                 ] : null,
             ])->values(),
         ]);

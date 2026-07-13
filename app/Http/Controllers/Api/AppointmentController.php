@@ -27,22 +27,18 @@ class AppointmentController extends Controller
     {
         $filters = $request->validate([
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
             'studio_id' => ['nullable', 'integer', 'exists:studios,id'],
-            'status' => ['nullable', 'string', 'in:confirmed,completed,cancelled,rescheduled'],
+            'status' => ['nullable', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
 
         $appointments = Appointment::query()
-            ->with(['createdBy', 'assignedArtist', 'studio.shop.company'])
+            ->with(['createdBy', 'assignedArtist', 'studio.company'])
             ->when(isset($filters['studio_id']), fn ($query) => $query
                 ->where('studio_id', (int) $filters['studio_id']))
-            ->when(isset($filters['shop_id']), fn ($query) => $query
-                ->whereHas('studio', fn ($studioQuery) => $studioQuery
-                    ->where('shop_id', (int) $filters['shop_id'])))
             ->when(isset($filters['company_id']), fn ($query) => $query
-                ->whereHas('studio.shop', fn ($shopQuery) => $shopQuery
+                ->whereHas('studio', fn ($studioQuery) => $studioQuery
                     ->where('company_id', (int) $filters['company_id'])))
             ->when(isset($filters['status']), fn ($query) => $query
                 ->where('status', $filters['status']))
@@ -79,13 +75,9 @@ class AppointmentController extends Controller
                 'studio' => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
-                    'shop' => $appointment->studio->shop ? [
-                        'id'   => $appointment->studio->shop->id,
-                        'name' => $appointment->studio->shop->name,
-                        'company' => $appointment->studio->shop->company ? [
-                            'id'   => $appointment->studio->shop->company->id,
-                            'name' => $appointment->studio->shop->company->name,
-                        ] : null,
+                    'company' => $appointment->studio->company ? [
+                        'id'   => $appointment->studio->company->id,
+                        'name' => $appointment->studio->company->name,
                     ] : null,
                 ] : null,
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
@@ -93,19 +85,19 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Şoförün bağlı olduğu şubedeki TÜM randevuları döndürür */
+    /** Şoförün bağlı olduğu stüdyolardaki pick up randevularını döndürür */
     public function myAppointments(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        // Şoförün bulunduğu stüdyolar → şubeler → o şubelerdeki tüm stüdyolar
-        $myStudioIds  = $user->studios()->pluck('studios.id');
-        $shopIds      = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
-        $branchStudioIds = Studio::query()->whereIn('shop_id', $shopIds)->pluck('id');
+        $myStudioIds = $user->studios()
+            ->wherePivot('is_active', true)
+            ->wherePivot('role', UserRole::Sofor->value)
+            ->pluck('studios.id');
 
         $appointments = Appointment::query()
-            ->with(['studio.shop', 'createdBy'])
-            ->whereIn('studio_id', $branchStudioIds)
+            ->with(['studio.company', 'createdBy'])
+            ->whereIn('studio_id', $myStudioIds)
             ->where('pickup_required', true)
             ->orderBy('appointment_at')
             ->get();
@@ -156,7 +148,7 @@ class AppointmentController extends Controller
         }
 
         $appointments = Appointment::query()
-            ->with(['studio.shop', 'createdBy'])
+            ->with(['studio.company', 'createdBy'])
             ->where(function ($query) use ($artistStudioIds, $designerStudioIds, $isIndependentArtist, $user): void {
                 if ($artistStudioIds !== []) {
                     $query->orWhere(function ($artistQuery) use ($artistStudioIds): void {
@@ -195,9 +187,9 @@ class AppointmentController extends Controller
                     'studio' => $appointment->studio ? [
                         'id'   => $appointment->studio->id,
                         'name' => $appointment->studio->name,
-                        'shop' => $appointment->studio->shop ? [
-                            'id'   => $appointment->studio->shop->id,
-                            'name' => $appointment->studio->shop->name,
+                        'company' => $appointment->studio->company ? [
+                            'id'   => $appointment->studio->company->id,
+                            'name' => $appointment->studio->company->name,
                         ] : null,
                     ] : null,
                     'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
@@ -242,7 +234,7 @@ class AppointmentController extends Controller
                     'rating'        => $a->rating,
                 ])->values(),
                 'appointment_types' => self::APPOINTMENT_TYPES,
-                'statuses' => ['confirmed', 'completed', 'cancelled', 'rescheduled'],
+                'statuses' => ['confirmed', 'in_progress', 'completed', 'cancelled', 'rescheduled'],
             ],
         ]);
     }
@@ -265,6 +257,10 @@ class AppointmentController extends Controller
             (int) $appointment->created_by_user_id === (int) $user->id ||
             (int) $appointment->assigned_artist_user_id === (int) $user->id ||
             ($appointment->studio && $user->canManageStudioAppointments($appointment->studio)) ||
+            ($appointment->studio && $user->studios()
+                ->where('studios.id', $appointment->studio->id)
+                ->wherePivot('is_active', true)
+                ->exists()) ||
             ($appointment->pickup_required && $appointment->studio && $this->driverCanAccessStudio($appointment->studio, $request));
 
         abort_unless($canAccess, 403);
@@ -274,8 +270,9 @@ class AppointmentController extends Controller
 
     private function appointmentDetailResponse(Appointment $appointment): JsonResponse
     {
-        $appointment->load(['createdBy', 'assignedArtist', 'studio.shop']);
+        $appointment->load(['createdBy', 'assignedArtist', 'studio.company']);
         $limitedView = $this->artistLimitedView($appointment);
+        $currentUser = request()->user();
 
         return response()->json([
             'data' => [
@@ -291,6 +288,10 @@ class AppointmentController extends Controller
                 'status'           => $appointment->status,
                 'driver_status'    => $limitedView ? null : $appointment->driver_status,
                 'artist_status'    => $appointment->artist_status,
+                'can_artist_respond' => $currentUser instanceof User
+                    && (int) $appointment->assigned_artist_user_id === (int) $currentUser->id
+                    && $appointment->appointment_type === 'tattoo'
+                    && ! in_array($appointment->status, ['cancelled', 'completed'], true),
                 'notes'            => $limitedView ? null : $appointment->notes,
                 'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
@@ -302,9 +303,9 @@ class AppointmentController extends Controller
                 'studio'           => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
-                    'shop' => $appointment->studio->shop ? [
-                        'id'   => $appointment->studio->shop->id,
-                        'name' => $appointment->studio->shop->name,
+                    'company' => $appointment->studio->company ? [
+                        'id'   => $appointment->studio->company->id,
+                        'name' => $appointment->studio->company->name,
                     ] : null,
                 ] : null,
                 'artist'           => $appointment->assignedArtist ? [
@@ -405,7 +406,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Şoför şubedeki herhangi bir randevunun durumunu güncelleyebilir */
+    /** Şoför atandığı stüdyodaki randevunun durumunu güncelleyebilir */
     public function driverAction(Request $request, Studio $studio, Appointment $appointment): JsonResponse
     {
         abort_if((int) $appointment->studio_id !== (int) $studio->id, 404);
@@ -413,15 +414,7 @@ class AppointmentController extends Controller
 
         $user = $request->user();
 
-        // Şoförün bu stüdyonun şubesine ait bir stüdyoda şoför olup olmadığını kontrol et
-        $myStudioIds = $user->studios()->pluck('studios.id');
-        $shopIds     = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
-        $inBranch    = Studio::query()
-            ->where('id', $studio->id)
-            ->whereIn('shop_id', $shopIds)
-            ->exists();
-
-        abort_unless($inBranch, 403);
+        abort_unless($user?->hasStudioRole($studio, [UserRole::Sofor]), 403);
 
         $validated = $request->validate([
             'driver_status' => ['required', 'string', 'in:picked_up,dropped_off,cancelled,customer_no_show'],
@@ -437,28 +430,14 @@ class AppointmentController extends Controller
 
         $appointment->save();
 
-        $appointment->load(['createdBy', 'studio']);
-        if ($appointment->createdBy instanceof User) {
-            $statusLabel = match ($validated['driver_status']) {
-                'picked_up' => 'Şoför müşteriyi aldı.',
-                'dropped_off' => 'Şoför müşteriyi bıraktı ve randevu tamamlandı.',
-                'customer_no_show' => 'Müşteri gelmedi, randevu iptal edildi.',
-                default => 'Şoför randevuyu iptal etti.',
-            };
-
-            app(FcmService::class)->sendToUser(
-                $appointment->createdBy,
-                'Transfer Güncellendi',
-                $statusLabel,
-                'driver_action',
-                [
-                    'appointment_id' => $appointment->id,
-                    'studio_id'      => $appointment->studio_id,
-                    'driver_status'  => $appointment->driver_status,
-                    'status'         => $appointment->status,
-                ],
-            );
-        }
+        $statusLabel = match ($validated['driver_status']) {
+            'picked_up' => 'Şoför müşteriyi aldı.',
+            'dropped_off' => 'Şoför müşteriyi bıraktı ve randevu tamamlandı.',
+            'customer_no_show' => 'Müşteri gelmedi, randevu iptal edildi.',
+            default => 'Şoför randevuyu iptal etti.',
+        };
+        app(AppointmentNotificationService::class)
+            ->notifyDriverAction($appointment, $statusLabel, $user);
 
         return response()->json([
             'message' => 'Durum güncellendi.',
@@ -521,6 +500,37 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function artistResponse(Request $request, Appointment $appointment): JsonResponse
+    {
+        $artist = $request->user();
+        abort_unless($artist instanceof User, 403);
+        abort_unless((int) $appointment->assigned_artist_user_id === (int) $artist->id, 403);
+        abort_unless($appointment->appointment_type === 'tattoo', 422);
+        abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
+
+        $validated = $request->validate([
+            'response' => ['required', 'string', 'in:accepted,rejected'],
+        ]);
+        abort_if($appointment->artist_status === $validated['response'], 422, 'Bu randevuya daha önce yanıt verdiniz.');
+
+        $appointment->forceFill([
+            'artist_status' => $validated['response'],
+        ])->save();
+
+        app(AppointmentNotificationService::class)
+            ->notifyArtistResponse($appointment, $artist);
+
+        return response()->json([
+            'message' => $validated['response'] === 'accepted'
+                ? 'Dövme randevusu kabul edildi.'
+                : 'Dövme randevusu reddedildi.',
+            'data' => [
+                'id' => $appointment->id,
+                'artist_status' => $appointment->artist_status,
+            ],
+        ]);
+    }
+
     /** Artist bitmiş dövme fotoğrafını yükleyerek randevuyu tamamlar. */
     public function artistComplete(Request $request, Appointment $appointment): JsonResponse
     {
@@ -544,20 +554,8 @@ class AppointmentController extends Controller
             'status' => 'completed',
         ])->save();
 
-        $appointment->load('createdBy');
-        if ($appointment->createdBy instanceof User) {
-            app(FcmService::class)->sendToUser(
-                $appointment->createdBy,
-                'Dövme Randevusu Tamamlandı',
-                "{$user->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli dövme randevusunu tamamladı.",
-                'appointment_completed',
-                [
-                    'appointment_id' => $appointment->id,
-                    'studio_id'      => $appointment->studio_id,
-                    'status'         => $appointment->status,
-                ],
-            );
-        }
+        app(AppointmentNotificationService::class)
+            ->notifyAppointmentUpdated($appointment, 'completed', $user);
 
         return response()->json([
             'message' => 'Dövme fotoğrafı yüklendi ve randevu tamamlandı.',
@@ -629,7 +627,7 @@ class AppointmentController extends Controller
             'pickup_required'   => $validated['pickup_required'] ?? false,
         ]);
 
-        $appointmentNotificationService->notifyBranchAppointmentCreated($appointment, $request->user());
+        $appointmentNotificationService->notifyStudioAppointmentCreated($appointment, $request->user());
 
         return response()->json([
             'message' => 'Randevu oluşturuldu.',
@@ -641,8 +639,11 @@ class AppointmentController extends Controller
         Request $request,
         Studio $studio,
         Appointment $appointment,
-        AppointmentService $appointmentService
+        AppointmentService $appointmentService,
+        AppointmentNotificationService $appointmentNotificationService
     ): JsonResponse {
+        $previousStatus = $appointment->status;
+
         $validated = $request->validate([
             'customer.first_name'         => ['sometimes', 'string', 'max:255'],
             'customer.last_name'          => ['sometimes', 'string', 'max:255'],
@@ -655,7 +656,7 @@ class AppointmentController extends Controller
             'price'                       => ['sometimes', 'numeric', 'min:0', 'max:99999999.99'],
             'appointment_at'              => ['sometimes', 'date'],
             'appointment_type'            => ['sometimes', 'string', 'in:designer,tattoo'],
-            'status'                      => ['sometimes', 'string', 'in:confirmed,completed,cancelled,rescheduled'],
+            'status'                      => ['sometimes', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
             'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
@@ -679,6 +680,17 @@ class AppointmentController extends Controller
         }
 
         $appointment = $appointmentService->update($studio, $appointment, $validated);
+        $event = match (true) {
+            $previousStatus !== $appointment->status && $appointment->status === 'cancelled' => 'cancelled',
+            $previousStatus !== $appointment->status && $appointment->status === 'in_progress' => 'started',
+            $previousStatus !== $appointment->status && $appointment->status === 'completed' => 'completed',
+            default => 'updated',
+        };
+        $appointmentNotificationService->notifyAppointmentUpdated(
+            $appointment,
+            $event,
+            $request->user(),
+        );
 
         return response()->json([
             'message' => 'Randevu güncellendi.',
@@ -724,26 +736,14 @@ class AppointmentController extends Controller
             return false;
         }
 
-        $myStudioIds = $user->studios()->pluck('studios.id');
-        $shopIds = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
-
-        return Studio::query()
-            ->whereIn('id', [$routeStudio->id, $appointment->studio_id])
-            ->whereIn('shop_id', $shopIds)
-            ->count() === 2;
+        return (int) $routeStudio->id === (int) $appointment->studio_id
+            && $user->hasStudioRole($routeStudio, [UserRole::Sofor]);
     }
 
     private function driverCanAccessStudio(Studio $studio, Request $request): bool
     {
         $user = $request->user();
-        if (! $user?->hasRole(UserRole::Sofor) || $studio->shop_id === null) {
-            return false;
-        }
-
-        $myStudioIds = $user->studios()->pluck('studios.id');
-        $shopIds = Studio::query()->whereIn('id', $myStudioIds)->pluck('shop_id')->filter();
-
-        return $shopIds->contains((int) $studio->shop_id);
+        return $user?->hasStudioRole($studio, [UserRole::Sofor]) ?? false;
     }
 
     private function imageUrl(?string $path): ?string
@@ -783,8 +783,15 @@ class AppointmentController extends Controller
     private function visiblePriceFor(Appointment $appointment): mixed
     {
         $user = request()->user();
+        $canViewSalePrice = $appointment->studio_id !== null
+            && $user?->hasStudioRole((int) $appointment->studio_id, [
+                UserRole::Info,
+                UserRole::Designer,
+            ]);
 
-        return $appointment->status === 'completed' || $this->canManagePrice($user)
+        return $appointment->status === 'completed'
+            || $this->canManagePrice($user)
+            || $canViewSalePrice
             ? $appointment->price
             : null;
     }

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\UserRole;
 use App\Models\Appointment;
+use App\Models\Company;
+use App\Models\StaffEarning;
 use App\Models\Studio;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -60,6 +62,10 @@ class AppointmentReportService
             'weekly_data'  => $this->buildWeeklyData($base, $weekStart),
             'performance'  => $this->buildPerformance($periodQuery),
             'staff_reports' => $this->buildStaffReports($user, $start, $end, $weekStart, $studioId),
+            'hotel_sources' => $this->buildHotelSources($periodQuery),
+            'studio_revenues' => $this->buildStudioRevenues($user, $start, $end, $studioId),
+            'company_revenues' => $this->buildCompanyRevenues($user, $start, $end, $studioId),
+            'staff_earnings' => $this->buildStaffEarnings($user, $start, $end, $studioId),
             'insight'      => $this->buildInsight($thisWeek, $lastWeekCount),
         ];
     }
@@ -225,6 +231,186 @@ class AppointmentReportService
                     'weekly_data' => $this->buildWeeklyData($base, $weekStart),
                 ];
             })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildHotelSources(Builder $periodQuery): array
+    {
+        return (clone $periodQuery)
+            ->select(
+                DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen') as hotel_name"),
+                DB::raw('count(*) as appointment_count'),
+                DB::raw('sum(pax) as customer_count'),
+                DB::raw("sum(case when status != 'cancelled' then coalesce(price, 0) else 0 end) as revenue"),
+            )
+            ->groupBy(DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen')"))
+            ->orderByDesc('customer_count')
+            ->limit(12)
+            ->get()
+            ->map(fn ($row): array => [
+                'hotel_name' => (string) $row->hotel_name,
+                'appointment_count' => (int) $row->appointment_count,
+                'customer_count' => (int) $row->customer_count,
+                'revenue' => round((float) $row->revenue, 2),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildStudioRevenues(User $viewer, CarbonImmutable $start, CarbonImmutable $end, ?int $studioId = null): array
+    {
+        $studioIds = $this->reportStudioIds($viewer);
+        if ($studioId !== null && $studioId > 0) {
+            $studioIds = in_array($studioId, $studioIds, true) || $viewer->hasRole(UserRole::Admin)
+                ? [$studioId]
+                : [];
+        }
+
+        if ($studioIds === []) {
+            return [];
+        }
+
+        return Studio::query()
+            ->whereIn('id', $studioIds)
+            ->with('company')
+            ->withCount([
+                'appointments as appointment_count' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end]),
+                'appointments as completed_count' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end])
+                    ->where('status', 'completed'),
+            ])
+            ->withSum([
+                'appointments as revenue' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end])
+                    ->where('status', '!=', 'cancelled'),
+            ], 'price')
+            ->withSum([
+                'appointments as completed_revenue' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end])
+                    ->where('status', 'completed'),
+            ], 'price')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn (Studio $studio): array => [
+                'id' => $studio->id,
+                'name' => $studio->name,
+                'company_name' => $studio->company?->name,
+                'appointment_count' => (int) $studio->appointment_count,
+                'completed_count' => (int) $studio->completed_count,
+                'revenue' => round((float) ($studio->revenue ?? 0), 2),
+                'completed_revenue' => round((float) ($studio->completed_revenue ?? 0), 2),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCompanyRevenues(User $viewer, CarbonImmutable $start, CarbonImmutable $end, ?int $studioId = null): array
+    {
+        $studioIds = $this->reportStudioIds($viewer);
+        if ($studioId !== null && $studioId > 0) {
+            $studioIds = in_array($studioId, $studioIds, true) || $viewer->hasRole(UserRole::Admin)
+                ? [$studioId]
+                : [];
+        }
+
+        if ($studioIds === []) {
+            return [];
+        }
+
+        $companies = Company::query()
+            ->whereHas('studios', fn ($query) => $query->whereIn('studios.id', $studioIds))
+            ->withCount([
+                'studios as studio_count' => fn ($query) => $query->whereIn('studios.id', $studioIds),
+            ])
+            ->orderBy('name')
+            ->get();
+
+        return $companies
+            ->map(function (Company $company) use ($studioIds, $start, $end): array {
+                $companyStudioIds = Studio::query()
+                    ->where('company_id', $company->id)
+                    ->whereIn('id', $studioIds)
+                    ->pluck('id');
+
+                $appointments = Appointment::query()
+                    ->whereIn('studio_id', $companyStudioIds)
+                    ->whereBetween('appointment_at', [$start, $end]);
+
+                return [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'studio_count' => (int) $company->studio_count,
+                    'appointment_count' => (clone $appointments)->count(),
+                    'completed_count' => (clone $appointments)->where('status', 'completed')->count(),
+                    'revenue' => round((float) (clone $appointments)
+                        ->where('status', '!=', 'cancelled')
+                        ->sum('price'), 2),
+                    'completed_revenue' => round((float) (clone $appointments)
+                        ->where('status', 'completed')
+                        ->sum('price'), 2),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildStaffEarnings(User $viewer, CarbonImmutable $start, CarbonImmutable $end, ?int $studioId = null): array
+    {
+        $studioIds = $this->reportStudioIds($viewer);
+        if ($studioId !== null && $studioId > 0) {
+            $studioIds = in_array($studioId, $studioIds, true) || $viewer->hasRole(UserRole::Admin)
+                ? [$studioId]
+                : [];
+        }
+
+        if ($studioIds === []) {
+            return [];
+        }
+
+        return StaffEarning::query()
+            ->with(['user', 'studio'])
+            ->whereIn('studio_id', $studioIds)
+            ->whereHas('appointment', fn ($query) => $query->whereBetween('appointment_at', [$start, $end]))
+            ->get()
+            ->groupBy('user_id')
+            ->map(function ($earnings): array {
+                /** @var StaffEarning $first */
+                $first = $earnings->first();
+                $pending = $earnings->where('status', 'pending');
+                $paid = $earnings->where('status', 'paid');
+
+                return [
+                    'user_id' => $first->user_id,
+                    'name' => $first->user?->fullName() ?? 'Silinmiş kullanıcı',
+                    'role' => self::ROLE_LABELS[$first->role] ?? $first->role,
+                    'studio_names' => $earnings
+                        ->pluck('studio.name')
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all(),
+                    'earning_count' => $earnings->count(),
+                    'gross_amount' => round((float) $earnings->sum('gross_amount'), 2),
+                    'earning_amount' => round((float) $earnings->sum('earning_amount'), 2),
+                    'pending_amount' => round((float) $pending->sum('earning_amount'), 2),
+                    'paid_amount' => round((float) $paid->sum('earning_amount'), 2),
+                ];
+            })
+            ->sortByDesc('earning_amount')
             ->values()
             ->all();
     }
