@@ -327,7 +327,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
             <div class="action-row">
                 ${adminConfig.isAdmin ? '<a href="/admin/companies" class="button-secondary">Şirketler</a>' : ''}
                 ${adminConfig.canManageStudios ? '<a href="/admin/studios" class="button-secondary">Stüdyolar</a>' : ''}
-                ${adminConfig.canManageUsers ? '<a href="/admin/users" class="button-secondary">Ekip Yönetimi</a>' : ''}
                 <a href="/admin/appointments" class="button-primary">Randevu / Biletleri Aç</a>
             </div>
         </div>
@@ -343,7 +342,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
             </div>
         </div>
         ${adminConfig.isAdmin ? `<div class="panel-card" data-dashboard-companies>${skeletonGrid(2)}</div>` : ''}
-        <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(4)}</div>
+        <div class="metric-grid" data-dashboard-metrics>${skeletonGrid(3)}</div>
         <div class="data-grid" data-dashboard-reports>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-ticket-appointment-chart>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-finance>${skeletonGrid(2)}</div>
@@ -374,37 +373,70 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     qs('[data-dashboard-metrics]', root).innerHTML = [
         ['Toplam Kayıt',    data.summary.total_appointments,    'Seçili kapsam',       '',                '1'],
         ['İptal Edilen',    data.summary.cancelled_appointments,'Operasyon riski',     'var(--danger)',   '2'],
-        ['Aktif Personel',  data.summary.active_staff_count,    'Çalışan ekip',        'var(--success)',  '3'],
-        ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',  'var(--info)',     '1'],
+        ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',  'var(--info)',     '3'],
     ].map(([label, value, helper, color, delay]) => metricCard(label, value, helper, color, delay)).join('');
-
-    qs('[data-dashboard-reports]', root).innerHTML = Object.values(data.reports || {}).map((report, i) => `
-        <article class="data-card animate-stagger-${(i % 3) + 1}">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
-                <div>
-                    <div class="section-title">${escapeHtml(report.label)}</div>
-                    <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(report.date_from)} — ${escapeHtml(report.date_to)}</div>
-                </div>
-                <span class="badge-pill">Dönem Raporu</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:0.6rem">
-                ${[
-                    ['Toplam',     report.total_appointments,     ''],
-                    ['Tamamlandı', report.completed_appointments, 'var(--success)'],
-                    ['İptal',      report.cancelled_appointments,  'var(--danger)'],
-                    ['Aktif',      report.confirmed_appointments ?? report.active_appointments ?? 0, 'var(--warning)'],
-                ].map(([lbl, val, color]) => `
-                    <div class="stat-block">
-                        <div class="stat-label">${lbl}</div>
-                        <div style="margin-top:0.4rem;font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;color:${color || 'var(--text-main)'}" data-counter="${val}">0</div>
-                    </div>
-                `).join('')}
-            </div>
-        </article>
-    `).join('');
 
     const periodReports = Object.values(data.reports || {});
     const maxPeriodTotal = Math.max(1, ...periodReports.map((report) => Number(report.total_appointments || 0)));
+
+    qs('[data-dashboard-reports]', root).innerHTML = `
+        <article class="data-card period-report-panel">
+            <div class="period-report-panel__head">
+                <div>
+                    <div class="section-eyebrow" style="margin-bottom:0.3rem">Dönem Raporları</div>
+                    <div class="section-title">Günlük / Aylık / Yıllık Grafik</div>
+                </div>
+                <span class="badge-pill">Animasyonlu</span>
+            </div>
+            <div class="period-report-grid">
+                ${periodReports.map((report, i) => {
+                    const total = Number(report.total_appointments || 0);
+                    const completed = Number(report.completed_appointments || 0);
+                    const active = Number(report.confirmed_appointments ?? report.active_appointments ?? 0);
+                    const cancelled = Number(report.cancelled_appointments || 0);
+                    const totalHeight = total > 0 ? Math.max(18, Math.round((total / maxPeriodTotal) * 150)) : 10;
+                    const completedRate = percentOf(completed, total);
+                    const activeRate = percentOf(active, total);
+                    const cancelledRate = percentOf(cancelled, total);
+                    return `
+                        <div class="period-report-card animate-stagger-${(i % 3) + 1}">
+                            <div class="period-report-card__top">
+                                <div>
+                                    <div class="section-title" style="font-size:0.98rem">${escapeHtml(report.label)}</div>
+                                    <div style="margin-top:0.2rem;font-size:0.7rem;color:var(--text-muted)">${escapeHtml(report.date_from)} — ${escapeHtml(report.date_to)}</div>
+                                </div>
+                                <strong>${total.toLocaleString('tr-TR')}</strong>
+                            </div>
+                            <div class="period-report-graph">
+                                <div class="period-report-bar" style="height:${totalHeight}px" title="${escapeHtml(report.label)} toplam: ${total}">
+                                    <span>${total.toLocaleString('tr-TR')}</span>
+                                </div>
+                                <div class="period-report-axis">Toplam</div>
+                            </div>
+                            <div class="appointment-ratio-lines">
+                                ${[
+                                    ['Tamamlanan', completed, completedRate, 'var(--success)'],
+                                    ['Aktif', active, activeRate, 'var(--warning)'],
+                                    ['İptal', cancelled, cancelledRate, 'var(--danger)'],
+                                ].map(([label, value, rate, color]) => `
+                                    <div class="appointment-ratio-line">
+                                        <div class="appointment-ratio-line__meta">
+                                            <span>${label}</span>
+                                            <strong>${rate}% · ${Number(value || 0).toLocaleString('tr-TR')}</strong>
+                                        </div>
+                                        <div class="appointment-ratio-track">
+                                            <div style="width:${rate}%;background:${color}"></div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('') || '<div class="empty-state" style="padding:1.5rem;border:none">Rapor grafiği için kayıt bulunmuyor.</div>'}
+            </div>
+        </article>
+    `;
+
     qs('[data-dashboard-ticket-appointment-chart]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
@@ -471,14 +503,13 @@ const renderDashboard = async (root, selectedStudioId = '') => {
 
     const studioRevenues = data.studio_revenues || [];
     const companyRevenues = data.company_revenues || [];
-    const staffEarnings = data.staff_earnings || [];
     const hotelSources = data.hotel_sources || [];
 
     qs('[data-dashboard-finance]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
             <div>
                 <div class="section-eyebrow" style="margin-bottom:0.3rem">Finans</div>
-                <div class="section-title">Ciro ve Hakediş Özeti</div>
+                <div class="section-title">Ciro Özeti</div>
             </div>
             <span class="badge-pill">Bu ay</span>
         </div>
@@ -531,35 +562,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                 </table>
             </div>
         </div>
-        <div class="table-shell">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Personel</th>
-                        <th>Stüdyo</th>
-                        <th>İş</th>
-                        <th>Hakediş</th>
-                        <th>Bekleyen</th>
-                        <th>Ödenen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${staffEarnings.map((earning) => `
-                        <tr>
-                            <td>
-                                <div style="font-weight:600">${escapeHtml(earning.name || '—')}</div>
-                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(earning.role || 'Personel')}</div>
-                            </td>
-                            <td style="color:var(--text-muted)">${escapeHtml((earning.studio_names || []).join(', ') || '—')}</td>
-                            <td>${earning.earning_count || 0}</td>
-                            <td style="font-weight:700">${formatMoney(earning.earning_amount)}</td>
-                            <td>${formatMoney(earning.pending_amount)}</td>
-                            <td>${formatMoney(earning.paid_amount)}</td>
-                        </tr>
-                    `).join('') || '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:1.5rem">Hakediş kaydı bulunamadı.</td></tr>'}
-                </tbody>
-            </table>
-        </div>
     `;
 
     qs('[data-dashboard-hotels]', root).innerHTML = `
@@ -608,7 +610,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     <tr>
                         <th>Stüdyo Adı</th>
                         <th>Konum</th>
-                        <th>Aktif Ekip</th>
                         <th>Randevu</th>
                     </tr>
                 </thead>
@@ -617,10 +618,9 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                         <tr>
                             <td style="font-weight:600">${escapeHtml(studio.name)}</td>
                             <td style="color:var(--text-muted)">${escapeHtml(studio.location || '—')}</td>
-                            <td><span class="badge-pill badge-pill--success" style="font-size:0.65rem">${studio.active_staff_count}</span></td>
                             <td style="font-weight:600">${studio.appointments_count}</td>
                         </tr>
-                    `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Stüdyo bulunamadı.</td></tr>'}
+                    `).join('') || '<tr><td colspan="3" style="color:var(--text-muted);text-align:center;padding:1.5rem">Stüdyo bulunamadı.</td></tr>'}
                 </tbody>
             </table>
         </div>

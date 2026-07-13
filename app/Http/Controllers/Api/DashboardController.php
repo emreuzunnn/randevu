@@ -113,7 +113,6 @@ class DashboardController extends Controller
                 'hotel_sources' => $currentReport['hotel_sources'] ?? [],
                 'studio_revenues' => $currentReport['studio_revenues'] ?? [],
                 'company_revenues' => $currentReport['company_revenues'] ?? [],
-                'staff_earnings' => $currentReport['staff_earnings'] ?? [],
                 'studios' => $studios->map(fn (Studio $studio): array => [
                     'id' => $studio->id,
                     'name' => $studio->name,

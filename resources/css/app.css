@@ -496,6 +496,89 @@
         min-width: 6px;
     }
 
+    .period-report-panel {
+        display: grid;
+        gap: 1.1rem;
+    }
+
+    .period-report-panel__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .period-report-grid {
+        display: grid;
+        gap: 0.875rem;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+
+    .period-report-card {
+        min-width: 0;
+        display: grid;
+        gap: 0.95rem;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: #F8FAFC;
+        animation: revealUp 420ms ease both;
+    }
+
+    .period-report-card__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .period-report-card__top strong {
+        color: var(--text-main);
+        font-size: 1.25rem;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .period-report-graph {
+        min-height: 176px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.45rem;
+        padding: 0.75rem 0.85rem 0.45rem;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: #FFFFFF;
+    }
+
+    .period-report-bar {
+        width: min(100%, 8rem);
+        min-height: 10px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 0.45rem;
+        border-radius: 0.75rem 0.75rem 0.35rem 0.35rem;
+        background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo));
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.16);
+        color: #FFFFFF;
+        font-size: 0.8rem;
+        font-weight: 800;
+        transform-origin: bottom;
+        animation: chartGrow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .period-report-axis {
+        color: var(--text-subtle);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
     .appointment-ratio-grid {
         display: grid;
         gap: 0.875rem;
@@ -570,6 +653,8 @@
         font-size: 0.8rem;
         font-weight: 800;
         transition: height 180ms ease;
+        transform-origin: bottom;
+        animation: chartGrow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
     }
 
     .appointment-ratio-mainbar--ticket {
@@ -620,6 +705,8 @@
     .appointment-ratio-track > div {
         height: 100%;
         border-radius: inherit;
+        transform-origin: left;
+        animation: lineGrow 620ms ease both;
     }
 
     /* ─── Typography ──────────────────────────────────────── */
@@ -1128,3 +1215,5 @@
 @keyframes shimmer    { 100% { transform: translateX(100%); } }
 @keyframes revealUp   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideInUp  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes chartGrow  { from { opacity: 0; transform: scaleY(0.12); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes lineGrow   { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
