@@ -71,7 +71,7 @@ class StaffEarningSeeder extends Seeder
                             'type' => 'earning_paid',
                             'title' => 'Hakedişiniz ödendi',
                             'body' => number_format($earningAmount, 2, ',', '.')
-                                .' TL tutarındaki test hakedişiniz ödendi.',
+                                .' € tutarındaki test hakedişiniz ödendi.',
                         ],
                         [
                             'data' => [

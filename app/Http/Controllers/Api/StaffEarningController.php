@@ -10,21 +10,47 @@ use App\Models\User;
 use App\Services\StaffEarningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class StaffEarningController extends Controller
 {
     public function mine(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'status' => ['nullable', 'in:pending,paid'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
         $earnings = StaffEarning::query()
             ->with(['studio:id,name', 'appointment:id,appointment_at,first_name,last_name,price'])
             ->where('user_id', $request->user()->id)
+            ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($validated['date_from'] ?? null, function ($query, string $date): void {
+                $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', $date));
+            })
+            ->when($validated['date_to'] ?? null, function ($query, string $date): void {
+                $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '<=', $date));
+            })
             ->latest('id')
             ->get();
 
+        $lastSevenDaysPendingTotal = StaffEarning::query()
+            ->where('user_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', now()->subDays(6)->toDateString()))
+            ->sum('earning_amount');
+
         return response()->json([
             'data' => [
-                'summary' => $this->summary($earnings),
+                'summary' => [
+                    ...$this->summary($earnings),
+                    'last_7_days_pending_total' => round((float) $lastSevenDaysPendingTotal, 2),
+                ],
+                'filters' => [
+                    'status' => $validated['status'] ?? null,
+                    'date_from' => $validated['date_from'] ?? null,
+                    'date_to' => $validated['date_to'] ?? null,
+                ],
                 'earnings' => $earnings->map(fn (StaffEarning $earning): array => $this->earningData($earning))->values(),
             ],
         ]);
@@ -32,7 +58,15 @@ class StaffEarningController extends Controller
 
     public function studio(Request $request, Studio $studio): JsonResponse
     {
-        abort_unless($request->user()?->canManageStudio($studio), 403);
+        $actor = $request->user();
+        abort_unless($this->canManageStaffEarnings($actor) && $actor->canManageStudio($studio), 403);
+
+        $validated = $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'status' => ['nullable', 'in:pending,paid'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
 
         $earnings = StaffEarning::query()
             ->with([
@@ -41,6 +75,14 @@ class StaffEarningController extends Controller
                 'paidBy:id,name,surname',
             ])
             ->where('studio_id', $studio->id)
+            ->when($validated['user_id'] ?? null, fn ($query, $userId) => $query->where('user_id', $userId))
+            ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($validated['date_from'] ?? null, function ($query, string $date): void {
+                $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', $date));
+            })
+            ->when($validated['date_to'] ?? null, function ($query, string $date): void {
+                $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '<=', $date));
+            })
             ->latest('id')
             ->get();
 
@@ -53,13 +95,31 @@ class StaffEarningController extends Controller
             ->orderBy('users.name')
             ->get();
 
+        $lastSevenDaysPendingQuery = StaffEarning::query()
+            ->where('studio_id', $studio->id)
+            ->where('status', 'pending')
+            ->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', now()->subDays(6)->toDateString()));
+
+        if (isset($validated['user_id'])) {
+            $lastSevenDaysPendingQuery->where('user_id', $validated['user_id']);
+        }
+
         return response()->json([
             'data' => [
                 'studio' => [
                     'id' => $studio->id,
                     'name' => $studio->name,
                 ],
-                'summary' => $this->summary($earnings),
+                'summary' => [
+                    ...$this->summary($earnings),
+                    'last_7_days_pending_total' => round((float) $lastSevenDaysPendingQuery->sum('earning_amount'), 2),
+                ],
+                'filters' => [
+                    'user_id' => isset($validated['user_id']) ? (int) $validated['user_id'] : null,
+                    'status' => $validated['status'] ?? null,
+                    'date_from' => $validated['date_from'] ?? null,
+                    'date_to' => $validated['date_to'] ?? null,
+                ],
                 'staff' => $staff->map(function (User $user) use ($earnings): array {
                     $userEarnings = $earnings->where('user_id', $user->id);
 
@@ -81,13 +141,7 @@ class StaffEarningController extends Controller
     public function updateCommission(Request $request, Studio $studio, User $user): JsonResponse
     {
         $actor = $request->user();
-        abort_unless($actor?->canManageStudio($studio), 403);
-
-        if ($actor->hasRole(UserRole::Supervisor) && (int) $actor->id === (int) $user->id) {
-            throw ValidationException::withMessages([
-                'commission_rate' => ['Supervisor kendi komisyon oranını değiştiremez.'],
-            ]);
-        }
+        abort_unless($this->canManageStaffEarnings($actor) && $actor->canManageStudio($studio), 403);
 
         $membership = $studio->users()
             ->where('users.id', $user->id)
@@ -120,10 +174,11 @@ class StaffEarningController extends Controller
         StaffEarning $staffEarning,
         StaffEarningService $staffEarningService
     ): JsonResponse {
-        abort_unless($request->user()?->canManageStudio($studio), 403);
+        $actor = $request->user();
+        abort_unless($this->canManageStaffEarnings($actor) && $actor->canManageStudio($studio), 403);
         abort_unless((int) $staffEarning->studio_id === (int) $studio->id, 404);
 
-        $earning = $staffEarningService->markAsPaid($staffEarning, $request->user());
+        $earning = $staffEarningService->markAsPaid($staffEarning, $actor);
 
         return response()->json([
             'message' => 'Hakediş ödendi olarak işaretlendi.',
@@ -140,6 +195,12 @@ class StaffEarningController extends Controller
             'pending_count' => $earnings->where('status', 'pending')->count(),
             'paid_count' => $earnings->where('status', 'paid')->count(),
         ];
+    }
+
+    private function canManageStaffEarnings(?User $user): bool
+    {
+        return $user !== null
+            && $user->hasAnyRole([UserRole::Admin, UserRole::Yonetici]);
     }
 
     private function earningData(StaffEarning $earning): array

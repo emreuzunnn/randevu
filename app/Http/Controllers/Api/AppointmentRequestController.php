@@ -92,11 +92,16 @@ class AppointmentRequestController extends Controller
             'place'              => ['required', 'string', 'max:255'],
             'pax'                => ['required', 'integer', 'min:1', 'max:50'],
             'price'              => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'deposit_amount'     => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'payment_method'     => ['required_if:type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(AppointmentController::PAYMENT_METHODS))],
+            'ticket_types'       => ['required_if:type,tattoo', 'nullable', 'array', 'max:4'],
+            'ticket_types.*'     => ['string', 'in:'.implode(',', array_keys(AppointmentController::TICKET_TYPES))],
+            'tattoo_type'        => ['required_if:type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(AppointmentController::TATTOO_TYPES))],
             'image'              => ['required_without:image_path', 'nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'image_path'         => ['required_without:image', 'nullable', 'string', 'max:2048'],
-            'tattoo_image_paths' => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths' => ['nullable', 'array'],
             'tattoo_image_paths.*' => ['string', 'max:2048'],
-            'tattoo_images'      => ['nullable', 'array', 'max:3'],
+            'tattoo_images'      => ['nullable', 'array'],
             'tattoo_images.*'    => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'    => ['sometimes', 'boolean'],
         ]);
@@ -109,6 +114,7 @@ class AppointmentRequestController extends Controller
         abort_if($target?->banned_at !== null, 422, 'Banlı kullanıcıya talep gönderilemez.');
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
+        $validated = $this->normalizeTicketAttributes($validated, $type, true);
 
         if (
             $target !== null
@@ -135,7 +141,8 @@ class AppointmentRequestController extends Controller
             $request,
             $target,
             $studio,
-            $validated['tattoo_image_paths'] ?? []
+            $validated['tattoo_image_paths'] ?? [],
+            $type
         );
 
         $appointmentRequest = AppointmentRequest::query()->create([
@@ -157,6 +164,10 @@ class AppointmentRequestController extends Controller
             'place'              => $validated['place'] ?? $validated['hotel_name'] ?? null,
             'pax'                => $validated['pax'] ?? 1,
             'price'              => $validated['price'] ?? null,
+            'deposit_amount'     => $validated['deposit_amount'] ?? null,
+            'payment_method'     => $validated['payment_method'] ?? null,
+            'ticket_types'       => $validated['ticket_types'] ?? [],
+            'tattoo_type'        => $validated['tattoo_type'] ?? null,
             'status'             => 'pending',
         ]);
 
@@ -191,8 +202,14 @@ class AppointmentRequestController extends Controller
             'place'          => ['nullable', 'string', 'max:255'],
             'pax'            => ['nullable', 'integer', 'min:1', 'max:50'],
             'price'          => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'deposit_amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'payment_method' => ['nullable', 'string', 'in:'.implode(',', array_keys(AppointmentController::PAYMENT_METHODS))],
+            'ticket_types'   => ['nullable', 'array', 'max:4'],
+            'ticket_types.*' => ['string', 'in:'.implode(',', array_keys(AppointmentController::TICKET_TYPES))],
+            'tattoo_type'    => ['nullable', 'string', 'in:'.implode(',', array_keys(AppointmentController::TATTOO_TYPES))],
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user(), $appointmentRequest);
+        $validated = $this->normalizeTicketAttributes($validated, $appointmentRequest->request_type, false);
 
         $appointment = DB::transaction(function () use ($appointmentRequest, $validated): Appointment {
             $requestedAt = $this->resolveRequestedAt($validated, $appointmentRequest->requested_at);
@@ -228,10 +245,16 @@ class AppointmentRequestController extends Controller
                 'notes'                   => null,
                 'photo_path'              => $appointmentRequest->image_path,
                 'tattoo_image_paths'      => $appointmentRequest->tattoo_image_paths ?? [],
-                'pickup_required'         => $appointmentRequest->pickup_required,
+                'pickup_required'         => $appointmentRequest->request_type === 'designer'
+                    ? true
+                    : $appointmentRequest->pickup_required,
                 'is_old_customer'         => false,
                 'pax'                     => $validated['pax'] ?? $appointmentRequest->pax ?? 1,
                 'price'                   => $validated['price'] ?? $appointmentRequest->price,
+                'deposit_amount'          => $validated['deposit_amount'] ?? $appointmentRequest->deposit_amount,
+                'payment_method'          => $validated['payment_method'] ?? $appointmentRequest->payment_method,
+                'ticket_types'            => $validated['ticket_types'] ?? $appointmentRequest->ticket_types ?? [],
+                'tattoo_type'             => $validated['tattoo_type'] ?? $appointmentRequest->tattoo_type,
             ]);
 
             $appointmentRequest->fill([
@@ -247,6 +270,10 @@ class AppointmentRequestController extends Controller
                 'place'           => $validated['place'] ?? $appointmentRequest->place,
                 'pax'             => $validated['pax'] ?? $appointmentRequest->pax,
                 'price'           => $validated['price'] ?? $appointmentRequest->price,
+                'deposit_amount'  => $validated['deposit_amount'] ?? $appointmentRequest->deposit_amount,
+                'payment_method'  => $validated['payment_method'] ?? $appointmentRequest->payment_method,
+                'ticket_types'    => $validated['ticket_types'] ?? $appointmentRequest->ticket_types,
+                'tattoo_type'     => $validated['tattoo_type'] ?? $appointmentRequest->tattoo_type,
                 'status'          => 'accepted',
                 'responded_at'    => now(),
             ])->save();
@@ -471,6 +498,24 @@ class AppointmentRequestController extends Controller
             'place'          => $appointmentRequest->place,
             'pax'            => $appointmentRequest->pax,
             'price'          => $this->visiblePriceFor($appointmentRequest),
+            'deposit_amount' => $this->visibleDepositFor($appointmentRequest),
+            'payment_method' => $appointmentRequest->payment_method,
+            'payment_method_label' => $appointmentRequest->payment_method
+                ? (AppointmentController::PAYMENT_METHODS[$appointmentRequest->payment_method] ?? $appointmentRequest->payment_method)
+                : null,
+            'ticket_types' => $appointmentRequest->request_type === 'tattoo'
+                ? array_values($appointmentRequest->ticket_types ?? [])
+                : [],
+            'ticket_type_labels' => $appointmentRequest->request_type === 'tattoo'
+                ? collect($appointmentRequest->ticket_types ?? [])
+                    ->map(fn (string $type): string => AppointmentController::TICKET_TYPES[$type] ?? $type)
+                    ->values()
+                    ->all()
+                : [],
+            'tattoo_type' => $appointmentRequest->request_type === 'tattoo' ? $appointmentRequest->tattoo_type : null,
+            'tattoo_type_label' => $appointmentRequest->request_type === 'tattoo' && $appointmentRequest->tattoo_type
+                ? (AppointmentController::TATTOO_TYPES[$appointmentRequest->tattoo_type] ?? $appointmentRequest->tattoo_type)
+                : null,
             'phone_country_code' => $appointmentRequest->phone_country_code,
             'phone_number'   => $appointmentRequest->phone_number,
             'requester'      => $this->formatUser($appointmentRequest->requester),
@@ -500,13 +545,29 @@ class AppointmentRequestController extends Controller
 
     private function visiblePriceFor(AppointmentRequest $appointmentRequest): mixed
     {
+        return $this->canViewMoneyFor($appointmentRequest)
+            ? $appointmentRequest->price
+            : ($appointmentRequest->appointment?->status === 'completed'
+                ? ($appointmentRequest->appointment->price ?? $appointmentRequest->price)
+                : null);
+    }
+
+    private function visibleDepositFor(AppointmentRequest $appointmentRequest): mixed
+    {
+        return $this->canViewMoneyFor($appointmentRequest)
+            ? $appointmentRequest->deposit_amount
+            : ($appointmentRequest->appointment?->status === 'completed'
+                ? ($appointmentRequest->appointment->deposit_amount ?? $appointmentRequest->deposit_amount)
+                : null);
+    }
+
+    private function canViewMoneyFor(AppointmentRequest $appointmentRequest): bool
+    {
         if ($this->canManagePrice(request()->user(), $appointmentRequest)) {
-            return $appointmentRequest->price;
+            return true;
         }
 
-        return $appointmentRequest->appointment?->status === 'completed'
-            ? ($appointmentRequest->appointment->price ?? $appointmentRequest->price)
-            : null;
+        return false;
     }
 
     /**
@@ -517,6 +578,7 @@ class AppointmentRequestController extends Controller
     {
         if (! $this->canManagePrice($user, $appointmentRequest)) {
             unset($validated['price']);
+            unset($validated['deposit_amount']);
         }
 
         return $validated;
@@ -535,6 +597,50 @@ class AppointmentRequestController extends Controller
         return $appointmentRequest !== null
             && (int) $appointmentRequest->target_user_id === (int) $user?->id
             && $user?->isIndependentProfessional() === true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function normalizeTicketAttributes(array $attributes, string $requestType, bool $creating): array
+    {
+        if ($requestType !== 'tattoo') {
+            $attributes['ticket_types'] = [];
+            $attributes['tattoo_type'] = null;
+            $attributes['payment_method'] = null;
+            $attributes['deposit_amount'] = null;
+            $attributes['price'] = null;
+            $attributes['pickup_required'] = true;
+
+            return $attributes;
+        }
+
+        if (array_key_exists('ticket_types', $attributes)) {
+            $attributes['ticket_types'] = collect($attributes['ticket_types'] ?? [])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if ($creating) {
+            $missing = [];
+            if (empty($attributes['ticket_types'])) {
+                $missing['ticket_types'] = ['Bilet türü seçilmelidir.'];
+            }
+            if (empty($attributes['tattoo_type'])) {
+                $missing['tattoo_type'] = ['Dövme türü seçilmelidir.'];
+            }
+            if (empty($attributes['payment_method'])) {
+                $missing['payment_method'] = ['Ödeme yöntemi seçilmelidir.'];
+            }
+            if ($missing !== []) {
+                throw ValidationException::withMessages($missing);
+            }
+        }
+
+        return $attributes;
     }
 
     private function storeRequestImage(Request $request, ?User $target, ?Studio $studio): string
@@ -579,7 +685,8 @@ class AppointmentRequestController extends Controller
         Request $request,
         ?User $target,
         ?Studio $studio,
-        array $existingPaths
+        array $existingPaths,
+        string $requestType
     ): array {
         $paths = array_values($existingPaths);
         $folder = $target !== null ? 'user-' . $target->id : 'studio-' . $studio?->id;
@@ -590,7 +697,7 @@ class AppointmentRequestController extends Controller
             $paths[] = Storage::disk('public')->url($path);
         }
 
-        if (count($paths) > 3) {
+        if ($requestType === 'tattoo' && count($paths) > 3) {
             throw ValidationException::withMessages([
                 'tattoo_images' => ['En fazla 3 dövme görseli ekleyebilirsiniz.'],
             ]);

@@ -65,6 +65,10 @@ return new class extends Migration
             $table->text('customer_notes')->nullable();
             $table->unsignedSmallInteger('pax')->default(1);
             $table->decimal('price', 10, 2)->nullable();
+            $table->decimal('deposit_amount', 10, 2)->nullable();
+            $table->string('payment_method')->nullable();
+            $table->json('ticket_types')->nullable();
+            $table->string('tattoo_type')->nullable();
             $table->timestamp('appointment_at');
             $table->string('status')->default('confirmed');
             $table->string('driver_status')->nullable();

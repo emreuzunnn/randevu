@@ -110,6 +110,7 @@ Route::middleware(['api.auth'])->group(function (): void {
     // Dropdown kaynakları — {user}/{studio} parametreli route'lardan ÖNCE tanımlanmalı
     Route::get('/studios/options', [UserDirectoryController::class, 'studioOptions']);
     Route::get('/users/options', [UserDirectoryController::class, 'userOptions']);
+    Route::get('/users/lookup-by-code/{code}', [UserDirectoryController::class, 'lookupByProfileCode']);
 
     // Herhangi bir kullanıcının profilini görüntüle (giriş yapılmış kullanıcılar)
     Route::get('/users/{user}', [UserProfileController::class, 'show']);
@@ -129,8 +130,6 @@ Route::middleware(['api.auth'])->group(function (): void {
 Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
     // Erişilebilir stüdyoları detay ve sayaç bilgileriyle listeler.
     Route::get('/studios/overview', [StudioController::class, 'overview']);
-    // Yeni stüdyo oluşturur (şirket limiti kontrol edilir).
-    Route::post('/studios', [StudioController::class, 'store']);
     // Seçili stüdyo ayarlarını günceller.
     Route::patch('/studios/{studio}', [StudioController::class, 'update']);
     // Seçili stüdyoyu sistemden siler.
@@ -140,6 +139,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
     Route::get('/companies', [CompanyController::class, 'index']);
+    // Yeni stüdyo oluşturur (şirket limiti kontrol edilir).
+    Route::post('/studios', [StudioController::class, 'store']);
 });
 
 /*
@@ -167,8 +168,6 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 |--------------------------------------------------------------------------
 */
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
-    // Mobil admin paneli: tüm stüdyolardaki randevu ve çalışan listeleri.
-    Route::get('/admin/appointments', [AppointmentController::class, 'adminIndex']);
     Route::get('/admin/users', [UserDirectoryController::class, 'adminIndex']);
 
     // Tüm yorumları listele / uygunsuz yorumu sil.
@@ -191,6 +190,11 @@ Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
         ->defaults('role', 'yonetici');
     Route::delete('/studios/{studio}/managers/{user}', [StudioStaffController::class, 'destroy'])
         ->defaults('role', 'yonetici');
+});
+
+Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
+    // Mobil yönetim paneli: admin tüm kayıtları, yönetici kendi şirketindeki kayıtları görür.
+    Route::get('/admin/appointments', [AppointmentController::class, 'adminIndex']);
 });
 
 /*
@@ -259,7 +263,10 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
     Route::delete('/studios/{studio}/employees/{user}', [StudioStaffController::class, 'destroy'])
         ->defaults('role', 'calisan');
 
-    // Personel komisyonu ve stüdyo hakediş yönetimi.
+});
+
+// Personel komisyonu ve stüdyo hakediş yönetimi: sadece admin + yönetici.
+Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
     Route::get('/studios/{studio}/earnings', [StaffEarningController::class, 'studio']);
     Route::patch('/studios/{studio}/users/{user}/commission', [StaffEarningController::class, 'updateCommission']);
     Route::patch('/studios/{studio}/earnings/{staffEarning}/paid', [StaffEarningController::class, 'markPaid']);

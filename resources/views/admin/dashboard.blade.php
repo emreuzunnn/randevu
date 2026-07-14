@@ -10,7 +10,9 @@
         ])->max() ?: 1);
 
         $metricCards = [
-            ['label' => 'Toplam Kayıt', 'value' => $summary['total_appointments'] ?? 0, 'helper' => 'Tüm randevu ve biletler', 'tone' => 'blue', 'icon' => 'calendar'],
+            ['label' => 'Toplam Kayıt', 'value' => $summary['total_appointments'] ?? 0, 'helper' => 'Randevu + bilet', 'tone' => 'blue', 'icon' => 'calendar'],
+            ['label' => 'Toplam Randevu', 'value' => $summary['design_appointments'] ?? 0, 'helper' => 'Sadece tasarım', 'tone' => 'teal', 'icon' => 'calendar'],
+            ['label' => 'Toplam Bilet', 'value' => $summary['ticket_appointments'] ?? 0, 'helper' => 'Dövme / piercing', 'tone' => 'blue', 'icon' => 'calendar'],
             ['label' => 'İptal Edilen', 'value' => $summary['cancelled_appointments'] ?? 0, 'helper' => 'İptal durumundaki kayıtlar', 'tone' => 'red', 'icon' => 'alert'],
             ['label' => 'Transfer Görevi', 'value' => $summary['transfer_count'] ?? 0, 'helper' => 'Pickup işaretli kayıtlar', 'tone' => 'teal', 'icon' => 'route'],
         ];

@@ -21,10 +21,30 @@ class AppointmentController extends Controller
 {
     // Sistem içinde tipler sabit kalır; kullanıcıya designer=randevu, tattoo=bilet olarak gösterilir.
     public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
+    public const TICKET_TYPES = [
+        'cream_sale' => 'Krem satışı',
+        'piercing' => 'Piercing',
+        'tattoo' => 'Dövme',
+        'piercing_service' => 'Piercing yapımı',
+    ];
+    public const TATTOO_TYPES = [
+        'coverup' => 'Coverup',
+        'freehand' => 'Freehand',
+        'refresh' => 'Refresh',
+        'touchub' => 'Touchub',
+        'clean' => 'Clean',
+    ];
+    public const PAYMENT_METHODS = [
+        'credit_card' => 'Kredi kartı',
+        'cash' => 'Nakit',
+    ];
 
     /** Mobil admin paneli için tüm stüdyolardaki randevuları döndürür */
     public function adminIndex(Request $request): JsonResponse
     {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
         $filters = $request->validate([
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
             'studio_id' => ['nullable', 'integer', 'exists:studios,id'],
@@ -34,8 +54,11 @@ class AppointmentController extends Controller
             'date_to' => ['nullable', 'date'],
         ]);
 
+        $accessibleStudioIds = $user->accessibleStudioIds();
+
         $appointments = Appointment::query()
             ->with(['createdBy', 'assignedArtist', 'studio.company'])
+            ->whereIn('studio_id', $accessibleStudioIds)
             ->when(isset($filters['studio_id']), fn ($query) => $query
                 ->where('studio_id', (int) $filters['studio_id']))
             ->when(isset($filters['company_id']), fn ($query) => $query
@@ -58,6 +81,7 @@ class AppointmentController extends Controller
                 'customer'         => $this->formatCustomer($appointment),
                 'pax'              => $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
+                ...$this->ticketFieldsFor($appointment),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -106,32 +130,38 @@ class AppointmentController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $appointments->map(fn ($appointment): array => [
-                'id'     => $appointment->id,
-                'studio' => $appointment->studio ? [
-                    'id'   => $appointment->studio->id,
-                    'name' => $appointment->studio->name,
-                ] : null,
-                'customer'          => $this->formatCustomer($appointment),
-                'place'             => $appointment->place,
-                'pax'               => $appointment->pax,
-                'price'             => $this->visiblePriceFor($appointment),
-                'appointment_at'    => optional($appointment->appointment_at)->toIso8601String(),
-                'appointment_type'  => $appointment->appointment_type,
-                'status'            => $appointment->status,
-                'driver_status'     => $appointment->driver_status,
-                'source_image_path' => $this->imageUrl($appointment->source_image_path),
-                'photo_path'        => $this->imageUrl($appointment->photo_path),
-                'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
-                'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
-                'pickup_required'   => (bool) $appointment->pickup_required,
-                'notes'             => $appointment->notes,
-                'created_by'        => $appointment->createdBy ? [
-                    'id'   => $appointment->createdBy->id,
-                    'name' => $appointment->createdBy->fullName(),
-                ] : null,
-                'created_at' => optional($appointment->created_at)->toIso8601String(),
-            ])->values(),
+            'data' => $appointments->map(function ($appointment): array {
+                $limitedView = $this->appointmentPrivacyLimitedView($appointment);
+
+                return [
+                    'id'     => $appointment->id,
+                    'studio' => $appointment->studio ? [
+                        'id'   => $appointment->studio->id,
+                        'name' => $appointment->studio->name,
+                    ] : null,
+                    'customer'          => $limitedView ? [] : $this->formatCustomer($appointment),
+                    'place'             => $limitedView ? null : $appointment->place,
+                    'pax'               => $limitedView ? null : $appointment->pax,
+                    'price'             => $this->visiblePriceFor($appointment),
+                    ...$this->ticketFieldsFor($appointment, $limitedView),
+                    'appointment_at'    => optional($appointment->appointment_at)->toIso8601String(),
+                    'appointment_type'  => $appointment->appointment_type,
+                    'status'            => $appointment->status,
+                    'driver_status'     => $limitedView ? null : $appointment->driver_status,
+                    'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
+                    'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                    'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
+                    'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
+                    'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
+                    'notes'             => $limitedView ? null : $appointment->notes,
+                    'artist_limited_view' => $limitedView,
+                    'created_by'        => ! $limitedView && $appointment->createdBy ? [
+                        'id'   => $appointment->createdBy->id,
+                        'name' => $appointment->createdBy->fullName(),
+                    ] : null,
+                    'created_at' => optional($appointment->created_at)->toIso8601String(),
+                ];
+            })->values(),
         ]);
     }
 
@@ -178,12 +208,17 @@ class AppointmentController extends Controller
                 }
             })
             ->where('assigned_artist_user_id', $user->id)
+            ->where(function ($query): void {
+                $query
+                    ->where('appointment_type', '!=', 'tattoo')
+                    ->orWhere('artist_status', 'accepted');
+            })
             ->orderBy('appointment_at')
             ->get();
 
         return response()->json([
             'data' => $appointments->map(function ($appointment): array {
-                $limitedView = $this->artistLimitedView($appointment);
+                $limitedView = $this->appointmentPrivacyLimitedView($appointment);
 
                 return [
                     'id'     => $appointment->id,
@@ -199,6 +234,7 @@ class AppointmentController extends Controller
                     'place'            => $limitedView ? null : $appointment->place,
                     'pax'              => $limitedView ? null : $appointment->pax,
                     'price'            => $this->visiblePriceFor($appointment),
+                    ...$this->ticketFieldsFor($appointment, $limitedView),
                     'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                     'appointment_type' => $appointment->appointment_type,
                     'status'           => $appointment->status,
@@ -237,6 +273,9 @@ class AppointmentController extends Controller
                     'rating'        => $a->rating,
                 ])->values(),
                 'appointment_types' => self::APPOINTMENT_TYPES,
+                'ticket_types' => self::TICKET_TYPES,
+                'tattoo_types' => self::TATTOO_TYPES,
+                'payment_methods' => self::PAYMENT_METHODS,
                 'statuses' => ['confirmed', 'in_progress', 'completed', 'cancelled', 'rescheduled'],
             ],
         ]);
@@ -244,8 +283,17 @@ class AppointmentController extends Controller
 
     public function show(Studio $studio, Appointment $appointment): JsonResponse
     {
+        $user = request()->user();
+        abort_unless($user instanceof User, 403);
+
         if ((int) $appointment->studio_id !== (int) $studio->id) {
             abort_unless($this->driverCanAccessAppointment($studio, $appointment, request()), 403);
+        } else {
+            abort_unless($user->canAccessStudio($studio), 403);
+
+            $artistOnlyView = ! $user->canManageStudioAppointments($studio)
+                && $user->hasStudioRole($studio, [UserRole::Artist]);
+            abort_if($artistOnlyView && ! $this->assignedArtistCanAccess($appointment, $user), 403);
         }
 
         return $this->appointmentDetailResponse($appointment);
@@ -257,13 +305,9 @@ class AppointmentController extends Controller
         abort_unless($user instanceof User, 403);
 
         $canAccess =
-            (int) $appointment->created_by_user_id === (int) $user->id ||
-            (int) $appointment->assigned_artist_user_id === (int) $user->id ||
+            $this->creatorCanAccess($appointment, $user) ||
+            $this->assignedArtistCanAccess($appointment, $user) ||
             ($appointment->studio && $user->canManageStudioAppointments($appointment->studio)) ||
-            ($appointment->studio && $user->studios()
-                ->where('studios.id', $appointment->studio->id)
-                ->wherePivot('is_active', true)
-                ->exists()) ||
             ($appointment->pickup_required && $appointment->studio && $this->driverCanAccessStudio($appointment->studio, $request));
 
         abort_unless($canAccess, 403);
@@ -274,7 +318,7 @@ class AppointmentController extends Controller
     private function appointmentDetailResponse(Appointment $appointment): JsonResponse
     {
         $appointment->load(['createdBy', 'assignedArtist', 'studio.company']);
-        $limitedView = $this->artistLimitedView($appointment);
+        $limitedView = $this->appointmentPrivacyLimitedView($appointment);
         $currentUser = request()->user();
 
         return response()->json([
@@ -288,11 +332,12 @@ class AppointmentController extends Controller
                 'place'            => $limitedView ? null : $appointment->place,
                 'pax'              => $limitedView ? null : $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
+                ...$this->ticketFieldsFor($appointment, $limitedView),
                 'status'           => $appointment->status,
                 'driver_status'    => $limitedView ? null : $appointment->driver_status,
                 'artist_status'    => $appointment->artist_status,
                 'can_artist_respond' => $currentUser instanceof User
-                    && (int) $appointment->assigned_artist_user_id === (int) $currentUser->id
+                    && $this->assignedArtistCanAccess($appointment, $currentUser)
                     && $appointment->appointment_type === 'tattoo'
                     && ! in_array($appointment->status, ['cancelled', 'completed'], true),
                 'notes'            => $limitedView ? null : $appointment->notes,
@@ -357,6 +402,7 @@ class AppointmentController extends Controller
                     'place'            => $appointment->place,
                     'pax'              => $appointment->pax,
                     'price'            => $this->visiblePriceFor($appointment),
+                    ...$this->ticketFieldsFor($appointment),
                     'notes'            => $appointment->notes,
                     'customer_notes'   => $appointment->customer_notes,
                 ])->values(),
@@ -367,14 +413,22 @@ class AppointmentController extends Controller
     /** Stüdyo randevuları — tüm stüdyo çalışanları tüm randevuları görür */
     public function index(Request $request, Studio $studio): JsonResponse
     {
+        $user = $request->user();
+        abort_unless($user instanceof User && $user->canAccessStudio($studio), 403);
+
         $filters = $request->validate([
             'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
 
+        $artistOnlyView = ! $user->canManageStudioAppointments($studio)
+            && $user->hasStudioRole($studio, [UserRole::Artist]);
+
         $appointments = $studio->appointments()
             ->with(['createdBy', 'assignedArtist'])
+            ->when($artistOnlyView, fn ($query) => $query
+                ->where('assigned_artist_user_id', $user->id))
             ->when(isset($filters['appointment_type']), fn ($query) => $query
                 ->where('appointment_type', $filters['appointment_type']))
             ->when(isset($filters['date_from']), fn ($query) => $query
@@ -386,13 +440,14 @@ class AppointmentController extends Controller
 
         return response()->json([
             'data' => $appointments->map(function ($appointment) use ($studio): array {
-                $limitedView = $this->artistLimitedView($appointment);
+                $limitedView = $this->appointmentPrivacyLimitedView($appointment);
 
                 return [
                 'id'               => $appointment->id,
                 'customer'         => $limitedView ? [] : $this->formatCustomer($appointment),
                 'pax'              => $limitedView ? null : $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
+                ...$this->ticketFieldsFor($appointment, $limitedView),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -488,10 +543,16 @@ class AppointmentController extends Controller
 
         if ($appointment->assignedArtist instanceof User) {
             $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
+            $notificationTitle = $appointment->appointment_type === 'tattoo'
+                ? 'Yeni Bilet Talebi'
+                : "Yeni {$recordLabel} Atandı";
+            $notificationBody = $appointment->appointment_type === 'tattoo'
+                ? "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli bilet onayınıza gönderildi."
+                : "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} size atandı.";
             app(FcmService::class)->sendToUser(
                 $appointment->assignedArtist,
-                "Yeni {$recordLabel} Atandı",
-                "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} size atandı.",
+                $notificationTitle,
+                $notificationBody,
                 'artist_assigned',
                 [
                     'appointment_id' => $appointment->id,
@@ -520,7 +581,7 @@ class AppointmentController extends Controller
     {
         $artist = $request->user();
         abort_unless($artist instanceof User, 403);
-        abort_unless((int) $appointment->assigned_artist_user_id === (int) $artist->id, 403);
+        abort_unless($this->assignedArtistCanAccess($appointment, $artist), 403);
         abort_unless($appointment->appointment_type === 'tattoo', 422);
         abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
 
@@ -528,10 +589,16 @@ class AppointmentController extends Controller
             'response' => ['required', 'string', 'in:accepted,rejected'],
         ]);
         abort_if($appointment->artist_status === $validated['response'], 422, 'Bu bilete daha önce yanıt verdiniz.');
+        abort_if($appointment->artist_status === 'accepted', 422, 'Kabul edilmiş bilet için yanıt değiştirilemez.');
 
-        $appointment->forceFill([
+        $updates = [
             'artist_status' => $validated['response'],
-        ])->save();
+        ];
+        if ($validated['response'] === 'rejected') {
+            $updates['assigned_artist_user_id'] = null;
+        }
+
+        $appointment->forceFill($updates)->save();
 
         app(AppointmentNotificationService::class)
             ->notifyArtistResponse($appointment, $artist);
@@ -543,6 +610,7 @@ class AppointmentController extends Controller
             'data' => [
                 'id' => $appointment->id,
                 'artist_status' => $appointment->artist_status,
+                'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
             ],
         ]);
     }
@@ -552,14 +620,20 @@ class AppointmentController extends Controller
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
-        abort_unless((int) $appointment->assigned_artist_user_id === (int) $user->id, 403);
+        abort_unless($this->assignedArtistCanAccess($appointment, $user), 403);
         abort_unless($appointment->appointment_type === 'tattoo', 422);
+        abort_unless($appointment->artist_status === 'accepted', 422, 'Bileti tamamlamadan önce kabul etmelisiniz.');
         abort_unless(
             $user->isIndependentProfessionalFor(UserRole::Artist)
                 || ($appointment->studio_id !== null && $user->hasStudioRole((int) $appointment->studio_id, [UserRole::Artist])),
             403
         );
         abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
+        abort_if(
+            $appointment->appointment_at?->isFuture(),
+            422,
+            'Bilet zamanı gelmeden tamamlanamaz.'
+        );
 
         $request->validate([
             'completed_tattoo_image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
@@ -579,6 +653,7 @@ class AppointmentController extends Controller
                 'id' => $appointment->id,
                 'status' => $appointment->status,
                 'price' => $this->visiblePriceFor($appointment),
+                'deposit_amount' => $this->visibleDepositFor($appointment),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
             ],
         ]);
@@ -602,24 +677,31 @@ class AppointmentController extends Controller
             'customer.customer_notes'     => ['nullable', 'string'],
             'pax'                         => ['required', 'integer', 'min:1', 'max:50'],
             'price'                       => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'deposit_amount'              => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'payment_method'              => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::PAYMENT_METHODS))],
+            'ticket_types'                => ['required_if:appointment_type,tattoo', 'nullable', 'array', 'max:4'],
+            'ticket_types.*'              => ['string', 'in:'.implode(',', array_keys(self::TICKET_TYPES))],
+            'tattoo_type'                 => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::TATTOO_TYPES))],
             'appointment_at'              => ['required', 'date'],
             'appointment_type'            => ['nullable', 'string', 'in:designer,tattoo'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
             'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
-            'tattoo_image_paths'           => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths'           => ['nullable', 'array'],
             'tattoo_image_paths.*'         => ['string', 'max:2048'],
-            'tattoo_images'                => ['nullable', 'array', 'max:3'],
+            'tattoo_images'                => ['nullable', 'array'],
             'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'              => ['sometimes', 'boolean'],
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
+        $appointmentType = $validated['appointment_type'] ?? 'designer';
+        $validated = $this->normalizeTicketAttributes($validated, $appointmentType, true);
 
         $sourceImagePath = $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null;
         if ($request->hasFile('image')) {
             $sourceImagePath = $this->storeAppointmentImage($request, $studio);
         }
-        $tattooImagePaths = $this->resolveTattooImagePaths($request, $studio, $validated['tattoo_image_paths'] ?? []);
+        $tattooImagePaths = $this->resolveTattooImagePaths($request, $studio, $validated['tattoo_image_paths'] ?? [], $appointmentType);
 
         $appointment = $appointmentService->create($studio, $request->user(), [
             'customer' => [
@@ -633,9 +715,13 @@ class AppointmentController extends Controller
                 'photo_path'         => $validated['slip_image_path'] ?? null,
                 'customer_notes'     => $validated['customer']['customer_notes'] ?? null,
             ],
-            'appointment_type'  => $validated['appointment_type'] ?? 'designer',
+            'appointment_type'  => $appointmentType,
             'pax'               => $validated['pax'],
             'price'             => $validated['price'] ?? null,
+            'deposit_amount'    => $validated['deposit_amount'] ?? null,
+            'payment_method'    => $validated['payment_method'] ?? null,
+            'ticket_types'      => $validated['ticket_types'] ?? [],
+            'tattoo_type'       => $validated['tattoo_type'] ?? null,
             'appointment_at'    => $validated['appointment_at'],
             'notes'             => $validated['notes'] ?? null,
             'source_image_path' => $sourceImagePath,
@@ -671,19 +757,39 @@ class AppointmentController extends Controller
             'customer.customer_notes'     => ['nullable', 'string'],
             'pax'                         => ['sometimes', 'integer', 'min:1', 'max:50'],
             'price'                       => ['sometimes', 'numeric', 'min:0', 'max:99999999.99'],
+            'deposit_amount'              => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'payment_method'              => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::PAYMENT_METHODS))],
+            'ticket_types'                => ['required_if:appointment_type,tattoo', 'nullable', 'array', 'max:4'],
+            'ticket_types.*'              => ['string', 'in:'.implode(',', array_keys(self::TICKET_TYPES))],
+            'tattoo_type'                 => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::TATTOO_TYPES))],
             'appointment_at'              => ['sometimes', 'date'],
             'appointment_type'            => ['sometimes', 'string', 'in:designer,tattoo'],
             'status'                      => ['sometimes', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
             'notes'                       => ['nullable', 'string'],
             'source_image_path'           => ['nullable', 'string', 'max:2048'],
             'image'                       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
-            'tattoo_image_paths'           => ['nullable', 'array', 'max:3'],
+            'tattoo_image_paths'           => ['nullable', 'array'],
             'tattoo_image_paths.*'         => ['string', 'max:2048'],
-            'tattoo_images'                => ['nullable', 'array', 'max:3'],
+            'tattoo_images'                => ['nullable', 'array'],
             'tattoo_images.*'              => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'pickup_required'              => ['sometimes', 'boolean'],
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
+        $validated = $this->normalizeTicketAttributes(
+            $validated,
+            $validated['appointment_type'] ?? $appointment->appointment_type,
+            false
+        );
+        $completionAppointmentAt = array_key_exists('appointment_at', $validated)
+            ? \Carbon\Carbon::parse($validated['appointment_at'])
+            : $appointment->appointment_at;
+        abort_if(
+            ($validated['status'] ?? null) === 'completed'
+                && ($validated['appointment_type'] ?? $appointment->appointment_type) === 'tattoo'
+                && $completionAppointmentAt?->isFuture(),
+            422,
+            'Bilet zamanı gelmeden tamamlanamaz.'
+        );
 
         if ($request->hasFile('image')) {
             $validated['source_image_path'] = $this->storeAppointmentImage($request, $studio);
@@ -692,7 +798,8 @@ class AppointmentController extends Controller
             $validated['tattoo_image_paths'] = $this->resolveTattooImagePaths(
                 $request,
                 $studio,
-                $validated['tattoo_image_paths'] ?? []
+                $validated['tattoo_image_paths'] ?? [],
+                $validated['appointment_type'] ?? $appointment->appointment_type
             );
         }
 
@@ -801,6 +908,20 @@ class AppointmentController extends Controller
 
     private function visiblePriceFor(Appointment $appointment): mixed
     {
+        return $this->canViewMoneyFor($appointment)
+            ? $appointment->price
+            : null;
+    }
+
+    private function visibleDepositFor(Appointment $appointment): mixed
+    {
+        return $this->canViewMoneyFor($appointment)
+            ? $appointment->deposit_amount
+            : null;
+    }
+
+    private function canViewMoneyFor(Appointment $appointment): bool
+    {
         $user = request()->user();
         $canViewSalePrice = $appointment->studio_id !== null
             && $user?->hasStudioRole((int) $appointment->studio_id, [
@@ -810,9 +931,78 @@ class AppointmentController extends Controller
 
         return $appointment->status === 'completed'
             || $this->canManagePrice($user)
-            || $canViewSalePrice
-            ? $appointment->price
-            : null;
+            || $canViewSalePrice;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ticketFieldsFor(Appointment $appointment, bool $limitedView = false): array
+    {
+        return [
+            'deposit_amount' => $limitedView ? null : $this->visibleDepositFor($appointment),
+            'payment_method' => $limitedView ? null : $appointment->payment_method,
+            'ticket_types' => $appointment->appointment_type === 'tattoo'
+                ? array_values($appointment->ticket_types ?? [])
+                : [],
+            'ticket_type_labels' => $appointment->appointment_type === 'tattoo'
+                ? collect($appointment->ticket_types ?? [])
+                    ->map(fn (string $type): string => self::TICKET_TYPES[$type] ?? $type)
+                    ->values()
+                    ->all()
+                : [],
+            'tattoo_type' => $appointment->appointment_type === 'tattoo' ? $appointment->tattoo_type : null,
+            'tattoo_type_label' => $appointment->appointment_type === 'tattoo' && $appointment->tattoo_type
+                ? (self::TATTOO_TYPES[$appointment->tattoo_type] ?? $appointment->tattoo_type)
+                : null,
+            'payment_method_label' => ! $limitedView && $appointment->payment_method
+                ? (self::PAYMENT_METHODS[$appointment->payment_method] ?? $appointment->payment_method)
+                : null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function normalizeTicketAttributes(array $attributes, string $appointmentType, bool $creating): array
+    {
+        if ($appointmentType !== 'tattoo') {
+            $attributes['ticket_types'] = [];
+            $attributes['tattoo_type'] = null;
+            $attributes['payment_method'] = null;
+            $attributes['deposit_amount'] = null;
+            $attributes['price'] = null;
+            $attributes['pickup_required'] = true;
+
+            return $attributes;
+        }
+
+        if (array_key_exists('ticket_types', $attributes)) {
+            $attributes['ticket_types'] = collect($attributes['ticket_types'] ?? [])
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if ($creating) {
+            $missing = [];
+            if (empty($attributes['ticket_types'])) {
+                $missing['ticket_types'] = ['Bilet türü seçilmelidir.'];
+            }
+            if (empty($attributes['tattoo_type'])) {
+                $missing['tattoo_type'] = ['Dövme türü seçilmelidir.'];
+            }
+            if (empty($attributes['payment_method'])) {
+                $missing['payment_method'] = ['Ödeme yöntemi seçilmelidir.'];
+            }
+            if ($missing !== []) {
+                throw ValidationException::withMessages($missing);
+            }
+        }
+
+        return $attributes;
     }
 
     /**
@@ -823,6 +1013,7 @@ class AppointmentController extends Controller
     {
         if (! $this->canManagePrice($user)) {
             unset($validated['price']);
+            unset($validated['deposit_amount']);
         }
 
         return $validated;
@@ -842,9 +1033,63 @@ class AppointmentController extends Controller
         $user = request()->user();
 
         return $user instanceof User
-            && $user->hasAnyRole([UserRole::Artist, UserRole::KullaniciRol])
+            && $appointment->studio_id !== null
+            && (int) $appointment->assigned_artist_user_id === (int) $user->id
             && ! $user->isIndependentProfessional()
-            && $appointment->appointment_type === 'tattoo';
+            && $user->hasStudioRole((int) $appointment->studio_id, [
+                UserRole::Artist,
+                UserRole::Designer,
+            ]);
+    }
+
+    private function appointmentPrivacyLimitedView(Appointment $appointment): bool
+    {
+        return $this->artistLimitedView($appointment)
+            || $this->historyCustomerLimitedView($appointment);
+    }
+
+    private function historyCustomerLimitedView(Appointment $appointment): bool
+    {
+        $user = request()->user();
+        $status = mb_strtolower((string) $appointment->status);
+
+        return $user instanceof User
+            && ! $user->hasRole(UserRole::Admin)
+            && in_array($status, ['completed', 'cancelled'], true);
+    }
+
+    private function assignedArtistCanAccess(Appointment $appointment, User $user): bool
+    {
+        if ((int) $appointment->assigned_artist_user_id !== (int) $user->id) {
+            return false;
+        }
+
+        if ($appointment->studio_id === null) {
+            return $user->isIndependentProfessional();
+        }
+
+        return $user->hasStudioRole((int) $appointment->studio_id, [
+            UserRole::Artist,
+            UserRole::Designer,
+        ]);
+    }
+
+    private function creatorCanAccess(Appointment $appointment, User $user): bool
+    {
+        if ((int) $appointment->created_by_user_id !== (int) $user->id) {
+            return false;
+        }
+
+        if ($appointment->studio_id === null) {
+            return true;
+        }
+
+        if (! $user->hasAnyRole(UserRole::studioRoles()) && ! $user->hasRole(UserRole::KullaniciRol)) {
+            return true;
+        }
+
+        return $user->canManageStudioAppointments((int) $appointment->studio_id)
+            || $user->belongsToActiveStudio((int) $appointment->studio_id);
     }
 
     /**
@@ -884,7 +1129,7 @@ class AppointmentController extends Controller
      * @param  array<int, string>  $existingPaths
      * @return array<int, string>
      */
-    private function resolveTattooImagePaths(Request $request, Studio $studio, array $existingPaths): array
+    private function resolveTattooImagePaths(Request $request, Studio $studio, array $existingPaths, string $appointmentType): array
     {
         $paths = array_values($existingPaths);
 
@@ -894,7 +1139,7 @@ class AppointmentController extends Controller
             $paths[] = Storage::disk('public')->url($path);
         }
 
-        if (count($paths) > 3) {
+        if ($appointmentType === 'tattoo' && count($paths) > 3) {
             throw ValidationException::withMessages([
                 'tattoo_images' => ['En fazla 3 dövme görseli ekleyebilirsiniz.'],
             ]);

@@ -29,6 +29,10 @@ return new class extends Migration
             $table->string('place')->nullable();
             $table->unsignedSmallInteger('pax')->default(1);
             $table->decimal('price', 10, 2)->nullable();
+            $table->decimal('deposit_amount', 10, 2)->nullable();
+            $table->string('payment_method')->nullable();
+            $table->json('ticket_types')->nullable();
+            $table->string('tattoo_type')->nullable();
             $table->string('status')->default('pending');
             $table->text('response_notes')->nullable();
             $table->timestamp('responded_at')->nullable();

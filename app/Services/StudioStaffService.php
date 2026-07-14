@@ -27,8 +27,6 @@ class StudioStaffService
     ): array
     {
         return DB::transaction(function () use ($studio, $role, $attributes, $invitedBy): array {
-            $this->ensureStudioProfessionalSlotAvailable($studio, $role);
-
             $existingUser = User::query()
                 ->where('email', $attributes['email'])
                 ->lockForUpdate()
@@ -135,7 +133,6 @@ class StudioStaffService
             $role = UserRole::fromValue($invitation->role);
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             $this->ensureSingleStudioRoleAvailable($invitation->studio, $role, $user);
-            $this->ensureStudioProfessionalSlotAvailable($invitation->studio, $role, $user->id);
 
             $membership = $invitation->studio->users()
                 ->where('users.id', $user->id)
@@ -257,7 +254,6 @@ class StudioStaffService
         if (array_key_exists('role', $attributes)) {
             $newRole = UserRole::fromValue($attributes['role']);
             $this->ensureSingleStudioRoleAvailable($studio, $newRole, $user);
-            $this->ensureStudioProfessionalSlotAvailable($studio, $newRole, $user->id);
             $pivotUpdates['role'] = $newRole->value;
             $user->role = $newRole;
             $user->save();
@@ -358,28 +354,6 @@ class StudioStaffService
             'action' => 'invited_existing_freelancer',
             'invitation' => $invitation,
         ];
-    }
-
-    private function ensureStudioProfessionalSlotAvailable(
-        Studio $studio,
-        UserRole $role,
-        ?int $exceptUserId = null
-    ): void {
-        if (! in_array($role, [UserRole::Artist, UserRole::Designer], true)) {
-            return;
-        }
-
-        $exists = $studio->users()
-            ->wherePivot('is_active', true)
-            ->wherePivot('role', $role->value)
-            ->when($exceptUserId !== null, fn ($query) => $query->where('users.id', '!=', $exceptUserId))
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'role' => ["Bir stüdyoda sadece 1 {$role->label()} olabilir."],
-            ]);
-        }
     }
 
     private function ensureSingleStudioRoleAvailable(

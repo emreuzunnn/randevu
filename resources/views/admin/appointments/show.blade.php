@@ -135,8 +135,37 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Fiyat</span>
-                    <span class="detail-value">{{ ($canSeePrice ?? false) && $appointment->price !== null ? number_format((float) $appointment->price, 2, ',', '.') . ' ₺' : '—' }}</span>
+                    <span class="detail-value">{{ ($canSeePrice ?? false) && $appointment->price !== null ? number_format((float) $appointment->price, 2, ',', '.') . ' €' : '—' }}</span>
                 </div>
+                @if($appointment->appointment_type === 'tattoo')
+                    @php
+                        $ticketTypeLabels = \Illuminate\Support\Collection::make($appointment->ticket_types ?? [])
+                            ->map(fn ($type) => \App\Http\Controllers\Api\AppointmentController::TICKET_TYPES[$type] ?? $type)
+                            ->implode(', ');
+                        $tattooTypeLabel = $appointment->tattoo_type
+                            ? (\App\Http\Controllers\Api\AppointmentController::TATTOO_TYPES[$appointment->tattoo_type] ?? $appointment->tattoo_type)
+                            : null;
+                        $paymentMethodLabel = $appointment->payment_method
+                            ? (\App\Http\Controllers\Api\AppointmentController::PAYMENT_METHODS[$appointment->payment_method] ?? $appointment->payment_method)
+                            : null;
+                    @endphp
+                    <div class="detail-row">
+                        <span class="detail-label">Depozito</span>
+                        <span class="detail-value">{{ ($canSeePrice ?? false) && $appointment->deposit_amount !== null ? number_format((float) $appointment->deposit_amount, 2, ',', '.') . ' €' : '—' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Ödeme</span>
+                        <span class="detail-value">{{ ($canSeePrice ?? false) ? ($paymentMethodLabel ?: '—') : '—' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Bilet Türü</span>
+                        <span class="detail-value">{{ $ticketTypeLabels ?: '—' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Dövme Türü</span>
+                        <span class="detail-value">{{ $tattooTypeLabel ?: '—' }}</span>
+                    </div>
+                @endif
                 <div class="detail-row">
                     <span class="detail-label">Eski Müşteri</span>
                     <span class="detail-value">

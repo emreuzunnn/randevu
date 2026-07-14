@@ -61,6 +61,7 @@ class UserProfileController extends Controller
             'status' => 'success',
             'data'   => [
                 'id'                  => $user->id,
+                'profile_code'        => $user->profileCode(),
                 'name'                => $user->fullName(),
                 'email'               => $user->email,
                 'phone'               => $user->phone,

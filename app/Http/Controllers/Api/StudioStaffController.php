@@ -71,9 +71,11 @@ class StudioStaffController extends Controller
         StudioStaffService $studioStaffService
     ): JsonResponse {
         $role = UserRole::fromValue((string) $request->route('role'));
+        $actor = $request->user();
+
         $this->authorizeRoleManagement($request, $studio, $role);
         abort_if(
-            ! $request->user()?->hasRole(UserRole::Admin)
+            ! $actor?->hasRole(UserRole::Admin)
                 && $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
             403
         );
@@ -84,6 +86,18 @@ class StudioStaffController extends Controller
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
+
+        if (! $actor?->hasRole(UserRole::Admin)) {
+            if ($actor?->is($user)) {
+                abort_if(array_key_exists('is_active', $validated), 403);
+            } else {
+                $isFireOnly = count($validated) === 1
+                    && array_key_exists('is_active', $validated)
+                    && $validated['is_active'] === false;
+
+                abort_unless($isFireOnly, 403);
+            }
+        }
 
         $updatedUser = $studioStaffService->updateMembership($studio, $user, $role, $validated);
 

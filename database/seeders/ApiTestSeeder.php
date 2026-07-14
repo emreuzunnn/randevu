@@ -623,7 +623,8 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments1 as $data) {
-            $data['price'] ??= fake()->numberBetween(2500, 18000);
+            $data['price'] ??= fake()->numberBetween(70, 520);
+            $data = $this->withTicketDefaults($data);
             $data['pickup_required'] ??= false;
             $data['tattoo_image_paths'] ??= [
                 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
@@ -760,7 +761,8 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments2 as $data) {
-            $data['price'] ??= fake()->numberBetween(3000, 22000);
+            $data['price'] ??= fake()->numberBetween(85, 650);
+            $data = $this->withTicketDefaults($data);
             $data['pickup_required'] ??= false;
             $data['tattoo_image_paths'] ??= [
                 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80',
@@ -817,7 +819,8 @@ class ApiTestSeeder extends Seeder
         ];
 
         foreach ($appointments3 as $data) {
-            $data['price'] ??= fake()->numberBetween(2000, 14000);
+            $data['price'] ??= fake()->numberBetween(60, 420);
+            $data = $this->withTicketDefaults($data);
             $data['pickup_required'] ??= false;
             $data['tattoo_image_paths'] ??= [];
             if ($data['status'] === 'completed' && $data['appointment_type'] === 'tattoo') {
@@ -842,7 +845,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '304',
             'place'              => 'Moda Hotel',
             'pax'                => 1,
-            'price'              => 4500,
+            'price'              => 130,
             'image_path'         => 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80',
             'tattoo_image_paths' => [
                 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
@@ -851,7 +854,7 @@ class ApiTestSeeder extends Seeder
             'status'             => 'pending',
         ]);
 
-        AppointmentRequest::create([
+        AppointmentRequest::create($this->withTicketDefaults([
             'requester_user_id'  => $supervisor1->id,
             'target_user_id'     => $artist1->id,
             'studio_id'          => $studio1->id,
@@ -866,7 +869,7 @@ class ApiTestSeeder extends Seeder
             'room_number'        => 'A1',
             'place'              => 'Kadıköy Ink Lobby',
             'pax'                => 2,
-            'price'              => 12000,
+            'price'              => 350,
             'image_path'         => 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80',
             'tattoo_image_paths' => [
                 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=900&q=80',
@@ -874,9 +877,9 @@ class ApiTestSeeder extends Seeder
             ],
             'pickup_required'    => true,
             'status'             => 'pending',
-        ]);
+        ]));
 
-        AppointmentRequest::create([
+        AppointmentRequest::create($this->withTicketDefaults([
             'requester_user_id'  => $kullanici->id,
             'target_user_id'     => null,
             'studio_id'          => $studio2->id,
@@ -891,16 +894,16 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '812',
             'place'              => 'Beşiktaş Palace',
             'pax'                => 1,
-            'price'              => 8500,
+            'price'              => 250,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'tattoo_image_paths' => [
                 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=900&q=80',
             ],
             'pickup_required'    => false,
             'status'             => 'pending',
-        ]);
+        ]));
 
-        AppointmentRequest::create([
+        AppointmentRequest::create($this->withTicketDefaults([
             'requester_user_id'  => $kullanici->id,
             'target_user_id'     => $artist2->id,
             'studio_id'          => $studio2->id,
@@ -915,16 +918,16 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '220',
             'place'              => 'Artist 2 Test Hotel',
             'pax'                => 1,
-            'price'              => 6500,
+            'price'              => 190,
             'image_path'         => 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80',
             'tattoo_image_paths' => [
                 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
             ],
             'pickup_required'    => true,
             'status'             => 'pending',
-        ]);
+        ]));
 
-        AppointmentRequest::create([
+        AppointmentRequest::create($this->withTicketDefaults([
             'requester_user_id'  => $kullanici->id,
             'target_user_id'     => $independentArtist->id,
             'studio_id'          => null,
@@ -939,14 +942,14 @@ class ApiTestSeeder extends Seeder
             'room_number'        => '510',
             'place'              => 'Freelancer Test Hotel',
             'pax'                => 1,
-            'price'              => 9000,
+            'price'              => 260,
             'image_path'         => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80',
             'tattoo_image_paths' => [
                 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
             ],
             'pickup_required'    => false,
             'status'             => 'pending',
-        ]);
+        ]));
     }
 
     private function commissionRate(UserRole $role): int
@@ -960,5 +963,28 @@ class ApiTestSeeder extends Seeder
             UserRole::Calisan => 8,
             default => 0,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withTicketDefaults(array $data): array
+    {
+        if (($data['appointment_type'] ?? $data['request_type'] ?? null) !== 'tattoo') {
+            return $data;
+        }
+
+        $data['deposit_amount'] ??= max(20, (int) round(((float) ($data['price'] ?? 0)) * 0.2));
+        $data['payment_method'] ??= fake()->randomElement(['cash', 'credit_card']);
+        $data['ticket_types'] ??= fake()->randomElement([
+            ['tattoo'],
+            ['piercing'],
+            ['tattoo', 'cream_sale'],
+            ['piercing_service'],
+        ]);
+        $data['tattoo_type'] ??= fake()->randomElement(['coverup', 'freehand', 'refresh', 'touchub', 'clean']);
+
+        return $data;
     }
 }

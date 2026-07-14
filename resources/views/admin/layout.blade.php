@@ -198,15 +198,6 @@
                     </a>
                 @endunless
 
-                <a href="{{ route('admin.discovery.index') }}"
-                   class="admin-nav-link {{ request()->routeIs('admin.discovery.*') ? 'is-active' : '' }}">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-                    </svg>
-                    Keşfet
-                </a>
-
                 <a href="{{ route('admin.appointment-requests.index') }}"
                    class="admin-nav-link {{ request()->routeIs('admin.appointment-requests.*') ? 'is-active' : '' }}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -126,6 +126,7 @@ class AuthController extends Controller
                 'studio_id'  => $primaryStudio?->id,
                 'user'       => [
                     'id'            => $user->id,
+                    'profile_code'  => $user->profileCode(),
                     'name'          => $user->fullName(),
                     'email'         => $user->email,
                     'role'          => $membership?->role ?? $user->role?->value,
@@ -154,6 +155,7 @@ class AuthController extends Controller
             'status' => 'success',
             'data'   => [
                 'id'                 => $user?->id,
+                'profile_code'       => $user?->profileCode(),
                 'name'               => $user?->fullName(),
                 'email'              => $user?->email,
                 'phone'              => $user?->phone,

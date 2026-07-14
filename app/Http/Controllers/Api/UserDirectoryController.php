@@ -120,6 +120,60 @@ class UserDirectoryController extends Controller
         ]);
     }
 
+    public function lookupByProfileCode(Request $request, string $code): JsonResponse
+    {
+        $authUser = $request->user();
+        abort_unless($authUser?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
+
+        $numericCode = preg_replace('/\D+/', '', $code) ?: '';
+        abort_if($numericCode === '', 404);
+
+        $user = User::query()
+            ->whereKey((int) ltrim($numericCode, '0'))
+            ->whereNull('banned_at')
+            ->firstOrFail();
+
+        $manageableRoles = collect($authUser->manageableStaffRoles())
+            ->filter(fn (UserRole $role): bool => in_array($role, UserRole::studioRoles(), true))
+            ->values();
+        $inviteRoles = $manageableRoles
+            ->filter(fn (UserRole $role): bool => $user->isAvailableForStaffInvitation($role))
+            ->values();
+        $activeStudio = $user->studios()
+            ->wherePivot('is_active', true)
+            ->first(['studios.id', 'studios.name']);
+
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'profile_code' => $user->profileCode(),
+                'name' => $user->fullName(),
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'username' => $user->username,
+                'role' => $user->role?->value,
+                'requested_staff_role' => $user->requested_staff_role?->value,
+                'profile_role' => $user->profileRole()->value,
+                'profile_role_label' => $user->profileRole()->label(),
+                'profile_image' => $user->profile_image,
+                'bio' => $user->bio,
+                'specializations' => $user->specializations ?? [],
+                'is_current_user' => $authUser->is($user),
+                'is_available' => $activeStudio === null,
+                'current_studio' => $activeStudio ? [
+                    'id' => $activeStudio->id,
+                    'name' => $activeStudio->name,
+                ] : null,
+                'can_invite_roles' => $inviteRoles
+                    ->map(fn (UserRole $role): array => [
+                        'value' => $role->value,
+                        'label' => $role->label(),
+                    ])
+                    ->values(),
+            ],
+        ]);
+    }
+
     public function store(Request $request, StudioStaffService $studioStaffService): JsonResponse
     {
         abort_unless($request->user()?->hasAnyRole([
@@ -208,16 +262,18 @@ class UserDirectoryController extends Controller
 
     public function update(Request $request, Studio $studio, User $user, StudioStaffService $studioStaffService): JsonResponse
     {
-        abort_unless($this->canAccessStaffInStudio($request->user(), $studio), 403);
+        $actor = $request->user();
+
+        abort_unless($this->canAccessStaffInStudio($actor, $studio), 403);
         abort_if(
-            ! $request->user()?->hasRole(UserRole::Admin)
+            ! $actor?->hasRole(UserRole::Admin)
                 && $user->hasAnyRole([UserRole::Kullanici, UserRole::KullaniciRol]),
             403
         );
 
         $currentRole = $studio->users()->where('users.id', $user->id)->first()?->pivot?->role;
         abort_if($currentRole === null, 404);
-        abort_unless($request->user()?->canManageStaffRole($currentRole), 403);
+        abort_unless($actor?->canManageStaffRole($currentRole) || $actor?->is($user), 403);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -230,8 +286,23 @@ class UserDirectoryController extends Controller
             'profile_image' => ['nullable', 'string', 'max:2048'],
         ]);
 
+        if (! $actor?->hasRole(UserRole::Admin)) {
+            if ($actor?->is($user)) {
+                abort_if(
+                    array_intersect(['role', 'status', 'is_active'], array_keys($validated)) !== [],
+                    403
+                );
+            } else {
+                $isFireOnly = count($validated) === 1
+                    && array_key_exists('is_active', $validated)
+                    && $validated['is_active'] === false;
+
+                abort_unless($isFireOnly, 403);
+            }
+        }
+
         if (isset($validated['role'])) {
-            abort_unless($request->user()?->canManageStaffRole($validated['role']), 403);
+            abort_unless($actor?->canManageStaffRole($validated['role']), 403);
         }
 
         $updatedUser = $studioStaffService->updateMembership(

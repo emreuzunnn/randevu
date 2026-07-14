@@ -73,6 +73,26 @@ const APPOINTMENT_TYPE_LABELS = {
     tattoo:   'Bilet',
 };
 
+const TICKET_TYPE_LABELS = {
+    cream_sale:       'Krem satışı',
+    piercing:         'Piercing',
+    tattoo:           'Dövme',
+    piercing_service: 'Piercing yapımı',
+};
+
+const TATTOO_TYPE_LABELS = {
+    coverup:  'Coverup',
+    freehand: 'Freehand',
+    refresh:  'Refresh',
+    touchub:  'Touchub',
+    clean:    'Clean',
+};
+
+const PAYMENT_METHOD_LABELS = {
+    credit_card: 'Kredi kartı',
+    cash:        'Nakit',
+};
+
 const statusLabel = (s) => STATUS_LABELS[s] ?? s;
 const roleLabel   = (r) => ROLE_LABELS[r]   ?? r;
 const uniqueById  = (items = []) => {
@@ -91,6 +111,114 @@ const canManageAppointmentRecords = () =>
     ['admin', 'yonetici', 'supervisor', 'info', 'calisan'].includes(adminConfig.role);
 const canCreateAppointmentWeb = () =>
     ['yonetici', 'supervisor', 'designer', 'info', 'calisan'].includes(adminConfig.role);
+
+const ticketMetaLine = (item = {}) => {
+    if (item.appointment_type !== 'tattoo' && item.request_type !== 'tattoo') return '';
+    const types = (item.ticket_type_labels || item.ticket_types?.map((type) => TICKET_TYPE_LABELS[type] || type) || []).join(', ');
+    const tattooType = item.tattoo_type_label || TATTOO_TYPE_LABELS[item.tattoo_type] || item.tattoo_type || '';
+    const payment = item.payment_method_label || PAYMENT_METHOD_LABELS[item.payment_method] || item.payment_method || '';
+    return [types, tattooType, payment].filter(Boolean).join(' · ');
+};
+
+const ticketFieldsMarkup = () => `
+    <div class="form-grid" data-ticket-fields style="display:none">
+        <div class="field-wrap">
+            <label class="field-label">Bilet Türü</label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.5rem">
+                ${Object.entries(TICKET_TYPE_LABELS).map(([value, label]) => `
+                    <label class="list-card" style="display:flex;align-items:center;gap:0.45rem;padding:0.65rem 0.75rem;font-size:0.78rem;color:var(--text-muted)">
+                        <input type="checkbox" name="ticket_types[]" value="${value}" data-ticket-input disabled>
+                        <span>${escapeHtml(label)}</span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>
+        <div class="form-grid form-grid--split">
+            <div class="field-wrap">
+                <label class="field-label">Dövme Türü</label>
+                <select class="field-select" name="tattoo_type" data-ticket-input disabled>
+                    <option value="">Seç</option>
+                    ${Object.entries(TATTOO_TYPE_LABELS).map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="field-wrap">
+                <label class="field-label">Ödeme Yöntemi</label>
+                <select class="field-select" name="payment_method" data-ticket-input disabled>
+                    <option value="">Seç</option>
+                    ${Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+        <div class="field-wrap">
+            <label class="field-label">Depozito <span style="color:var(--text-subtle)">(opsiyonel)</span></label>
+            <input class="field-input" name="deposit_amount" type="number" min="0" step="0.01" data-ticket-input disabled>
+        </div>
+    </div>
+`;
+
+const bindTicketFields = (form, typeName = 'appointment_type') => {
+    const typeSelect = form?.querySelector(`[name="${typeName}"]`);
+    const wrapper = form?.querySelector('[data-ticket-fields]');
+    if (!typeSelect || !wrapper) return;
+
+    const sync = () => {
+        const enabled = typeSelect.value === 'tattoo';
+        wrapper.style.display = enabled ? 'grid' : 'none';
+        wrapper.querySelectorAll('[data-ticket-input]').forEach((input) => {
+            input.disabled = !enabled;
+            if (!enabled) {
+                if (input.type === 'checkbox') input.checked = false;
+                else input.value = '';
+            }
+        });
+    };
+
+    typeSelect.addEventListener('change', sync);
+    sync();
+};
+
+const bindDesignerAppointmentFields = (form, typeName = 'appointment_type') => {
+    const typeSelect = form?.querySelector(`[name="${typeName}"]`);
+    if (!typeSelect) return;
+
+    const priceWrap = form.querySelector('[data-price-field]');
+    const priceInput = form.querySelector('[name="price"]');
+    const pickupWrap = form.querySelector('[data-pickup-field]');
+    const pickupInput = form.querySelector('[name="pickup_required"]');
+    const imageLabel = form.querySelector('[data-appointment-images-label]');
+
+    const sync = () => {
+        const isDesigner = typeSelect.value === 'designer';
+        if (priceWrap) priceWrap.style.display = isDesigner ? 'none' : '';
+        if (priceInput && isDesigner) priceInput.value = '';
+        if (pickupWrap) pickupWrap.style.display = isDesigner ? 'none' : 'flex';
+        if (pickupInput) {
+            pickupInput.checked = isDesigner;
+            pickupInput.disabled = isDesigner;
+        }
+        if (imageLabel) {
+            imageLabel.innerHTML = isDesigner
+                ? 'Tasarım Görselleri <span style="color:var(--text-subtle)">(sınırsız)</span>'
+                : 'Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span>';
+        }
+    };
+
+    typeSelect.addEventListener('change', sync);
+    sync();
+};
+
+const validateTicketFields = (form, typeName = 'appointment_type') => {
+    if (form?.querySelector(`[name="${typeName}"]`)?.value !== 'tattoo') return;
+    if (form.querySelectorAll('input[name="ticket_types[]"]:checked').length === 0) {
+        throw new Error('Bilet türü seçin.');
+    }
+    if (!form.querySelector('[name="tattoo_type"]')?.value) {
+        throw new Error('Dövme türü seçin.');
+    }
+    if (!form.querySelector('[name="payment_method"]')?.value) {
+        throw new Error('Ödeme yöntemi seçin.');
+    }
+};
 
 const requestStatusLabel = (status) => ({
     pending:  'Bekliyor',
@@ -196,7 +324,7 @@ const formatDateTime = (value) => {
 const formatMoney = (value) =>
     new Intl.NumberFormat('tr-TR', {
         style: 'currency',
-        currency: 'TRY',
+        currency: 'EUR',
         minimumFractionDigits: 2,
     }).format(Number(value || 0));
 
@@ -317,6 +445,7 @@ const renderDiscoveryHome = (root, data = {}) => {
 /* ── Dashboard ──────────────────────────────────────────────── */
 
 const renderDashboard = async (root, selectedStudioId = '') => {
+    const locksToOwnStudio = adminConfig.isSupervisor;
     root.innerHTML = `
         ${pageHeader('Şirket Yönetimi', 'Operasyon Merkezi', 'Stüdyoların, ekiplerin ve randevu operasyonunun güncel görünümü.', '<span class="badge-pill badge-pill--success"><span class="state-dot state-dot--success"></span> Güncel</span>')}
         <div class="business-command-bar">
@@ -336,9 +465,10 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     <div class="section-eyebrow" style="margin-bottom:0.2rem">Raporlama Kapsamı</div>
                     <div style="font-size:0.78rem;color:var(--text-muted)">Şirket geneli veya tek stüdyo performansı</div>
                 </div>
-                <select data-dashboard-studio-filter style="margin-left:auto;min-width:220px">
+                <select data-dashboard-studio-filter style="margin-left:auto;min-width:220px;${locksToOwnStudio ? 'display:none' : ''}">
                     <option value="">Şirket geneli</option>
                 </select>
+                ${locksToOwnStudio ? '<span class="badge-pill" data-dashboard-locked-studio>Stüdyo yükleniyor...</span>' : ''}
             </div>
         </div>
         ${adminConfig.isAdmin ? `<div class="panel-card" data-dashboard-companies>${skeletonGrid(2)}</div>` : ''}
@@ -355,13 +485,24 @@ const renderDashboard = async (root, selectedStudioId = '') => {
 
     const studioPayload = await apiFetch('/studios/options').catch(() => ({ data: [] }));
     const studioOptions = studioPayload.data || [];
+    if (locksToOwnStudio && !selectedStudioId && studioOptions[0]?.id) {
+        selectedStudioId = String(studioOptions[0].id);
+    }
     const studioSelect = qs('[data-dashboard-studio-filter]', root);
+    const lockedStudioLabel = qs('[data-dashboard-locked-studio]', root);
     studioSelect.innerHTML = `
         <option value="">Şirket geneli</option>
         ${studioOptions.map((studio) => `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`).join('')}
     `;
     studioSelect.value = selectedStudioId;
-    studioSelect.addEventListener('change', () => renderDashboard(root, studioSelect.value));
+    if (lockedStudioLabel) {
+        lockedStudioLabel.textContent = studioOptions[0]?.name
+            ? `Stüdyo: ${studioOptions[0].name}`
+            : 'Atanmış stüdyo bulunamadı';
+    }
+    if (!locksToOwnStudio) {
+        studioSelect.addEventListener('change', () => renderDashboard(root, studioSelect.value));
+    }
 
     const payload = await apiFetch(`/home${selectedStudioId ? `?studio_id=${encodeURIComponent(selectedStudioId)}` : ''}`);
     if (payload.type === 'discovery') {
@@ -371,9 +512,11 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     const data    = payload.data;
 
     qs('[data-dashboard-metrics]', root).innerHTML = [
-        ['Toplam Kayıt',    data.summary.total_appointments,    'Seçili kapsam',       '',                '1'],
-        ['İptal Edilen',    data.summary.cancelled_appointments,'Operasyon riski',     'var(--danger)',   '2'],
-        ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',  'var(--info)',     '3'],
+        ['Toplam Kayıt',    data.summary.total_appointments,    'Randevu + bilet',       '',                '1'],
+        ['Toplam Randevu',  data.summary.design_appointments,   'Sadece tasarım',        'var(--success)',  '2'],
+        ['Toplam Bilet',    data.summary.ticket_appointments,   'Dövme / piercing',      'var(--purple)',   '3'],
+        ['İptal Edilen',    data.summary.cancelled_appointments,'Operasyon riski',       'var(--danger)',   '4'],
+        ['Transfer Görevi', data.summary.transfer_count,        'Planlanan transfer',    'var(--info)',     '5'],
     ].map(([label, value, helper, color, delay]) => metricCard(label, value, helper, color, delay)).join('');
 
     const periodReports = Object.values(data.reports || {});
@@ -689,27 +832,26 @@ const renderDashboard = async (root, selectedStudioId = '') => {
 /* ── Kullanıcılar ───────────────────────────────────────────── */
 
 const renderUsersPage = async (root) => {
+    const locksToOwnStudio = adminConfig.isSupervisor;
     const roles = adminConfig.isAdmin
         ? ['admin', 'yonetici', 'supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
         : adminConfig.canManageShops
         ? ['supervisor', 'designer', 'artist', 'info', 'sofor', 'calisan']
         : ['designer', 'artist', 'info', 'sofor', 'calisan'];
 
-    const canEditRole = (role) => {
-        if (adminConfig.isAdmin) return true;
-        if (adminConfig.canManageShops) return !['admin', 'yonetici'].includes(role);
-        return !['admin', 'yonetici', 'supervisor'].includes(role);
-    };
+    const canEditUserInfo = (user) =>
+        adminConfig.isAdmin || String(user.id) === String(adminConfig.userId);
 
     root.innerHTML = `
         ${pageHeader('Ekip Yönetimi', 'Personel & Kullanıcılar', 'Personel listesi, roller ve stüdyo atamaları tek panelde.', '<span class="badge-pill badge-pill--purple">Ekip</span>')}
         <div style="display:grid;gap:1rem;grid-template-columns:1fr 1fr">
             <div class="panel-card">
                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
-                    <div class="field-wrap" style="flex:1;min-width:0">
+                    <div class="field-wrap" data-users-studio-wrap style="flex:1;min-width:0;${locksToOwnStudio ? 'display:none' : ''}">
                         <label class="field-label">Stüdyo Seç</label>
                         <select class="field-select" data-users-studio-select></select>
                     </div>
+                    ${locksToOwnStudio ? '<div class="badge-pill" data-users-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                     <button class="button-secondary" data-users-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                 </div>
                 <div class="list-stack" data-users-list>${skeletonGrid(4)}</div>
@@ -717,20 +859,20 @@ const renderUsersPage = async (root) => {
             ${adminConfig.canManageUsers ? `
             <div class="form-shell" style="align-self:start">
                 <div class="section-eyebrow" style="margin-bottom:0.4rem">Personel Ekle</div>
-                <div class="section-title" style="margin-bottom:0.3rem">Kullanıcı Oluştur / Ata</div>
-                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem" data-users-assignment-help>Kayıtlı e-posta girilirse mevcut kullanıcı atanır.</p>
+                <div class="section-title" style="margin-bottom:0.3rem">ID ile İş Teklifi</div>
+                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem" data-users-assignment-help>Kullanıcının profilindeki ID kodunu yazın, bilgilerini görüp çalışma daveti gönderin.</p>
                 <form class="form-grid" data-users-create-form>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">İsim</label><input class="field-input" name="name" required></div>
-                        <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="surname" required></div>
+                    <div class="field-wrap">
+                        <label class="field-label">Kullanıcı ID</label>
+                        <div style="display:flex;gap:0.55rem">
+                            <input class="field-input" name="profile_code" placeholder="TD-000123" required>
+                            <button class="button-secondary" type="button" data-users-code-search style="padding:0.55rem 0.85rem;flex-shrink:0">Bul</button>
+                        </div>
                     </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="phone" required></div>
-                        <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" name="email" type="email" required></div>
-                    </div>
+                    <div data-users-candidate-card class="list-card" style="display:none;padding:0.9rem 1rem"></div>
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap">
-                            <label class="field-label">Rol</label>
+                            <label class="field-label">Teklif Rolü</label>
                             <select class="field-select" name="role" data-users-role-select></select>
                         </div>
                         <div class="field-wrap" data-users-create-studio-wrap>
@@ -738,11 +880,10 @@ const renderUsersPage = async (root) => {
                             <select class="field-select" name="studio_id" data-users-create-studio></select>
                         </div>
                     </div>
-                    <div class="form-grid form-grid--split" data-users-password-wrap>
-                        <div class="field-wrap"><label class="field-label">Şifre <span style="color:var(--text-subtle)">(yeni kullanıcı için)</span></label><input class="field-input" name="password" type="password"></div>
-                        <div class="field-wrap"><label class="field-label">Şifre Tekrar</label><input class="field-input" name="password_confirmation" type="password"></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem">
+                        <button class="button-secondary" type="button" data-users-view-profile disabled style="justify-content:center">Profili Görüntüle</button>
+                        <button class="button-primary" type="submit" data-users-send-invite disabled style="justify-content:center">İş Teklifi Yap</button>
                     </div>
-                    <button class="button-primary" type="submit" style="justify-content:center;margin-top:0.25rem">Kullanıcı Oluştur / Ata</button>
                 </form>
             </div>
             ` : `
@@ -758,13 +899,18 @@ const renderUsersPage = async (root) => {
     `;
 
     const studioSelect       = qs('[data-users-studio-select]', root);
+    const lockedStudioLabel  = qs('[data-users-locked-studio]', root);
     const createStudioSelect = qs('[data-users-create-studio]', root);
     const createStudioWrap   = qs('[data-users-create-studio-wrap]', root);
-    const passwordWrap       = qs('[data-users-password-wrap]', root);
     const assignmentHelp     = qs('[data-users-assignment-help]', root);
+    const candidateCard      = qs('[data-users-candidate-card]', root);
+    const searchButton       = qs('[data-users-code-search]', root);
+    const viewProfileButton  = qs('[data-users-view-profile]', root);
+    const sendInviteButton   = qs('[data-users-send-invite]', root);
     const listNode           = qs('[data-users-list]', root);
     const form               = qs('[data-users-create-form]', root);
     const roleSelect         = qs('[data-users-role-select]', root);
+    let inviteCandidate = null;
 
     if (roleSelect) {
         roleSelect.innerHTML = roles.map((role) =>
@@ -778,16 +924,58 @@ const renderUsersPage = async (root) => {
         const options  = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         studioSelect.innerHTML = options;
         if (createStudioSelect) createStudioSelect.innerHTML = options;
+        if (locksToOwnStudio && studios[0]?.id) {
+            studioSelect.value = String(studios[0].id);
+            if (createStudioSelect) createStudioSelect.value = String(studios[0].id);
+        }
+        if (lockedStudioLabel) {
+            lockedStudioLabel.textContent = studios[0]?.name
+                ? `Stüdyo: ${studios[0].name}`
+                : 'Atanmış stüdyo bulunamadı';
+        }
         return studios;
     };
 
     const updateCreateAssignmentMode = () => {
         if (!roleSelect || !createStudioWrap) return;
-        createStudioWrap.style.display = '';
-        if (passwordWrap) passwordWrap.style.display = '';
+        createStudioWrap.style.display = locksToOwnStudio ? 'none' : '';
         if (assignmentHelp) {
-            assignmentHelp.textContent = 'Tüm personel doğrudan seçilen stüdyoya atanır; kayıtlı profesyonellere davet gönderilir.';
+            assignmentHelp.textContent = 'Kullanıcının profilindeki ID kodunu yazın, bilgilerini görüp çalışma daveti gönderin.';
         }
+    };
+
+    const renderInviteCandidate = (candidate) => {
+        inviteCandidate = candidate;
+        const inviteRoles = candidate?.can_invite_roles || [];
+        if (roleSelect) {
+            roleSelect.innerHTML = inviteRoles.map((role) =>
+                `<option value="${role.value}">${escapeHtml(role.label)}</option>`
+            ).join('');
+        }
+        if (candidateCard) {
+            candidateCard.style.display = candidate ? '' : 'none';
+            candidateCard.innerHTML = candidate ? `
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem">
+                    <div style="min-width:0">
+                        <div style="font-size:0.9rem;font-weight:700;color:var(--text-main)">${escapeHtml(candidate.name || 'İsimsiz kullanıcı')}</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.15rem">${escapeHtml(candidate.profile_code || '')} · ${escapeHtml(candidate.profile_role_label || roleLabel(candidate.profile_role))}</div>
+                        <div style="font-size:0.72rem;color:var(--text-subtle);margin-top:0.25rem">${escapeHtml(candidate.email || 'E-posta yok')}</div>
+                        ${candidate.phone ? `<div style="font-size:0.72rem;color:var(--text-subtle);margin-top:0.15rem">${escapeHtml(candidate.phone)}</div>` : ''}
+                    </div>
+                    <span class="badge-pill ${inviteRoles.length ? 'badge-pill--success' : 'badge-pill--warning'}" style="font-size:0.62rem">${inviteRoles.length ? 'Davet edilebilir' : 'Uygun değil'}</span>
+                </div>
+                ${!inviteRoles.length ? `<div style="margin-top:0.7rem;font-size:0.72rem;color:var(--text-muted)">${candidate.current_studio?.name ? `${escapeHtml(candidate.current_studio.name)} stüdyosunda aktif çalışıyor.` : 'Bu kullanıcı seçilebilir çalışma rolüyle kayıtlı değil.'}</div>` : ''}
+            ` : '';
+        }
+        if (viewProfileButton) viewProfileButton.disabled = !candidate;
+        if (sendInviteButton) sendInviteButton.disabled = !candidate || inviteRoles.length === 0;
+    };
+
+    const searchInviteCandidate = async () => {
+        const code = form?.querySelector('[name="profile_code"]')?.value?.trim();
+        if (!code) throw new Error('Kullanıcı ID kodu girin.');
+        const payload = await apiFetch(`/users/lookup-by-code/${encodeURIComponent(code)}`);
+        renderInviteCandidate(payload.data);
     };
 
     const renderUsers = async () => {
@@ -801,7 +989,7 @@ const renderUsersPage = async (root) => {
 
         listNode.innerHTML = users.length
             ? users.map((user, i) => {
-                const canEdit = adminConfig.canManageUsers && canEditRole(user.role);
+                const canEdit = adminConfig.canManageUsers && adminConfig.isAdmin && canEditUserInfo(user);
                 return `
                 <article class="list-card animate-stagger-${(i % 3) + 1}" data-user-card data-user-id="${user.id}" style="${!user.is_active ? 'opacity:0.55' : ''}">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem">
@@ -845,7 +1033,7 @@ const renderUsersPage = async (root) => {
                         </div>
                     </div>
                     ` : adminConfig.canManageUsers ? `
-                    <div style="margin-top:0.7rem;font-size:0.72rem;color:var(--text-subtle)">Bu rolü yalnızca daha üst yetkili hesaplar yönetebilir.</div>
+                    <div style="margin-top:0.7rem;font-size:0.72rem;color:var(--text-subtle)">Kullanıcı bilgilerini yalnızca admin veya kullanıcının kendisi düzenleyebilir.</div>
                     ` : ''}
                 </article>
             `;
@@ -875,26 +1063,37 @@ const renderUsersPage = async (root) => {
     await renderUsers();
 
     studioSelect.addEventListener('change', () => handleAsync(renderUsers));
-    roleSelect?.addEventListener('change', updateCreateAssignmentMode);
     qs('[data-users-refresh]', root)?.addEventListener('click', () => handleAsync(renderUsers));
+    searchButton?.addEventListener('click', () => handleAsync(searchInviteCandidate));
+    viewProfileButton?.addEventListener('click', () => {
+        if (!inviteCandidate) return;
+        window.alert([
+            inviteCandidate.name || 'Kullanıcı',
+            `ID: ${inviteCandidate.profile_code || '-'}`,
+            `Rol: ${inviteCandidate.profile_role_label || roleLabel(inviteCandidate.profile_role)}`,
+            `E-posta: ${inviteCandidate.email || '-'}`,
+            `Telefon: ${inviteCandidate.phone || '-'}`,
+            inviteCandidate.bio ? `Bio: ${inviteCandidate.bio}` : '',
+        ].filter(Boolean).join('\n'));
+    });
 
     if (form) {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             handleAsync(async () => {
                 const data = Object.fromEntries(new FormData(form).entries());
-                if (['artist', 'designer'].includes(data.role)) {
-                    delete data.password;
-                    delete data.password_confirmation;
-                } else {
-                    if (data.password) {
-                        data.password_confirmation = data.password_confirmation || data.password;
-                    }
-                }
-                await apiFetch('/users', { method: 'POST', body: data });
+                if (!inviteCandidate) throw new Error('Önce kullanıcı ID kodu ile kişiyi bulun.');
+                await apiFetch(`/users/${inviteCandidate.id}/staff-invitations`, {
+                    method: 'POST',
+                    body: {
+                        studio_id: data.studio_id,
+                        role: data.role,
+                    },
+                });
                 form.reset();
                 if (createStudioSelect) createStudioSelect.value = studioSelect.value;
-                showToast('Kullanıcı oluşturuldu / atandı.', 'success');
+                renderInviteCandidate(null);
+                showToast('İş teklifi kullanıcıya gönderildi.', 'success');
                 await renderUsers();
             });
         });
@@ -904,6 +1103,7 @@ const renderUsersPage = async (root) => {
 /* ── Randevular ─────────────────────────────────────────────── */
 
 const renderAppointmentsPage = async (root) => {
+    const locksToOwnStudio = adminConfig.isSupervisor;
     const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Biletler' : 'Randevu ve Bilet Yönetimi';
     const desc = isDriverRole()
         ? 'Pick up seçili transferler, müşteri bilgileri ve sürücü aksiyonları.'
@@ -917,10 +1117,11 @@ const renderAppointmentsPage = async (root) => {
             <div class="panel-card">
                 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     ${canManageAppointmentRecords() ? `
-                    <div class="field-wrap" style="flex:1;min-width:0">
+                    <div class="field-wrap" data-appointments-studio-wrap style="flex:1;min-width:0;${locksToOwnStudio ? 'display:none' : ''}">
                         <label class="field-label">Stüdyo Seç</label>
                         <select class="field-select" data-appointments-studio-select></select>
                     </div>
+                    ${locksToOwnStudio ? '<div class="badge-pill" data-appointments-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                     ` : '<div></div>'}
                     <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                 </div>
@@ -934,7 +1135,8 @@ const renderAppointmentsPage = async (root) => {
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap">
                             <label class="field-label">Stüdyo</label>
-                            <select class="field-select" name="studio_id" data-appointment-create-studio required></select>
+                            <select class="field-select" name="studio_id" data-appointment-create-studio ${locksToOwnStudio ? 'style="display:none"' : ''} required></select>
+                            ${locksToOwnStudio ? '<div class="badge-pill" data-appointment-create-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                         </div>
                         <div class="field-wrap">
                             <label class="field-label">Tür</label>
@@ -944,6 +1146,7 @@ const renderAppointmentsPage = async (root) => {
                             </select>
                         </div>
                     </div>
+                    ${ticketFieldsMarkup()}
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="customer[first_name]" required></div>
                         <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="customer[last_name]" required></div>
@@ -978,12 +1181,12 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap"><label class="field-label">Kişi</label><input class="field-input" name="pax" type="number" min="1" value="1" required></div>
                     </div>
                     <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Fiyat <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="price" type="number" min="0" step="0.01"></div>
+                        <div class="field-wrap" data-price-field><label class="field-label">Fiyat <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="price" type="number" min="0" step="0.01"></div>
                         <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*"></div>
                     </div>
-                    <div class="field-wrap"><label class="field-label">Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
+                    <div class="field-wrap"><label class="field-label" data-appointment-images-label>Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
                     <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
-                    <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
+                    <label data-pickup-field style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
                     <button class="button-primary" type="submit" style="justify-content:center">Kaydı Oluştur</button>
                 </form>
             </div>
@@ -993,7 +1196,12 @@ const renderAppointmentsPage = async (root) => {
 
     const studioSelect = qs('[data-appointments-studio-select]', root);
     const createStudioSelect = qs('[data-appointment-create-studio]', root);
+    const lockedStudioLabel = qs('[data-appointments-locked-studio]', root);
+    const createLockedStudioLabel = qs('[data-appointment-create-locked-studio]', root);
     const listNode = qs('[data-appointments-list]', root);
+    const createAppointmentForm = qs('[data-appointment-create-form]', root);
+    bindTicketFields(createAppointmentForm);
+    bindDesignerAppointmentFields(createAppointmentForm);
 
     const loadStudios = async () => {
         if (!studioSelect && !createStudioSelect) return;
@@ -1004,6 +1212,20 @@ const renderAppointmentsPage = async (root) => {
         }
         if (createStudioSelect) {
             createStudioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+        }
+        if (locksToOwnStudio && studios[0]?.id) {
+            if (studioSelect) studioSelect.value = String(studios[0].id);
+            if (createStudioSelect) createStudioSelect.value = String(studios[0].id);
+        }
+        if (lockedStudioLabel) {
+            lockedStudioLabel.textContent = studios[0]?.name
+                ? `Stüdyo: ${studios[0].name}`
+                : 'Atanmış stüdyo bulunamadı';
+        }
+        if (createLockedStudioLabel) {
+            createLockedStudioLabel.textContent = studios[0]?.name
+                ? `Stüdyo: ${studios[0].name}`
+                : 'Atanmış stüdyo bulunamadı';
         }
     };
 
@@ -1037,8 +1259,12 @@ const renderAppointmentsPage = async (root) => {
                 const phone = `${apt.customer?.phone_country_code || ''}${apt.customer?.phone_number || ''}`.replace(/\s+/g, '');
                 const studioId = apt.studio?.id || studioSelect?.value || '';
                 const limited = apt.artist_limited_view;
+                const metaLine = ticketMetaLine(apt);
+                const ticketTimePending = apt.appointment_type === 'tattoo'
+                    && apt.appointment_at
+                    && new Date(apt.appointment_at).getTime() > Date.now();
                 return `
-                <article class="list-card animate-stagger-${(i % 3) + 1}" data-appointment-id="${apt.id}" data-studio-id="${studioId}" style="padding:0.85rem 1rem">
+                <article class="list-card animate-stagger-${(i % 3) + 1}" data-appointment-id="${apt.id}" data-studio-id="${studioId}" data-ticket-time-pending="${ticketTimePending ? '1' : '0'}" style="padding:0.85rem 1rem">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem">
                         <div style="display:flex;align-items:flex-start;gap:0.75rem;min-width:0">
                             ${renderImageThumb(apt)}
@@ -1048,12 +1274,14 @@ const renderAppointmentsPage = async (root) => {
                                 <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Oda: ${escapeHtml(limited ? '—' : (apt.customer?.room_number || '—'))}</div>
                                 <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Tarih: ${formatDateTime(apt.appointment_at)}</div>
                                 <div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">Stüdyo: ${escapeHtml(apt.studio?.name || 'Bağımsız')}</div>
+                                ${metaLine ? `<div style="margin-top:0.15rem;font-size:0.7rem;color:var(--text-subtle)">${escapeHtml(metaLine)}</div>` : ''}
                             </div>
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
                             <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
                             ${apt.appointment_type ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>` : ''}
-                            ${apt.price !== null && apt.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(apt.price)} ₺</span>` : ''}
+                            ${apt.price !== null && apt.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(apt.price)} €</span>` : ''}
+                            ${apt.deposit_amount !== null && apt.deposit_amount !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">Depozito ${escapeHtml(apt.deposit_amount)} €</span>` : ''}
                         </div>
                     </div>
                     ${canManageAppointmentRecords() ? `
@@ -1075,7 +1303,7 @@ const renderAppointmentsPage = async (root) => {
                     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
                         <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.4rem 0.75rem;font-size:0.75rem">Detay</a>
                         ${canManageAppointmentRecords() ? `
-                            <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>
+                            ${apt.appointment_type === 'tattoo' ? `<label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>` : ''}
                             <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
                         ` : ''}
                         ${isDriverRole() ? `
@@ -1085,9 +1313,9 @@ const renderAppointmentsPage = async (root) => {
                             <button class="button-ghost" data-driver-action="customer_no_show" style="padding:0.4rem 0.75rem;font-size:0.75rem">Müşteri Gelmedi</button>
                         ` : ''}
                         ${adminConfig.role === 'artist' && apt.appointment_type === 'tattoo' && !['completed', 'cancelled'].includes(apt.status) ? `
-                            <form data-artist-complete-form style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-                                <input class="field-input" type="file" name="completed_tattoo_image" accept="image/*" required style="max-width:240px;font-size:0.75rem;padding:0.45rem 0.65rem">
-                                <button class="button-primary" type="submit" style="padding:0.4rem 0.75rem;font-size:0.75rem">Tamamla</button>
+                            <form data-artist-complete-form title="${ticketTimePending ? 'Bilet zamanı gelmemiştir.' : ''}" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                                <input class="field-input" type="file" name="completed_tattoo_image" accept="image/*" required ${ticketTimePending ? 'disabled' : ''} style="max-width:240px;font-size:0.75rem;padding:0.45rem 0.65rem">
+                                <button class="button-primary" type="submit" ${ticketTimePending ? 'disabled title="Bilet zamanı gelmemiştir."' : ''} style="padding:0.4rem 0.75rem;font-size:0.75rem;${ticketTimePending ? 'opacity:0.55;cursor:not-allowed' : ''}">Tamamla</button>
                             </form>
                         ` : ''}
                     </div>
@@ -1100,12 +1328,13 @@ const renderAppointmentsPage = async (root) => {
                 const card = btn.closest('[data-appointment-id]');
                 const id = card?.getAttribute('data-appointment-id');
                 const studioId = card?.getAttribute('data-studio-id');
+                const type = qs('[data-appointment-type]', card)?.value || 'designer';
                 await apiFetch(`/studios/${studioId}/appointments/${id}`, {
                     method: 'PATCH',
                     body: {
                         status: qs('[data-appointment-status]', card)?.value,
-                        appointment_type: qs('[data-appointment-type]', card)?.value || 'designer',
-                        pickup_required: qs('[data-appointment-pickup]', card)?.checked || false,
+                        appointment_type: type,
+                        pickup_required: type === 'designer' ? true : (qs('[data-appointment-pickup]', card)?.checked || false),
                     },
                 });
                 showToast('Kayıt güncellendi.', 'success');
@@ -1130,6 +1359,10 @@ const renderAppointmentsPage = async (root) => {
                 e.preventDefault();
                 handleAsync(async () => {
                     const card = form.closest('[data-appointment-id]');
+                    if (card?.getAttribute('data-ticket-time-pending') === '1') {
+                        showToast('Bilet zamanı gelmemiştir.', 'error');
+                        return;
+                    }
                     await apiFetch(`/appointments/${card?.getAttribute('data-appointment-id')}/artist-complete`, {
                         method: 'POST',
                         body: new FormData(form),
@@ -1146,24 +1379,31 @@ const renderAppointmentsPage = async (root) => {
 
     studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
-    qs('[data-appointment-create-form]', root)?.addEventListener('submit', (e) => {
+    createAppointmentForm?.addEventListener('submit', (e) => {
         e.preventDefault();
         handleAsync(async () => {
             const form = e.target;
+            validateTicketFields(form);
             const tattooFiles = form.querySelector('input[name="tattoo_images[]"]')?.files;
-            if (tattooFiles && tattooFiles.length > 3) {
+            const isTicket = form.querySelector('[name="appointment_type"]')?.value === 'tattoo';
+            if (isTicket && tattooFiles && tattooFiles.length > 3) {
                 throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
             }
             const studioId = form.querySelector('[name="studio_id"]')?.value;
             if (!studioId) throw new Error('Stüdyo seçin.');
             const formData = new FormData(form);
             formData.delete('studio_id');
+            if (formData.get('appointment_type') === 'designer') {
+                formData.delete('price');
+                formData.set('pickup_required', '1');
+            }
             if (formData.get('appointment_at')) {
                 formData.set('appointment_at', new Date(formData.get('appointment_at')).toISOString());
             }
             await apiFetch(`/studios/${studioId}/appointments`, { method: 'POST', body: formData });
             showToast((formData.get('appointment_type') === 'tattoo' ? 'Bilet açıldı.' : 'Randevu oluşturuldu.'), 'success');
             form.reset();
+            form.querySelector('[name="appointment_type"]')?.dispatchEvent(new Event('change'));
             await renderAppointments();
         });
     });
@@ -1602,6 +1842,7 @@ const renderAppointmentRequestsPage = async (root) => {
                         </select>
                     </div>
                 </div>
+                ${ticketFieldsMarkup()}
                 <div class="form-grid form-grid--split">
                     <div class="field-wrap"><label class="field-label">Tarih</label><input class="field-input" name="preferred_date" type="date" required></div>
                     <div class="field-wrap"><label class="field-label">Saat</label><input class="field-input" name="preferred_time" type="time" required></div>
@@ -1641,10 +1882,10 @@ const renderAppointmentRequestsPage = async (root) => {
                 </div>
                 <div class="form-grid form-grid--split">
                     <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*" required></div>
-                    <div class="field-wrap"><label class="field-label">Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
+                    <div class="field-wrap"><label class="field-label" data-appointment-images-label>Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
                 </div>
                 <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
-                <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)">
+                <label data-pickup-field style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)">
                     <input type="checkbox" name="pickup_required" value="1">
                     Pick up gerekli
                 </label>
@@ -1668,6 +1909,8 @@ const renderAppointmentRequestsPage = async (root) => {
     const createForm = qs('[data-request-create-form]', root);
     const requestStudioSelect = qs('[data-request-studio-select]', root);
     let direction = initialDirection;
+    bindTicketFields(createForm, 'type');
+    bindDesignerAppointmentFields(createForm, 'type');
 
     const loadRequestStudios = async () => {
         const payload = await apiFetch('/public/studios').catch(() => ({ data: [] }));
@@ -1699,6 +1942,7 @@ const renderAppointmentRequestsPage = async (root) => {
                 const customerName = `${request.customer?.first_name || request.first_name || ''} ${request.customer?.last_name || request.last_name || ''}`.trim();
                 const image = request.image_path || request.tattoo_image_paths?.[0];
                 const canRespond = direction === 'incoming' && request.status === 'pending';
+                const metaLine = ticketMetaLine(request);
                 return `
                 <article class="list-card animate-stagger-${(i % 3) + 1}" data-request-card data-request-id="${request.id}" style="padding:0.9rem 1rem">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.85rem;flex-wrap:wrap">
@@ -1709,12 +1953,14 @@ const renderAppointmentRequestsPage = async (root) => {
                                 <div style="margin-top:0.25rem;font-size:0.74rem;color:var(--text-muted)">${escapeHtml(request.studio?.name || request.target?.name || 'Bağımsız')} · ${formatDateTime(request.requested_at)}</div>
                                 <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-subtle)">Otel: ${escapeHtml(request.hotel_name || request.customer?.hotel_name || '—')} · Oda: ${escapeHtml(request.room_number || request.customer?.room_number || '—')}</div>
                                 <div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-subtle)">Telefon: ${escapeHtml(`${request.phone_country_code || request.customer?.phone_country_code || ''} ${request.phone_number || request.customer?.phone_number || ''}`.trim() || '—')}</div>
+                                ${metaLine ? `<div style="margin-top:0.2rem;font-size:0.72rem;color:var(--text-subtle)">${escapeHtml(metaLine)}</div>` : ''}
                             </div>
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem">
                             <span class="${requestStatusClass(request.status)}" style="font-size:0.65rem">${requestStatusLabel(request.status)}</span>
                             <span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[request.request_type] || request.request_type}</span>
-                            ${request.price !== null && request.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(request.price)} ₺</span>` : ''}
+                            ${request.price !== null && request.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(request.price)} €</span>` : ''}
+                            ${request.deposit_amount !== null && request.deposit_amount !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">Depozito ${escapeHtml(request.deposit_amount)} €</span>` : ''}
                         </div>
                     </div>
                     ${request.notes ? `<div style="margin-top:0.85rem;font-size:0.78rem;color:var(--text-muted);line-height:1.55">${escapeHtml(request.notes)}</div>` : ''}
@@ -1729,6 +1975,18 @@ const renderAppointmentRequestsPage = async (root) => {
                                 <label class="field-label">Fiyat</label>
                                 <input class="field-input" data-request-price type="number" min="0" step="0.01" value="${escapeHtml(request.price ?? '')}" required>
                             </div>
+                            ${request.request_type === 'tattoo' ? `
+                                <div class="field-wrap" style="max-width:160px">
+                                    <label class="field-label">Depozito</label>
+                                    <input class="field-input" data-request-deposit type="number" min="0" step="0.01" value="${escapeHtml(request.deposit_amount ?? '')}">
+                                </div>
+                                <div class="field-wrap" style="max-width:190px">
+                                    <label class="field-label">Ödeme</label>
+                                    <select class="field-select" data-request-payment>
+                                        ${Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => `<option value="${value}" ${request.payment_method === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+                                    </select>
+                                </div>
+                            ` : ''}
                             <button class="button-primary" data-request-accept style="padding:0.45rem 0.85rem;font-size:0.75rem">Kabul Et</button>
                             <button class="button-ghost" data-request-reject style="padding:0.45rem 0.85rem;font-size:0.75rem">Reddet</button>
                         ` : ''}
@@ -1743,9 +2001,14 @@ const renderAppointmentRequestsPage = async (root) => {
                 const card = button.closest('[data-request-card]');
                 const price = qs('[data-request-price]', card)?.value;
                 if (!price) throw new Error('Talebi kabul etmek için fiyat girin.');
+                const body = { price };
+                const depositAmount = qs('[data-request-deposit]', card)?.value;
+                const paymentMethod = qs('[data-request-payment]', card)?.value;
+                if (depositAmount !== undefined && depositAmount !== '') body.deposit_amount = depositAmount;
+                if (paymentMethod) body.payment_method = paymentMethod;
                 await apiFetch(`/appointment-requests/${card?.getAttribute('data-request-id')}/accept`, {
                     method: 'PATCH',
-                    body: { price },
+                    body,
                 });
                 showToast('Talep kabul edildi ve randevuya dönüştü.', 'success');
                 await renderRequests();
@@ -1775,11 +2038,17 @@ const renderAppointmentRequestsPage = async (root) => {
     createForm?.addEventListener('submit', (e) => {
         e.preventDefault();
         handleAsync(async () => {
+            validateTicketFields(createForm, 'type');
             const tattooFiles = createForm.querySelector('input[name="tattoo_images[]"]')?.files;
-            if (tattooFiles && tattooFiles.length > 3) {
+            const isTicket = createForm.querySelector('[name="type"]')?.value === 'tattoo';
+            if (isTicket && tattooFiles && tattooFiles.length > 3) {
                 throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
             }
             const formData = new FormData(createForm);
+            if (formData.get('type') === 'designer') {
+                formData.delete('price');
+                formData.set('pickup_required', '1');
+            }
             const normalized = new FormData();
             for (const [key, value] of formData.entries()) {
                 normalized.append(key === 'tattoo_images[]' ? 'tattoo_images[]' : key, value);
@@ -1787,6 +2056,7 @@ const renderAppointmentRequestsPage = async (root) => {
             await apiFetch('/appointments/request', { method: 'POST', body: normalized });
             showToast('Talep gönderildi.', 'success');
             createForm.reset();
+            createForm.querySelector('[name="type"]')?.dispatchEvent(new Event('change'));
             direction = isRegularUserRole() ? 'outgoing' : direction;
             await renderRequests();
         });
@@ -2199,41 +2469,118 @@ const renderProfilePage = async (root) => {
 };
 
 const renderProfileAppointmentsPage = async (root) => {
+    const canViewManagedHistory = ['admin', 'yonetici'].includes(adminConfig.role);
     root.innerHTML = `
-        ${pageHeader('Profil', 'Randevu ve Biletlerim', 'Tarih, durum ve tür filtresiyle kişisel kayıt geçmişi.', '<span class="badge-pill badge-pill--warning">Arşiv</span>')}
+        ${pageHeader('Profil', canViewManagedHistory ? 'Geçmiş Randevu / Biletler' : 'Randevu ve Biletlerim', canViewManagedHistory ? 'Yönetim kapsamındaki tamamlanan ve iptal edilen kayıtları filtrelerle inceleyin.' : 'Tarih, durum ve tür filtresiyle kişisel kayıt geçmişi.', '<span class="badge-pill badge-pill--warning">Arşiv</span>')}
         <div class="panel-card">
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;margin-bottom:1rem">
-                <select class="field-select" data-pa-status><option value="">Tüm Durumlar</option><option value="confirmed">Aktif</option><option value="completed">Tamamlandı</option><option value="cancelled">İptal</option></select>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.65rem;margin-bottom:1rem">
+                <select class="field-select" data-pa-status><option value="">Tüm Geçmiş</option><option value="completed">Tamamlandı</option><option value="cancelled">İptal</option></select>
                 <select class="field-select" data-pa-type><option value="">Tüm Türler</option><option value="designer">Randevu</option><option value="tattoo">Bilet</option></select>
                 <input class="field-input" data-pa-date-from type="date">
+                <input class="field-input" data-pa-date-to type="date">
+                ${canViewManagedHistory ? `
+                    <select class="field-select" data-pa-company><option value="">Tüm Şirketler</option></select>
+                    <select class="field-select" data-pa-studio><option value="">Tüm Stüdyolar</option></select>
+                ` : ''}
                 <input class="field-input" data-pa-search placeholder="Ara">
             </div>
+            <div data-profile-appointments-summary style="margin-bottom:1rem"></div>
             <div class="list-stack" data-profile-appointments-list>${skeletonGrid(4)}</div>
         </div>
     `;
 
     const listNode = qs('[data-profile-appointments-list]', root);
+    const summaryNode = qs('[data-profile-appointments-summary]', root);
+    const companySelect = qs('[data-pa-company]', root);
+    const studioSelect = qs('[data-pa-studio]', root);
+    let studios = [];
+
+    if (canViewManagedHistory) {
+        const [companiesPayload, studiosPayload] = await Promise.all([
+            apiFetch('/companies').catch(() => ({ data: [] })),
+            apiFetch('/studios/overview').catch(() => ({ data: [] })),
+        ]);
+        const companies = companiesPayload.data || [];
+        studios = uniqueById(studiosPayload.data || []);
+        if (companySelect) {
+            companySelect.innerHTML = '<option value="">Tüm Şirketler</option>' + companies.map((company) =>
+                `<option value="${company.id}">${escapeHtml(company.name || 'Şirket')}</option>`
+            ).join('');
+        }
+        if (studioSelect) {
+            studioSelect.innerHTML = '<option value="">Tüm Stüdyolar</option>' + studios.map((studio) =>
+                `<option value="${studio.id}" data-company-id="${studio.company?.id || studio.company_id || ''}">${escapeHtml(studio.name || 'Stüdyo')}</option>`
+            ).join('');
+        }
+    }
+
+    const renderSummary = (rows) => {
+        const completed = rows.filter((item) => item.status === 'completed').length;
+        const cancelled = rows.filter((item) => item.status === 'cancelled').length;
+        const appointments = rows.filter((item) => item.appointment_type === 'designer' || item.request_type === 'designer').length;
+        const tickets = rows.filter((item) => item.appointment_type === 'tattoo' || item.request_type === 'tattoo').length;
+        const total = completed + cancelled;
+        const completedRate = total ? Math.round((completed / total) * 100) : 0;
+        summaryNode.innerHTML = `
+            <div style="display:flex;align-items:center;gap:1rem;padding:1rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface-soft)">
+                <div style="width:92px;height:92px;border-radius:50%;background:${total ? `conic-gradient(var(--success) 0 ${completedRate}%, var(--danger) ${completedRate}% 100%)` : 'var(--surface)'};display:grid;place-items:center;box-shadow:inset 0 0 0 13px var(--surface)">
+                    <div style="text-align:center">
+                        <div style="font-size:1.35rem;font-weight:850;color:var(--text-main)">${total}</div>
+                        <div style="font-size:0.66rem;font-weight:750;color:var(--text-muted)">kayıt</div>
+                    </div>
+                </div>
+                <div style="min-width:0;flex:1">
+                    <div class="section-title" style="margin-bottom:0.65rem">Geçmiş Özeti</div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                        <span class="badge-pill badge-pill--success">${completed} Yapılan</span>
+                        <span class="badge-pill badge-pill--danger">${cancelled} İptal</span>
+                        <span class="badge-pill badge-pill--teal">${appointments} Randevu</span>
+                        <span class="badge-pill badge-pill--purple">${tickets} Bilet</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
     const load = async () => {
         listNode.innerHTML = skeletonGrid(4);
-        const endpoint = isDriverRole()
-            ? '/my-appointments'
-            : isArtistLikeRole()
-                ? '/my-artist-appointments'
-                : '/appointment-requests?direction=outgoing';
+        const status = qs('[data-pa-status]', root).value;
+        const type = qs('[data-pa-type]', root).value;
+        const dateFrom = qs('[data-pa-date-from]', root).value;
+        const dateTo = qs('[data-pa-date-to]', root).value;
+        const selectedCompany = qs('[data-pa-company]', root)?.value || '';
+        const selectedStudio = qs('[data-pa-studio]', root)?.value || '';
+        const params = new URLSearchParams();
+        if (canViewManagedHistory) {
+            if (status) params.set('status', status);
+            if (type) params.set('appointment_type', type);
+            if (dateFrom) params.set('date_from', dateFrom);
+            if (dateTo) params.set('date_to', dateTo);
+            if (selectedCompany) params.set('company_id', selectedCompany);
+            if (selectedStudio) params.set('studio_id', selectedStudio);
+        }
+        const endpoint = canViewManagedHistory
+            ? `/admin/appointments${params.toString() ? `?${params.toString()}` : ''}`
+            : isDriverRole()
+                ? '/my-appointments'
+                : isArtistLikeRole()
+                    ? '/my-artist-appointments'
+                    : '/appointment-requests?direction=outgoing';
         const payload = await apiFetch(endpoint);
         const raw = payload.data || [];
         const rows = raw.filter((item) => {
-            const status = qs('[data-pa-status]', root).value;
-            const type = qs('[data-pa-type]', root).value;
-            const dateFrom = qs('[data-pa-date-from]', root).value;
             const search = qs('[data-pa-search]', root).value.toLowerCase().trim();
             const dateValue = item.appointment_at || item.requested_at;
             const haystack = JSON.stringify(item).toLowerCase();
-            return (!status || item.status === status)
+            const isHistory = item.status === 'completed' || item.status === 'cancelled';
+            return isHistory
+                && (!status || item.status === status)
                 && (!type || item.appointment_type === type || item.request_type === type)
                 && (!dateFrom || (dateValue && dateValue.slice(0, 10) >= dateFrom))
+                && (!dateTo || (dateValue && dateValue.slice(0, 10) <= dateTo))
                 && (!search || haystack.includes(search));
         });
+        renderSummary(rows);
         listNode.innerHTML = rows.map((item) => `
             <a class="list-card" href="${item.appointment_id || item.appointment_at ? `/admin/appointments/${item.appointment_id || item.id}` : `/admin/appointment-requests?request_id=${item.id}`}" style="text-decoration:none;padding:0.85rem 1rem">
                 <div style="display:flex;justify-content:space-between;gap:1rem">
@@ -2247,7 +2594,18 @@ const renderProfileAppointmentsPage = async (root) => {
         `).join('') || '<div class="empty-state">Kayıt bulunmuyor.</div>';
     };
 
-    ['[data-pa-status]', '[data-pa-type]', '[data-pa-date-from]', '[data-pa-search]'].forEach((selector) => {
+    qs('[data-pa-company]', root)?.addEventListener('change', () => {
+        const companyId = companySelect?.value || '';
+        if (studioSelect) {
+            studioSelect.innerHTML = '<option value="">Tüm Stüdyolar</option>' + studios
+                .filter((studio) => !companyId || String(studio.company?.id || studio.company_id || '') === String(companyId))
+                .map((studio) => `<option value="${studio.id}">${escapeHtml(studio.name || 'Stüdyo')}</option>`)
+                .join('');
+        }
+        handleAsync(load);
+    });
+
+    ['[data-pa-status]', '[data-pa-type]', '[data-pa-date-from]', '[data-pa-date-to]', '[data-pa-studio]', '[data-pa-search]'].forEach((selector) => {
         qs(selector, root)?.addEventListener('input', () => handleAsync(load));
         qs(selector, root)?.addEventListener('change', () => handleAsync(load));
     });
@@ -2277,11 +2635,16 @@ const renderSettingsPage = async (root) => {
 /* ── Hakedişler ─────────────────────────────────────────────── */
 
 const renderEarningsPage = async (root) => {
-    const canManage = ['admin', 'yonetici', 'supervisor'].includes(adminConfig.role);
+    const canManage = ['admin', 'yonetici'].includes(adminConfig.role);
     const hasPersonalEarnings = ['supervisor', 'artist', 'designer', 'info', 'sofor', 'calisan'].includes(adminConfig.role);
+    const locksToOwnStudio = false;
     let managing = canManage && !hasPersonalEarnings;
     let studios = [];
     let selectedStudioId = '';
+    let selectedStaffId = '';
+    let selectedStatus = 'pending';
+    let dateFrom = '';
+    let dateTo = '';
 
     root.innerHTML = `
         ${pageHeader('Finans', 'Hakedişler', 'Tamamlanan dövme işlemlerinin personel komisyonları ve ödeme durumu.', '<span class="badge-pill badge-pill--success">Komisyon Takibi</span>')}
@@ -2294,10 +2657,11 @@ const renderEarningsPage = async (root) => {
                     </div>
                 ` : '<div></div>'}
                 ${canManage ? `
-                    <div class="field-wrap" data-earnings-studio-wrap style="min-width:min(100%,280px);${managing ? '' : 'display:none'}">
+                    <div class="field-wrap" data-earnings-studio-wrap style="min-width:min(100%,280px);${managing && !locksToOwnStudio ? '' : 'display:none'}">
                         <label class="field-label">Stüdyo</label>
                         <select class="field-select" data-earnings-studio></select>
                     </div>
+                    ${locksToOwnStudio ? '<div class="badge-pill" data-earnings-locked-studio style="display:none">Stüdyo yükleniyor...</div>' : ''}
                 ` : ''}
             </div>
             <div data-earnings-content style="margin-top:1rem">${skeletonGrid(5)}</div>
@@ -2307,11 +2671,12 @@ const renderEarningsPage = async (root) => {
     const content = qs('[data-earnings-content]', root);
     const studioWrap = qs('[data-earnings-studio-wrap]', root);
     const studioSelect = qs('[data-earnings-studio]', root);
+    const lockedStudioLabel = qs('[data-earnings-locked-studio]', root);
 
     const summaryCards = (summary = {}) => `
         <div class="earnings-metrics">
             <article class="metric-card">
-                <div class="section-eyebrow" style="color:var(--warning)">Bekleyen</div>
+                <div class="section-eyebrow" style="color:var(--warning)">Alınacak</div>
                 <div class="earnings-metric-value">${formatMoney(summary.pending_total)}</div>
                 <div class="earnings-metric-helper">${Number(summary.pending_count || 0)} ödeme bekliyor</div>
             </article>
@@ -2324,6 +2689,11 @@ const renderEarningsPage = async (root) => {
                 <div class="section-eyebrow">Toplam Hakediş</div>
                 <div class="earnings-metric-value">${formatMoney(summary.total)}</div>
                 <div class="earnings-metric-helper">Tamamlanan dövme işlemleri</div>
+            </article>
+            <article class="metric-card">
+                <div class="section-eyebrow" style="color:var(--info)">Son 7 Gün</div>
+                <div class="earnings-metric-value">${formatMoney(summary.last_7_days_pending_total)}</div>
+                <div class="earnings-metric-helper">Alınacak ödeme</div>
             </article>
         </div>
     `;
@@ -2358,6 +2728,72 @@ const renderEarningsPage = async (root) => {
         `;
     };
 
+    const managementFilters = (data = {}) => {
+        const staff = data.staff || [];
+        return `
+            <div class="panel-card" style="margin:1rem 0;padding:1rem">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem">
+                    <div class="field-wrap">
+                        <label class="field-label">Personel</label>
+                        <select class="field-select" data-earnings-staff-filter>
+                            <option value="">Tüm personel</option>
+                            ${staff.map((person) => `
+                                <option value="${person.id}" ${String(person.id) === String(selectedStaffId) ? 'selected' : ''}>
+                                    ${escapeHtml(person.name || 'Personel')}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Durum</label>
+                        <select class="field-select" data-earnings-status-filter>
+                            <option value="pending" ${selectedStatus === 'pending' ? 'selected' : ''}>Ödenmeyen</option>
+                            <option value="paid" ${selectedStatus === 'paid' ? 'selected' : ''}>Ödenen</option>
+                            <option value="" ${selectedStatus === '' ? 'selected' : ''}>Tümü</option>
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Başlangıç</label>
+                        <input class="field-input" type="date" value="${escapeHtml(dateFrom)}" data-earnings-date-from>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Bitiş</label>
+                        <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-earnings-date-to>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:0.8rem">
+                    <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+                </div>
+            </div>
+        `;
+    };
+
+    const personalFilters = () => `
+        <div class="panel-card" style="margin:1rem 0;padding:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem">
+                <div class="field-wrap">
+                    <label class="field-label">Durum</label>
+                    <select class="field-select" data-earnings-status-filter>
+                        <option value="pending" ${selectedStatus === 'pending' ? 'selected' : ''}>Ödenmeyen</option>
+                        <option value="paid" ${selectedStatus === 'paid' ? 'selected' : ''}>Ödenen</option>
+                        <option value="" ${selectedStatus === '' ? 'selected' : ''}>Tümü</option>
+                    </select>
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Başlangıç</label>
+                    <input class="field-input" type="date" value="${escapeHtml(dateFrom)}" data-earnings-date-from>
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Bitiş</label>
+                    <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-earnings-date-to>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:0.8rem">
+                <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+            </div>
+        </div>
+    `;
+
     const staffCard = (person) => {
         const isCurrentUser = String(person.id) === String(adminConfig.userId);
         return `
@@ -2385,6 +2821,30 @@ const renderEarningsPage = async (root) => {
     };
 
     const bindManagementActions = (data) => {
+        qs('[data-earnings-staff-filter]', root)?.addEventListener('change', (event) => {
+            selectedStaffId = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-status-filter]', root)?.addEventListener('change', (event) => {
+            selectedStatus = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-date-from]', root)?.addEventListener('change', (event) => {
+            dateFrom = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-date-to]', root)?.addEventListener('change', (event) => {
+            dateTo = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
+            selectedStaffId = '';
+            selectedStatus = 'pending';
+            dateFrom = '';
+            dateTo = '';
+            handleAsync(load);
+        });
+
         root.querySelectorAll('[data-save-commission]').forEach((button) => {
             button.addEventListener('click', () => handleAsync(async () => {
                 const card = button.closest('[data-earning-user]');
@@ -2417,6 +2877,28 @@ const renderEarningsPage = async (root) => {
         });
     };
 
+    const bindFilterActions = () => {
+        qs('[data-earnings-status-filter]', root)?.addEventListener('change', (event) => {
+            selectedStatus = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-date-from]', root)?.addEventListener('change', (event) => {
+            dateFrom = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-date-to]', root)?.addEventListener('change', (event) => {
+            dateTo = event.target.value;
+            handleAsync(load);
+        });
+        qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
+            selectedStaffId = '';
+            selectedStatus = 'pending';
+            dateFrom = '';
+            dateTo = '';
+            handleAsync(load);
+        });
+    };
+
     const load = async () => {
         if (managing && !selectedStudioId) {
             content.innerHTML = '<div class="empty-state">Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.</div>';
@@ -2424,14 +2906,20 @@ const renderEarningsPage = async (root) => {
         }
 
         content.innerHTML = skeletonGrid(5);
+        const params = new URLSearchParams();
+        if (selectedStaffId) params.set('user_id', selectedStaffId);
+        if (selectedStatus) params.set('status', selectedStatus);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
         const payload = await apiFetch(managing
-            ? `/studios/${selectedStudioId}/earnings`
-            : '/earnings/me');
+            ? `/studios/${selectedStudioId}/earnings${params.toString() ? `?${params.toString()}` : ''}`
+            : `/earnings/me${params.toString() ? `?${params.toString()}` : ''}`);
         const data = payload.data || {};
         const earnings = data.earnings || [];
 
         content.innerHTML = `
             ${summaryCards(data.summary)}
+            ${managing ? managementFilters(data) : personalFilters()}
             ${managing ? `
                 <div class="earnings-layout">
                     <section>
@@ -2458,6 +2946,7 @@ const renderEarningsPage = async (root) => {
         `;
 
         if (managing) bindManagementActions(data);
+        else bindFilterActions();
     };
 
     if (canManage) {
@@ -2469,8 +2958,14 @@ const renderEarningsPage = async (root) => {
                 `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
             ).join('');
             studioSelect.value = selectedStudioId;
+            if (lockedStudioLabel) {
+                lockedStudioLabel.textContent = studios[0]?.name
+                    ? `Stüdyo: ${studios[0].name}`
+                    : 'Atanmış stüdyo bulunamadı';
+            }
             studioSelect.addEventListener('change', () => {
                 selectedStudioId = studioSelect.value;
+                selectedStaffId = '';
                 handleAsync(load);
             });
         }
@@ -2484,7 +2979,8 @@ const renderEarningsPage = async (root) => {
                 item.classList.toggle('button-primary', active);
                 item.classList.toggle('button-secondary', !active);
             });
-            if (studioWrap) studioWrap.style.display = managing ? '' : 'none';
+            if (studioWrap) studioWrap.style.display = managing && !locksToOwnStudio ? '' : 'none';
+            if (lockedStudioLabel) lockedStudioLabel.style.display = managing ? '' : 'none';
             handleAsync(load);
         });
     });

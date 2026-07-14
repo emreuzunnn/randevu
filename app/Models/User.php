@@ -104,6 +104,11 @@ class User extends Authenticatable
         return trim(implode(' ', array_filter([$this->name, $this->surname])));
     }
 
+    public function profileCode(): string
+    {
+        return 'TD-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+    }
+
     public function issueApiToken(): string
     {
         $plainToken = Str::random(80);
@@ -208,6 +213,13 @@ class User extends Authenticatable
             );
     }
 
+    public function isAvailableForStaffInvitation(UserRole $role): bool
+    {
+        return in_array($role, UserRole::studioRoles(), true)
+            && $this->hasStaffApplicationFor($role)
+            && ! $this->studios()->wherePivot('is_active', true)->exists();
+    }
+
     public function ownedStudios(): HasMany
     {
         return $this->hasMany(Studio::class, 'owner_user_id');
@@ -234,6 +246,14 @@ class User extends Authenticatable
     {
         return $this->studios()
             ->whereKey($studio instanceof Studio ? $studio->getKey() : $studio)
+            ->exists();
+    }
+
+    public function belongsToActiveStudio(Studio|int $studio): bool
+    {
+        return $this->studios()
+            ->whereKey($studio instanceof Studio ? $studio->getKey() : $studio)
+            ->wherePivot('is_active', true)
             ->exists();
     }
 
@@ -277,7 +297,7 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->hasStudioRole($studioModel, [UserRole::Admin, UserRole::Yonetici]);
+        return false;
     }
 
     public function canManageStudioAppointments(Studio|int $studio): bool
@@ -331,7 +351,7 @@ class User extends Authenticatable
 
         return $this->canManageStudioAppointments($studio)
             || $this->hasStudioRole($studioModel, [UserRole::Artist])
-            || $this->belongsToStudio($studio);
+            || $this->belongsToActiveStudio($studio);
     }
 
     /**
@@ -343,18 +363,19 @@ class User extends Authenticatable
             return Studio::query()->pluck('id')->all();
         }
 
-        $studioIds = $this->studios()->pluck('studios.id')->all();
-
         if ($this->hasRole(UserRole::Yonetici)) {
             $companyIds = $this->managedCompanies()->pluck('id');
-            $studioIds = array_merge(
-                $studioIds,
-                Studio::query()
-                    ->whereIn('company_id', $companyIds)
-                    ->pluck('id')
-                    ->all(),
-            );
+            return Studio::query()
+                ->whereIn('company_id', $companyIds)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
         }
+
+        $studioIds = $this->studios()
+            ->wherePivot('is_active', true)
+            ->pluck('studios.id')
+            ->all();
 
         return array_values(array_unique(array_map('intval', $studioIds)));
     }

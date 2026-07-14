@@ -102,7 +102,7 @@ class StaffEarningService
                 $earning->user,
                 'Hakedişiniz ödendi',
                 number_format((float) $earning->earning_amount, 2, ',', '.')
-                    .' TL tutarındaki hakedişiniz ödendi olarak işaretlendi.',
+                    .' € tutarındaki hakedişiniz ödendi olarak işaretlendi.',
                 'earning_paid',
                 [
                     'earning_id' => (string) $earning->id,

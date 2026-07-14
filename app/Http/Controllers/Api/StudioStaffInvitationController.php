@@ -23,7 +23,7 @@ class StudioStaffInvitationController extends Controller
 
         $validated = $request->validate([
             'studio_id' => ['required', 'integer', 'exists:studios,id'],
-            'role' => ['required', 'string', 'in:artist,designer'],
+            'role' => ['required', 'string', 'in:supervisor,designer,artist,info,sofor,calisan'],
         ]);
 
         $studio = Studio::query()->findOrFail($validated['studio_id']);
@@ -34,7 +34,7 @@ class StudioStaffInvitationController extends Controller
                 && $invitedBy->canManageStaffRole($role),
             403
         );
-        abort_unless($user->isIndependentProfessionalFor($role), 422);
+        abort_unless($user->isAvailableForStaffInvitation($role), 422);
 
         $result = $studioStaffService->createOrAttach(
             $studio,

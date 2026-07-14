@@ -34,8 +34,6 @@ class AppointmentService
     public function create(Studio $studio, User $user, array $attributes): Appointment
     {
         return DB::transaction(function () use ($studio, $user, $attributes): Appointment {
-            $this->ensureStudioTimeslotIsAvailable($studio, $attributes['appointment_at']);
-
             $status = $this->checkCustomerStatus($studio, $attributes['customer']);
 
             return Appointment::query()->create([
@@ -47,6 +45,10 @@ class AppointmentService
                 ...$attributes['customer'],
                 'pax'               => $attributes['pax'],
                 'price'             => $attributes['price'] ?? null,
+                'deposit_amount'    => $attributes['deposit_amount'] ?? null,
+                'payment_method'    => $attributes['payment_method'] ?? null,
+                'ticket_types'      => $attributes['ticket_types'] ?? [],
+                'tattoo_type'       => $attributes['tattoo_type'] ?? null,
                 'appointment_at'    => $attributes['appointment_at'],
                 'status'            => 'confirmed',
                 'is_old_customer'   => $status['is_old_customer'],
@@ -70,10 +72,6 @@ class AppointmentService
         }
 
         return DB::transaction(function () use ($studio, $appointment, $attributes): Appointment {
-            $appointmentAt = $attributes['appointment_at'] ?? $appointment->appointment_at;
-
-            $this->ensureStudioTimeslotIsAvailable($studio, $appointmentAt, $appointment);
-
             $customerData = array_key_exists('customer', $attributes)
                 ? array_merge($this->extractCustomerSnapshot($appointment), $attributes['customer'])
                 : $this->extractCustomerSnapshot($appointment);
@@ -88,6 +86,10 @@ class AppointmentService
                 'appointment_type'  => $attributes['appointment_type'] ?? $appointment->appointment_type,
                 'pax'               => $attributes['pax'] ?? $appointment->pax,
                 'price'             => array_key_exists('price', $attributes) ? $attributes['price'] : $appointment->price,
+                'deposit_amount'    => array_key_exists('deposit_amount', $attributes) ? $attributes['deposit_amount'] : $appointment->deposit_amount,
+                'payment_method'    => array_key_exists('payment_method', $attributes) ? $attributes['payment_method'] : $appointment->payment_method,
+                'ticket_types'      => array_key_exists('ticket_types', $attributes) ? $attributes['ticket_types'] : $appointment->ticket_types,
+                'tattoo_type'       => array_key_exists('tattoo_type', $attributes) ? $attributes['tattoo_type'] : $appointment->tattoo_type,
                 'appointment_at'    => $attributes['appointment_at'] ?? $appointment->appointment_at,
                 'status'            => $attributes['status'] ?? $appointment->status,
                 'is_old_customer'   => $status['is_old_customer'],
@@ -144,7 +146,9 @@ class AppointmentService
 
         $appointment->fill([
             'assigned_artist_user_id' => $artistUserId,
-            'artist_status'           => null,
+            'artist_status'           => $artistUserId === null
+                ? null
+                : ($appointment->appointment_type === 'tattoo' ? 'pending' : null),
         ])->save();
 
         return $appointment->fresh(['assignedArtist']);
@@ -257,23 +261,6 @@ class AppointmentService
             'photo_path'        => $appointment->photo_path,
             'customer_notes'    => $appointment->customer_notes,
         ];
-    }
-
-    private function ensureStudioTimeslotIsAvailable(Studio $studio, mixed $appointmentAt, ?Appointment $ignoreAppointment = null): void
-    {
-        $query = Appointment::query()
-            ->where('studio_id', $studio->id)
-            ->where('appointment_at', $appointmentAt);
-
-        if ($ignoreAppointment !== null) {
-            $query->whereKeyNot($ignoreAppointment->id);
-        }
-
-        if ($query->exists()) {
-            throw ValidationException::withMessages([
-                'appointment_at' => ['Bu stüdyoda aynı tarih ve saatte başka bir randevu zaten bulunuyor.'],
-            ]);
-        }
     }
 
     private function normalizePhoneNumber(string $value): string

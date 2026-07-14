@@ -33,6 +33,8 @@ class DashboardController extends Controller
 
         $summary = [
             'total_appointments' => (clone $appointments)->count(),
+            'design_appointments' => (clone $appointments)->where('appointment_type', 'designer')->count(),
+            'ticket_appointments' => (clone $appointments)->where('appointment_type', 'tattoo')->count(),
             'cancelled_appointments' => (clone $appointments)->where('status', 'cancelled')->count(),
             'transfer_count' => (clone $appointments)->where('pickup_required', true)->count(),
         ];
