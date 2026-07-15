@@ -111,6 +111,11 @@ class AppointmentRequestController extends Controller
         $target = ! empty($validated['artist_id'])
             ? User::query()->findOrFail($validated['artist_id'])
             : null;
+        abort_if(
+            $target !== null && (int) $target->id === (int) $authUser->id,
+            422,
+            'Kendinize talep gönderemezsiniz.'
+        );
         abort_if($target?->banned_at !== null, 422, 'Banlı kullanıcıya talep gönderilemez.');
         $studio = $this->resolveStudio($target, $validated['studio_id'] ?? null);
         $type = $this->resolveRequestType($target, $studio, $validated['type'] ?? null);
@@ -471,6 +476,8 @@ class AppointmentRequestController extends Controller
 
     private function formatRequest(AppointmentRequest $appointmentRequest): array
     {
+        $canViewCustomerContact = $this->canViewCustomerContactFor(request()->user(), $appointmentRequest);
+
         return [
             'id'             => $appointmentRequest->id,
             'status'         => $appointmentRequest->status,
@@ -488,9 +495,10 @@ class AppointmentRequestController extends Controller
                 'room_number' => $appointmentRequest->room_number,
                 'place' => $appointmentRequest->place,
                 'pax' => $appointmentRequest->pax,
-                'phone_country_code' => $appointmentRequest->phone_country_code,
-                'phone_number' => $appointmentRequest->phone_number,
+                'phone_country_code' => $canViewCustomerContact ? $appointmentRequest->phone_country_code : null,
+                'phone_number' => $canViewCustomerContact ? $appointmentRequest->phone_number : null,
             ],
+            'can_view_customer_contact' => $canViewCustomerContact,
             'first_name'     => $appointmentRequest->first_name,
             'last_name'      => $appointmentRequest->last_name,
             'hotel_name'     => $appointmentRequest->hotel_name,
@@ -516,9 +524,9 @@ class AppointmentRequestController extends Controller
             'tattoo_type_label' => $appointmentRequest->request_type === 'tattoo' && $appointmentRequest->tattoo_type
                 ? (AppointmentController::TATTOO_TYPES[$appointmentRequest->tattoo_type] ?? $appointmentRequest->tattoo_type)
                 : null,
-            'phone_country_code' => $appointmentRequest->phone_country_code,
-            'phone_number'   => $appointmentRequest->phone_number,
-            'requester'      => $this->formatUser($appointmentRequest->requester),
+            'phone_country_code' => $canViewCustomerContact ? $appointmentRequest->phone_country_code : null,
+            'phone_number'   => $canViewCustomerContact ? $appointmentRequest->phone_number : null,
+            'requester'      => $this->formatUser($appointmentRequest->requester, $canViewCustomerContact),
             'target'         => $this->formatUser($appointmentRequest->target),
             'studio'         => $appointmentRequest->studio ? [
                 'id'   => $appointmentRequest->studio->id,
@@ -529,7 +537,7 @@ class AppointmentRequestController extends Controller
         ];
     }
 
-    private function formatUser(?User $user): ?array
+    private function formatUser(?User $user, bool $includePhone = false): ?array
     {
         if ($user === null) {
             return null;
@@ -538,9 +546,34 @@ class AppointmentRequestController extends Controller
         return [
             'id'    => $user->id,
             'name'  => $user->fullName(),
-            'phone' => $user->phone,
+            'phone' => $includePhone ? $user->phone : null,
             'role'  => $user->role?->value,
         ];
+    }
+
+    private function canViewCustomerContactFor(?User $user, AppointmentRequest $appointmentRequest): bool
+    {
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        if ((int) $appointmentRequest->requester_user_id === (int) $user->id) {
+            return true;
+        }
+
+        if ($appointmentRequest->studio && $user->canManageStudio($appointmentRequest->studio)) {
+            return true;
+        }
+
+        if ((int) $appointmentRequest->target_user_id === (int) $user->id) {
+            $targetRole = $appointmentRequest->request_type === 'designer'
+                ? UserRole::Designer
+                : UserRole::Artist;
+
+            return $user->isIndependentProfessionalFor($targetRole);
+        }
+
+        return false;
     }
 
     private function visiblePriceFor(AppointmentRequest $appointmentRequest): mixed
@@ -695,12 +728,6 @@ class AppointmentRequestController extends Controller
             $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs('appointment-requests/' . $folder . '/tattoo-images', $name, 'public');
             $paths[] = Storage::disk('public')->url($path);
-        }
-
-        if ($requestType === 'tattoo' && count($paths) > 3) {
-            throw ValidationException::withMessages([
-                'tattoo_images' => ['En fazla 3 dövme görseli ekleyebilirsiniz.'],
-            ]);
         }
 
         return $paths;

@@ -20,6 +20,7 @@ class StudioStaffInvitationController extends Controller
     ): JsonResponse {
         $invitedBy = $request->user();
         abort_unless($invitedBy instanceof User, 401);
+        abort_if($invitedBy->is($user), 422, 'Kendinize çalışma daveti gönderemezsiniz.');
 
         $validated = $request->validate([
             'studio_id' => ['required', 'integer', 'exists:studios,id'],

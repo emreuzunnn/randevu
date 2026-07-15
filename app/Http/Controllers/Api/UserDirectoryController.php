@@ -136,9 +136,11 @@ class UserDirectoryController extends Controller
         $manageableRoles = collect($authUser->manageableStaffRoles())
             ->filter(fn (UserRole $role): bool => in_array($role, UserRole::studioRoles(), true))
             ->values();
-        $inviteRoles = $manageableRoles
-            ->filter(fn (UserRole $role): bool => $user->isAvailableForStaffInvitation($role))
-            ->values();
+        $inviteRoles = $authUser->is($user)
+            ? collect()
+            : $manageableRoles
+                ->filter(fn (UserRole $role): bool => $user->isAvailableForStaffInvitation($role))
+                ->values();
         $activeStudio = $user->studios()
             ->wherePivot('is_active', true)
             ->first(['studios.id', 'studios.name']);
