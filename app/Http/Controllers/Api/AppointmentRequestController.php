@@ -212,6 +212,7 @@ class AppointmentRequestController extends Controller
             'ticket_types'   => ['nullable', 'array', 'max:4'],
             'ticket_types.*' => ['string', 'in:'.implode(',', array_keys(AppointmentController::TICKET_TYPES))],
             'tattoo_type'    => ['nullable', 'string', 'in:'.implode(',', array_keys(AppointmentController::TATTOO_TYPES))],
+            'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user(), $appointmentRequest);
         $validated = $this->normalizeTicketAttributes($validated, $appointmentRequest->request_type, false);
@@ -223,7 +224,10 @@ class AppointmentRequestController extends Controller
             $studio = $isIndependentProfessional
                 ? null
                 : ($appointmentRequest->studio ?? $target?->studios()->wherePivot('is_active', true)->first());
-            $assignedProfessional = $target ?? ($studio ? $this->resolveStudioTargetByType($studio, $appointmentRequest->request_type) : null);
+            $assignedProfessional = $target
+                ?? (isset($validated['assigned_user_id'])
+                    ? $this->resolveExplicitStudioTarget($studio, (int) $validated['assigned_user_id'], $appointmentRequest->request_type)
+                    : ($studio ? $this->resolveStudioTargetByType($studio, $appointmentRequest->request_type) : null));
 
             if (! $isIndependentProfessional && $studio === null) {
                 throw ValidationException::withMessages([
@@ -402,6 +406,26 @@ class AppointmentRequestController extends Controller
         }
 
         return $users->first();
+    }
+
+    private function resolveExplicitStudioTarget(?Studio $studio, int $userId, string $type): User
+    {
+        if (! $studio instanceof Studio) {
+            throw ValidationException::withMessages([
+                'assigned_user_id' => ['Kullanıcı atamak için stüdyo bilgisi gerekli.'],
+            ]);
+        }
+
+        $role = $type === 'designer' ? UserRole::Designer : UserRole::Artist;
+        $user = User::query()->find($userId);
+
+        if (! $user instanceof User || $user->banned_at !== null || ! $user->hasStudioRole($studio, [$role])) {
+            throw ValidationException::withMessages([
+                'assigned_user_id' => ["Seçilen kullanıcı bu {$role->label()} ataması için uygun değil."],
+            ]);
+        }
+
+        return $user;
     }
 
     private function resolveRequestedAt(array $validated, ?Carbon $fallback = null): Carbon
