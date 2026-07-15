@@ -950,6 +950,276 @@ class ApiTestSeeder extends Seeder
             'pickup_required'    => false,
             'status'             => 'pending',
         ]));
+
+        $this->enrichDetailedUserProfiles();
+    }
+
+    private function enrichDetailedUserProfiles(): void
+    {
+        $profiles = [
+            'admin@example.com' => [
+                'username' => 'platformadmin',
+                'bio' => 'Tattoodesk platformundaki şirket, stüdyo, kullanıcı, yorum, şikayet ve sistem ayarlarını yöneten ana admin hesabı.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'tattoodesk.admin',
+                'whatsapp' => '905550000001',
+                'response_time_hours' => 1,
+            ],
+            'yonetici@example.com' => [
+                'username' => 'inkempireyonetici',
+                'bio' => 'Ink Empire Group şirketinin operasyon, ciro, hakediş ve stüdyo yönetiminden sorumlu şirket yöneticisi.',
+                'location' => 'Kadıköy, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'inkempire.group',
+                'whatsapp' => '905550000002',
+                'response_time_hours' => 2,
+            ],
+            'supervisor1@example.com' => [
+                'username' => 'kadikoysupervisor',
+                'bio' => 'Kadıköy stüdyosunda günlük akış, bilet atamaları, personel hakedişleri ve müşteri operasyonunu yönetir.',
+                'location' => 'Kadıköy, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'inkempire.kadikoy',
+                'whatsapp' => '905550000003',
+                'response_time_hours' => 1,
+            ],
+            'designer1@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Kadıköy, İstanbul',
+                'instagram' => 'designer.bir',
+                'whatsapp' => '905550000004',
+                'availability_start' => '11:00',
+                'availability_end' => '19:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Geometrik Mandala', 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80', 'İnce çizgi ve simetri odaklı mandala tasarımı.', 'geometric'],
+                    ['Minimal Çiçek', 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80', 'Tek çizgi tekniğiyle küçük çiçek kompozisyonu.', 'minimal'],
+                    ['Dotwork Kol Taslağı', 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80', 'Dotwork gölgelendirme kullanılan ön kol tasarımı.', 'dotwork'],
+                ]),
+            ],
+            'artist1@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Kadıköy, İstanbul',
+                'instagram' => 'artist.bir',
+                'whatsapp' => '905550000005',
+                'availability_start' => '12:00',
+                'availability_end' => '21:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Realistik Aslan', 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80', 'Siyah-gri gerçekçi omuz çalışması.', 'realism'],
+                    ['Tribal Full Kol', 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80', 'Full sleeve tribal kompozisyon.', 'tribal'],
+                    ['Gül Buketi', 'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80', 'Renkli ön kol çiçek çalışması.', 'floral'],
+                ]),
+            ],
+            'artist1b@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Kadıköy, İstanbul',
+                'instagram' => 'artist.birb',
+                'whatsapp' => '905550000006',
+                'availability_start' => '13:00',
+                'availability_end' => '22:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Neo-Traditional Kartal', 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=1200&q=80', 'Kalın kontur ve canlı renkli kartal çalışması.', 'neo-traditional'],
+                    ['Old School Gemi', 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80', 'Klasik traditional gemi tasarımı.', 'traditional'],
+                    ['Japanese Maske', 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80', 'Irezumi esintili renkli maske çalışması.', 'japanese'],
+                ]),
+            ],
+            'info1@example.com' => [
+                'username' => 'info.bir',
+                'bio' => 'Kadıköy stüdyosunda müşteri karşılama, satış girişi, bilet ve tasarım randevusu oluşturma süreçlerini yürütür.',
+                'location' => 'Kadıköy, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'info.bir',
+                'whatsapp' => '905550000007',
+                'response_time_hours' => 1,
+            ],
+            'sofor1@example.com' => [
+                'username' => 'sofor.bir',
+                'bio' => 'Kadıköy stüdyosunun transfer operasyonlarını takip eder; müşteri aldı, gelmedi ve bıraktı durumlarını yönetir.',
+                'location' => 'Kadıköy, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000008',
+                'response_time_hours' => 1,
+            ],
+            'supervisor2@example.com' => [
+                'username' => 'besiktassupervisor',
+                'bio' => 'Beşiktaş stüdyosunda ekip planlaması, artist ataması ve hakediş kontrollerini yönetir.',
+                'location' => 'Beşiktaş, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'inkempire.besiktas',
+                'whatsapp' => '905550000009',
+                'response_time_hours' => 1,
+            ],
+            'designer2@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Beşiktaş, İstanbul',
+                'instagram' => 'designer.iki',
+                'whatsapp' => '905550000010',
+                'availability_start' => '10:30',
+                'availability_end' => '18:30',
+                'portfolio' => $this->portfolioItems([
+                    ['Watercolor Kelebek', 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80', 'Canlı renk geçişli kelebek tasarımı.', 'watercolor'],
+                    ['Abstract Fırtına', 'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80', 'Soyut çizgi ve renk bloklarıyla kompozisyon.', 'abstract'],
+                    ['Fine Line Harita', 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80', 'İnce çizgiyle şehir haritası tasarımı.', 'fine_line'],
+                ]),
+            ],
+            'artist2@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Beşiktaş, İstanbul',
+                'instagram' => 'artist.iki',
+                'whatsapp' => '905550000011',
+                'availability_start' => '12:00',
+                'availability_end' => '20:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Fine Line Botanik', 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1200&q=80', 'Botanik yapraklardan ince çizgi seri.', 'fine_line'],
+                    ['Blackwork Geometri', 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80', 'Siyah dolgu geometrik pattern.', 'blackwork'],
+                    ['Dotwork Sembol', 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80', 'Dotwork gölgeyle küçük sembol çalışması.', 'dotwork'],
+                ]),
+            ],
+            'artist2b@example.com' => [
+                'profile_image' => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=80',
+                'location' => 'Beşiktaş, İstanbul',
+                'instagram' => 'artist.ikib',
+                'whatsapp' => '905550000012',
+                'availability_start' => '14:00',
+                'availability_end' => '23:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Koi Balığı Tam Kol', 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=1200&q=80', 'Klasik Japanese tam kol kompozisyonu.', 'japanese'],
+                    ['Hannya Maskesi', 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80', 'Sırt üst bölge için Hannya maske çalışması.', 'japanese'],
+                    ['Cover Up Lotus', 'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80', 'Eski dövme kapatma için lotus kompozisyonu.', 'cover_up'],
+                ]),
+            ],
+            'info2@example.com' => [
+                'username' => 'info.iki',
+                'bio' => 'Beşiktaş stüdyosunda satış, müşteri iletişimi ve bilet/randevu kayıtlarını takip eder.',
+                'location' => 'Beşiktaş, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'info.iki',
+                'whatsapp' => '905550000013',
+                'response_time_hours' => 1,
+            ],
+            'sofor2@example.com' => [
+                'username' => 'sofor.iki',
+                'bio' => 'Beşiktaş stüdyosuna ait transferleri takip eder ve müşteri taşıma durumlarını günceller.',
+                'location' => 'Beşiktaş, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000014',
+                'response_time_hours' => 1,
+            ],
+            'calisan@example.com' => [
+                'username' => 'calisan.bir',
+                'bio' => 'Kadıköy stüdyosunda genel operasyon, temizlik hazırlığı ve müşteri yönlendirme işlerine destek olur.',
+                'location' => 'Kadıköy, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1552058544-f2b08422138a?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000015',
+                'response_time_hours' => 3,
+            ],
+            'bagimsiz.artist@example.com' => [
+                'username' => 'bagimsizartist',
+                'profile_image' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
+                'location' => 'İstanbul',
+                'instagram' => 'freelance.artist',
+                'whatsapp' => '905550000016',
+                'experience_years' => 5,
+                'rating' => 4.4,
+                'availability_start' => '13:00',
+                'availability_end' => '21:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Minimalist Ay', 'https://images.unsplash.com/photo-1590246814883-6b4f7a0f95da?auto=format&fit=crop&w=1200&q=80', 'Tek çizgi ay ve yıldız serisi.', 'minimal'],
+                    ['Script Yazı', 'https://images.unsplash.com/photo-1542727365-19732a80dcfd?auto=format&fit=crop&w=1200&q=80', 'El yazısı tipografi dövmesi.', 'lettering'],
+                    ['Blackwork Sembol', 'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=1200&q=80', 'Küçük siyah sembol çalışması.', 'blackwork'],
+                ]),
+            ],
+            'bagimsiz.designer@example.com' => [
+                'username' => 'bagimsizdesigner',
+                'profile_image' => 'https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&w=900&q=80',
+                'location' => 'İstanbul',
+                'instagram' => 'freelance.designer',
+                'whatsapp' => '905550000018',
+                'experience_years' => 6,
+                'rating' => 4.6,
+                'availability_start' => '10:00',
+                'availability_end' => '17:00',
+                'portfolio' => $this->portfolioItems([
+                    ['Japanese Ejderha Taslağı', 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?auto=format&fit=crop&w=1200&q=80', 'Tam kol için ejderha kompozisyonu.', 'japanese'],
+                    ['Renkli Cover Up Planı', 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=1200&q=80', 'Eski dövme üzerine renkli kapatma tasarımı.', 'cover_up'],
+                    ['Minimal Piercing Flash', 'https://images.unsplash.com/photo-1605812860427-4024433a70fd?auto=format&fit=crop&w=1200&q=80', 'Piercing ve küçük dövme flash serisi.', 'flash'],
+                ]),
+            ],
+            'bagimsiz.sofor@example.com' => [
+                'username' => 'bagimsizsofor',
+                'bio' => 'Stüdyolardan gelecek transfer davetlerini test etmek için kullanılan bağımsız şoför adayı.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000019',
+                'response_time_hours' => 2,
+            ],
+            'bagimsiz.info@example.com' => [
+                'username' => 'bagimsizinfo',
+                'bio' => 'Bilgi ve satış rolüne davet akışını test etmek için kullanılan bağımsız info adayı.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000020',
+                'response_time_hours' => 2,
+            ],
+            'bagimsiz.calisan@example.com' => [
+                'username' => 'bagimsizcalisan',
+                'bio' => 'Genel çalışan daveti ve ekip ekleme akışlarını test etmek için kullanılan bağımsız aday.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000021',
+                'response_time_hours' => 4,
+            ],
+            'bagimsiz.supervisor@example.com' => [
+                'username' => 'bagimsizsupervisor',
+                'bio' => 'Supervisor daveti ve yetki akışlarını test etmek için kullanılan bağımsız yönetici adayı.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?auto=format&fit=crop&w=900&q=80',
+                'whatsapp' => '905550000022',
+                'response_time_hours' => 2,
+            ],
+            'supervisor3@example.com' => [
+                'username' => 'nisantasisupervisor',
+                'bio' => 'Nişantaşı piercing stüdyosunun günlük operasyon ve personel planlamasını yönetir.',
+                'location' => 'Nişantaşı, İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'piercing.supervisor',
+                'whatsapp' => '905550000025',
+                'response_time_hours' => 1,
+            ],
+            'kullanici@example.com' => [
+                'username' => 'testmusteri',
+                'bio' => 'Randevu, bilet, yorum, şikayet, bildirim ve eski müşteri akışlarını test etmek için kullanılan normal müşteri hesabı.',
+                'location' => 'İstanbul',
+                'profile_image' => 'https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?auto=format&fit=crop&w=900&q=80',
+                'instagram' => 'test.musteri',
+                'whatsapp' => '905550000017',
+                'response_time_hours' => 6,
+            ],
+        ];
+
+        foreach ($profiles as $email => $profile) {
+            $user = User::query()->where('email', $email)->first();
+
+            if (! $user instanceof User) {
+                continue;
+            }
+
+            $user->forceFill($profile)->save();
+        }
+    }
+
+    /**
+     * @param  array<int, array{0: string, 1: string, 2: string, 3: string}>  $items
+     * @return array<int, array<string, string>>
+     */
+    private function portfolioItems(array $items): array
+    {
+        return array_map(static fn (array $item): array => [
+            'title' => $item[0],
+            'image_path' => $item[1],
+            'description' => $item[2],
+            'category' => $item[3],
+        ], $items);
     }
 
     private function commissionRate(UserRole $role): int
