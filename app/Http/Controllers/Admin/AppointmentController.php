@@ -13,6 +13,16 @@ class AppointmentController extends Controller
 {
     public function index(Request $request): View
     {
+        return $this->indexForType($request, 'designer', 'Randevular');
+    }
+
+    public function tickets(Request $request): View
+    {
+        return $this->indexForType($request, 'tattoo', 'Biletler');
+    }
+
+    private function indexForType(Request $request, string $appointmentType, string $pageTitle): View
+    {
         $user = $request->user();
         $studioId = $request->integer('studio_id');
         $studios = Studio::query()
@@ -30,13 +40,14 @@ class AppointmentController extends Controller
         if ($selectedStudio !== null) {
             $appointments = $selectedStudio->appointments()
                 ->with(['createdBy', 'assignedArtist'])
+                ->where('appointment_type', $appointmentType)
                 ->latest('appointment_at')
                 ->get();
         }
 
         $appointmentTypes = \App\Http\Controllers\Api\AppointmentController::APPOINTMENT_TYPES;
 
-        return view('admin.appointments.index', compact('studios', 'selectedStudio', 'appointments', 'appointmentTypes'));
+        return view('admin.appointments.index', compact('studios', 'selectedStudio', 'appointments', 'appointmentTypes', 'appointmentType', 'pageTitle'));
     }
 
     public function show(Appointment $appointment): View

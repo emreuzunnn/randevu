@@ -8,6 +8,7 @@ use App\Models\Studio;
 use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -31,14 +32,15 @@ class DashboardController extends Controller
             abort(403);
         }
 
-        $appointmentsQuery = \App\Models\Appointment::query();
+        $baseAppointmentsQuery = \App\Models\Appointment::query();
         if (! $user?->hasRole(\App\Enums\UserRole::Admin)) {
-            $appointmentsQuery->whereIn('studio_id', $accessibleStudioIds);
+            $baseAppointmentsQuery->whereIn('studio_id', $accessibleStudioIds);
         }
         if ($studioId > 0) {
-            $appointmentsQuery->where('studio_id', $studioId);
+            $baseAppointmentsQuery->where('studio_id', $studioId);
         }
 
+        $appointmentsQuery = clone $baseAppointmentsQuery;
         if ($dateFrom !== null) {
             $appointmentsQuery->whereDate('appointment_at', '>=', $dateFrom);
         }
@@ -47,17 +49,40 @@ class DashboardController extends Controller
             $appointmentsQuery->whereDate('appointment_at', '<=', $dateTo);
         }
 
-        $totalAppointments = (clone $appointmentsQuery)->count();
-        $designAppointments = (clone $appointmentsQuery)
+        $totalAppointments = (clone $baseAppointmentsQuery)->count();
+        $designAppointments = (clone $baseAppointmentsQuery)
             ->where('appointment_type', 'designer')
             ->count();
-        $ticketAppointments = (clone $appointmentsQuery)
+        $ticketAppointments = (clone $baseAppointmentsQuery)
             ->where('appointment_type', 'tattoo')
             ->count();
-        $cancelledAppointments = (clone $appointmentsQuery)
+        $cancelledAppointments = (clone $baseAppointmentsQuery)
             ->where('status', 'cancelled')
             ->count();
-        $transferCount = (clone $appointmentsQuery)
+        $transferCount = (clone $baseAppointmentsQuery)
+            ->where('pickup_required', true)
+            ->count();
+        $activeStaffCount = DB::table('studio_user')
+            ->when(
+                ! $user?->hasRole(\App\Enums\UserRole::Admin),
+                fn ($query) => $query->whereIn('studio_id', $accessibleStudioIds)
+            )
+            ->when($studioId > 0, fn ($query) => $query->where('studio_id', $studioId))
+            ->where('is_active', true)
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $periodTotalAppointments = (clone $appointmentsQuery)->count();
+        $periodDesignAppointments = (clone $appointmentsQuery)
+            ->where('appointment_type', 'designer')
+            ->count();
+        $periodTicketAppointments = (clone $appointmentsQuery)
+            ->where('appointment_type', 'tattoo')
+            ->count();
+        $periodCancelledAppointments = (clone $appointmentsQuery)
+            ->where('status', 'cancelled')
+            ->count();
+        $periodTransferCount = (clone $appointmentsQuery)
             ->where('pickup_required', true)
             ->count();
         $studios = Studio::query()
@@ -90,9 +115,20 @@ class DashboardController extends Controller
                 'summary' => [
                     'total_appointments' => $totalAppointments,
                     'design_appointments' => $designAppointments,
+                    'designer_appointments' => $designAppointments,
                     'ticket_appointments' => $ticketAppointments,
                     'cancelled_appointments' => $cancelledAppointments,
                     'transfer_count' => $transferCount,
+                    'active_staff_count' => $activeStaffCount,
+                ],
+                'period_summary' => [
+                    'total_appointments' => $periodTotalAppointments,
+                    'design_appointments' => $periodDesignAppointments,
+                    'designer_appointments' => $periodDesignAppointments,
+                    'ticket_appointments' => $periodTicketAppointments,
+                    'cancelled_appointments' => $periodCancelledAppointments,
+                    'transfer_count' => $periodTransferCount,
+                    'active_staff_count' => $activeStaffCount,
                 ],
                 'reports' => $reports,
                 'hotel_sources' => $currentReport['hotel_sources'] ?? [],
