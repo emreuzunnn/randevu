@@ -338,7 +338,6 @@ class AppointmentController extends Controller
                 'artist_status'    => $appointment->artist_status,
                 'can_artist_respond' => $currentUser instanceof User
                     && $this->assignedArtistCanAccess($appointment, $currentUser)
-                    && $appointment->appointment_type === 'tattoo'
                     && ! in_array($appointment->status, ['cancelled', 'completed'], true),
                 'notes'            => $limitedView ? null : $appointment->notes,
                 'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
@@ -542,13 +541,13 @@ class AppointmentController extends Controller
         $appointment->load('assignedArtist');
 
         if ($appointment->assignedArtist instanceof User) {
-            $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
-            $notificationTitle = $appointment->appointment_type === 'tattoo'
+            $isTicket = $appointment->appointment_type === 'tattoo';
+            $notificationTitle = $isTicket
                 ? 'Yeni Bilet Talebi'
-                : "Yeni {$recordLabel} Atandı";
-            $notificationBody = $appointment->appointment_type === 'tattoo'
+                : 'Yeni Tasarım Randevusu Talebi';
+            $notificationBody = $isTicket
                 ? "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli bilet onayınıza gönderildi."
-                : "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} size atandı.";
+                : "{$studio->name} için {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli tasarım randevusu onayınıza gönderildi.";
             app(FcmService::class)->sendToUser(
                 $appointment->assignedArtist,
                 $notificationTitle,
@@ -562,7 +561,7 @@ class AppointmentController extends Controller
         }
 
         return response()->json([
-            'message' => 'Artist atandı.',
+            'message' => ($appointment->appointment_type === 'tattoo' ? 'Artist' : 'Designer').' atandı.',
             'data'    => [
                 'id'                      => $appointment->id,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
@@ -582,14 +581,15 @@ class AppointmentController extends Controller
         $artist = $request->user();
         abort_unless($artist instanceof User, 403);
         abort_unless($this->assignedArtistCanAccess($appointment, $artist), 403);
-        abort_unless($appointment->appointment_type === 'tattoo', 422);
         abort_if(in_array($appointment->status, ['cancelled', 'completed'], true), 422);
 
         $validated = $request->validate([
             'response' => ['required', 'string', 'in:accepted,rejected'],
         ]);
-        abort_if($appointment->artist_status === $validated['response'], 422, 'Bu bilete daha önce yanıt verdiniz.');
-        abort_if($appointment->artist_status === 'accepted', 422, 'Kabul edilmiş bilet için yanıt değiştirilemez.');
+        $recordDative = $appointment->appointment_type === 'tattoo' ? 'bilete' : 'randevuya';
+        $recordLabel = $appointment->appointment_type === 'tattoo' ? 'Bilet' : 'Randevu';
+        abort_if($appointment->artist_status === $validated['response'], 422, "Bu {$recordDative} daha önce yanıt verdiniz.");
+        abort_if($appointment->artist_status === 'accepted', 422, "Kabul edilmiş {$recordDative} yanıt değiştirilemez.");
 
         $updates = [
             'artist_status' => $validated['response'],
@@ -605,8 +605,8 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => $validated['response'] === 'accepted'
-                ? 'Bilet kabul edildi.'
-                : 'Bilet reddedildi.',
+                ? "{$recordLabel} kabul edildi."
+                : "{$recordLabel} reddedildi.",
             'data' => [
                 'id' => $appointment->id,
                 'artist_status' => $appointment->artist_status,

@@ -107,14 +107,17 @@ class AppointmentNotificationService
     {
         $appointment->loadMissing(['studio.company.manager', 'createdBy', 'assignedArtist']);
         $accepted = $appointment->artist_status === 'accepted';
+        $isTicket = $appointment->appointment_type === 'tattoo';
+        $assigneeLabel = $isTicket ? 'Artist' : 'Designer';
+        $recordLabel = $isTicket ? 'bilet' : 'tasarım randevusu';
         $recipients = $this->allRelevantRecipients($appointment)
             ->reject(fn (User $user): bool => (int) $user->id === (int) $artist->id)
             ->values();
 
         return $this->send(
             $recipients,
-            $accepted ? 'Artist Randevuyu Kabul Etti' : 'Artist Randevuyu Reddetti',
-            "{$artist->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli dövme randevusunu "
+            $accepted ? "{$assigneeLabel} Randevuyu Kabul Etti" : "{$assigneeLabel} Randevuyu Reddetti",
+            "{$artist->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} kaydını "
                 .($accepted ? 'kabul etti.' : 'reddetti.'),
             'artist_response',
             [

@@ -231,6 +231,8 @@ class AppointmentRequestController extends Controller
                 ]);
             }
 
+            $isTicketRequest = $appointmentRequest->request_type === 'tattoo';
+
             $appointment = Appointment::query()->create([
                 'studio_id'               => $studio?->id,
                 'created_by_user_id'      => $appointmentRequest->requester_user_id,
@@ -255,11 +257,11 @@ class AppointmentRequestController extends Controller
                     : $appointmentRequest->pickup_required,
                 'is_old_customer'         => false,
                 'pax'                     => $validated['pax'] ?? $appointmentRequest->pax ?? 1,
-                'price'                   => $validated['price'] ?? $appointmentRequest->price,
-                'deposit_amount'          => $validated['deposit_amount'] ?? $appointmentRequest->deposit_amount,
-                'payment_method'          => $validated['payment_method'] ?? $appointmentRequest->payment_method,
-                'ticket_types'            => $validated['ticket_types'] ?? $appointmentRequest->ticket_types ?? [],
-                'tattoo_type'             => $validated['tattoo_type'] ?? $appointmentRequest->tattoo_type,
+                'price'                   => $isTicketRequest ? ($validated['price'] ?? $appointmentRequest->price) : null,
+                'deposit_amount'          => $isTicketRequest ? ($validated['deposit_amount'] ?? $appointmentRequest->deposit_amount) : null,
+                'payment_method'          => $isTicketRequest ? ($validated['payment_method'] ?? $appointmentRequest->payment_method) : null,
+                'ticket_types'            => $isTicketRequest ? ($validated['ticket_types'] ?? $appointmentRequest->ticket_types ?? []) : [],
+                'tattoo_type'             => $isTicketRequest ? ($validated['tattoo_type'] ?? $appointmentRequest->tattoo_type) : null,
             ]);
 
             $appointmentRequest->fill([
@@ -274,11 +276,11 @@ class AppointmentRequestController extends Controller
                 'room_number'     => $validated['room_number'] ?? $appointmentRequest->room_number,
                 'place'           => $validated['place'] ?? $appointmentRequest->place,
                 'pax'             => $validated['pax'] ?? $appointmentRequest->pax,
-                'price'           => $validated['price'] ?? $appointmentRequest->price,
-                'deposit_amount'  => $validated['deposit_amount'] ?? $appointmentRequest->deposit_amount,
-                'payment_method'  => $validated['payment_method'] ?? $appointmentRequest->payment_method,
-                'ticket_types'    => $validated['ticket_types'] ?? $appointmentRequest->ticket_types,
-                'tattoo_type'     => $validated['tattoo_type'] ?? $appointmentRequest->tattoo_type,
+                'price'           => $isTicketRequest ? ($validated['price'] ?? $appointmentRequest->price) : null,
+                'deposit_amount'  => $isTicketRequest ? ($validated['deposit_amount'] ?? $appointmentRequest->deposit_amount) : null,
+                'payment_method'  => $isTicketRequest ? ($validated['payment_method'] ?? $appointmentRequest->payment_method) : null,
+                'ticket_types'    => $isTicketRequest ? ($validated['ticket_types'] ?? $appointmentRequest->ticket_types) : [],
+                'tattoo_type'     => $isTicketRequest ? ($validated['tattoo_type'] ?? $appointmentRequest->tattoo_type) : null,
                 'status'          => 'accepted',
                 'responded_at'    => now(),
             ])->save();

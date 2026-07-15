@@ -146,9 +146,7 @@ class AppointmentService
 
         $appointment->fill([
             'assigned_artist_user_id' => $artistUserId,
-            'artist_status'           => $artistUserId === null
-                ? null
-                : ($appointment->appointment_type === 'tattoo' ? 'pending' : null),
+            'artist_status'           => $artistUserId === null ? null : 'pending',
         ])->save();
 
         return $appointment->fresh(['assignedArtist']);
