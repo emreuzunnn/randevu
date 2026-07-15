@@ -208,11 +208,6 @@ class AppointmentController extends Controller
                 }
             })
             ->where('assigned_artist_user_id', $user->id)
-            ->where(function ($query): void {
-                $query
-                    ->where('appointment_type', '!=', 'tattoo')
-                    ->orWhere('artist_status', 'accepted');
-            })
             ->orderBy('appointment_at')
             ->get();
 

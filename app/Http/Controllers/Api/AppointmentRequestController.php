@@ -232,6 +232,8 @@ class AppointmentRequestController extends Controller
             }
 
             $isTicketRequest = $appointmentRequest->request_type === 'tattoo';
+            $requiresProfessionalApproval = ! $isIndependentProfessional
+                && $assignedProfessional instanceof User;
 
             $appointment = Appointment::query()->create([
                 'studio_id'               => $studio?->id,
@@ -247,7 +249,7 @@ class AppointmentRequestController extends Controller
                 'place'                   => $validated['place'] ?? $appointmentRequest->place ?? $appointmentRequest->hotel_name,
                 'appointment_at'          => $requestedAt,
                 'status'                  => 'confirmed',
-                'artist_status'           => null,
+                'artist_status'           => $requiresProfessionalApproval ? 'pending' : null,
                 'customer_notes'          => $validated['notes'] ?? $appointmentRequest->notes,
                 'notes'                   => null,
                 'photo_path'              => $appointmentRequest->image_path,
@@ -478,7 +480,8 @@ class AppointmentRequestController extends Controller
 
     private function formatRequest(AppointmentRequest $appointmentRequest): array
     {
-        $canViewCustomerContact = $this->canViewCustomerContactFor(request()->user(), $appointmentRequest);
+        $canViewCustomerDetails = $this->canViewCustomerDetailsFor(request()->user(), $appointmentRequest);
+        $canViewCustomerContact = $canViewCustomerDetails;
 
         return [
             'id'             => $appointmentRequest->id,
@@ -488,25 +491,26 @@ class AppointmentRequestController extends Controller
             'image_path'     => $this->imageUrl($appointmentRequest->image_path),
             'tattoo_image_paths' => $this->imageUrls($appointmentRequest->tattoo_image_paths),
             'pickup_required' => (bool) $appointmentRequest->pickup_required,
-            'notes'          => $appointmentRequest->notes,
+            'notes'          => $canViewCustomerDetails ? $appointmentRequest->notes : null,
             'response_notes' => $appointmentRequest->response_notes,
             'customer'       => [
-                'first_name' => $appointmentRequest->first_name,
-                'last_name' => $appointmentRequest->last_name,
-                'hotel_name' => $appointmentRequest->hotel_name,
-                'room_number' => $appointmentRequest->room_number,
-                'place' => $appointmentRequest->place,
-                'pax' => $appointmentRequest->pax,
+                'first_name' => $canViewCustomerDetails ? $appointmentRequest->first_name : null,
+                'last_name' => $canViewCustomerDetails ? $appointmentRequest->last_name : null,
+                'hotel_name' => $canViewCustomerDetails ? $appointmentRequest->hotel_name : null,
+                'room_number' => $canViewCustomerDetails ? $appointmentRequest->room_number : null,
+                'place' => $canViewCustomerDetails ? $appointmentRequest->place : null,
+                'pax' => $canViewCustomerDetails ? $appointmentRequest->pax : null,
                 'phone_country_code' => $canViewCustomerContact ? $appointmentRequest->phone_country_code : null,
                 'phone_number' => $canViewCustomerContact ? $appointmentRequest->phone_number : null,
             ],
+            'can_view_customer_details' => $canViewCustomerDetails,
             'can_view_customer_contact' => $canViewCustomerContact,
-            'first_name'     => $appointmentRequest->first_name,
-            'last_name'      => $appointmentRequest->last_name,
-            'hotel_name'     => $appointmentRequest->hotel_name,
-            'room_number'    => $appointmentRequest->room_number,
-            'place'          => $appointmentRequest->place,
-            'pax'            => $appointmentRequest->pax,
+            'first_name'     => $canViewCustomerDetails ? $appointmentRequest->first_name : null,
+            'last_name'      => $canViewCustomerDetails ? $appointmentRequest->last_name : null,
+            'hotel_name'     => $canViewCustomerDetails ? $appointmentRequest->hotel_name : null,
+            'room_number'    => $canViewCustomerDetails ? $appointmentRequest->room_number : null,
+            'place'          => $canViewCustomerDetails ? $appointmentRequest->place : null,
+            'pax'            => $canViewCustomerDetails ? $appointmentRequest->pax : null,
             'price'          => $this->visiblePriceFor($appointmentRequest),
             'deposit_amount' => $this->visibleDepositFor($appointmentRequest),
             'payment_method' => $appointmentRequest->payment_method,
@@ -528,7 +532,9 @@ class AppointmentRequestController extends Controller
                 : null,
             'phone_country_code' => $canViewCustomerContact ? $appointmentRequest->phone_country_code : null,
             'phone_number'   => $canViewCustomerContact ? $appointmentRequest->phone_number : null,
-            'requester'      => $this->formatUser($appointmentRequest->requester, $canViewCustomerContact),
+            'requester'      => $canViewCustomerDetails
+                ? $this->formatUser($appointmentRequest->requester, $canViewCustomerContact)
+                : null,
             'target'         => $this->formatUser($appointmentRequest->target),
             'studio'         => $appointmentRequest->studio ? [
                 'id'   => $appointmentRequest->studio->id,
@@ -553,7 +559,7 @@ class AppointmentRequestController extends Controller
         ];
     }
 
-    private function canViewCustomerContactFor(?User $user, AppointmentRequest $appointmentRequest): bool
+    private function canViewCustomerDetailsFor(?User $user, AppointmentRequest $appointmentRequest): bool
     {
         if (! $user instanceof User) {
             return false;
