@@ -2787,7 +2787,7 @@ const renderEarningsPage = async (root) => {
         `;
     };
 
-    const earningCard = (earning, showUser = false) => {
+    const earningCard = (earning, showUser = false, allowPaidAction = managing) => {
         const paid = earning.status === 'paid';
         return `
             <article class="list-card" data-earning-id="${earning.id}" style="padding:0.9rem 1rem">
@@ -2808,11 +2808,14 @@ const renderEarningsPage = async (root) => {
                     ${statBlock('Hakediş', `<span style="color:var(--success)">${formatMoney(earning.earning_amount)}</span>`)}
                     ${statBlock('Ödeme Bilgisi', paid ? `${formatDateTime(earning.paid_at)}${earning.paid_by ? ` · ${escapeHtml(earning.paid_by)}` : ''}` : 'Ödeme bekliyor')}
                 </div>
-                ${managing && !paid ? `
-                    <div style="display:flex;justify-content:flex-end;margin-top:0.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.75rem">
+                    ${earning.appointment_id ? `
+                        <a href="/admin/appointments/${earning.appointment_id}" class="button-secondary" style="padding:0.45rem 0.8rem;font-size:0.75rem;text-decoration:none">Detay</a>
+                    ` : '<span></span>'}
+                    ${allowPaidAction && managing && !paid ? `
                         <button class="button-primary" data-mark-earning-paid style="padding:0.45rem 0.8rem;font-size:0.75rem">Ödendi Olarak İşaretle</button>
-                    </div>
-                ` : ''}
+                    ` : ''}
+                </div>
             </article>
         `;
     };
@@ -2913,10 +2916,78 @@ const renderEarningsPage = async (root) => {
         }
 
         const staff = latestEarningsData.staff || [];
+        const selectedPersonSummary = (personId, data = latestEarningsData) => {
+            const person = (data.staff || []).find((item) => String(item.id) === String(personId));
+            if (!person) return '';
+
+            return `
+                <article class="list-card" style="padding:0.85rem 0.95rem;margin-top:0.9rem">
+                    <div style="display:flex;justify-content:space-between;gap:0.8rem;align-items:flex-start;flex-wrap:wrap">
+                        <div>
+                            <div style="font-weight:700;color:var(--text-main)">${escapeHtml(person.name || 'Personel')}</div>
+                            <div style="margin-top:0.18rem;font-size:0.72rem;color:var(--text-muted)">${escapeHtml(roleLabel(person.role))} · ${Number(person.earning_count || 0)} kayıt</div>
+                        </div>
+                        <span class="badge-pill ${roleBadgeClass(person.role)}">${escapeHtml(roleLabel(person.role))}</span>
+                    </div>
+                    <div class="earnings-detail-grid">
+                        ${statBlock('Bekleyen', formatMoney(person.pending_total))}
+                        ${statBlock('Ödenen', formatMoney(person.paid_total))}
+                        ${statBlock('Komisyon', `%${Number(person.commission_rate || 0).toLocaleString('tr-TR')}`)}
+                    </div>
+                </article>
+            `;
+        };
+        const popupResultHtml = (data = {}, filters = {}) => {
+            const summary = data.summary || {};
+            const earnings = data.earnings || [];
+            const selectedPerson = (data.staff || []).find((person) => String(person.id) === String(filters.staffId));
+            const filterChips = [
+                selectedPerson ? `Kullanıcı: ${selectedPerson.name || 'Personel'}` : 'Kullanıcı: Tümü',
+                filters.status ? `Durum: ${filters.status === 'pending' ? 'Ödenmeyen' : 'Ödenen'}` : 'Durum: Tümü',
+                filters.dateFrom || filters.dateTo
+                    ? `Tarih: ${filters.dateFrom && filters.dateTo ? `${filters.dateFrom} - ${filters.dateTo}` : filters.dateFrom ? `${filters.dateFrom} sonrası` : `${filters.dateTo} öncesi`}`
+                    : '',
+            ].filter(Boolean);
+
+            return `
+                <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
+                    <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.75rem">
+                        <div>
+                            <div class="section-eyebrow">Liste Sonucu</div>
+                            <div class="section-title">Hakediş Detayları</div>
+                        </div>
+                        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">
+                            ${filterChips.map((chip) => `<span class="badge-pill">${escapeHtml(chip)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="earnings-metrics">
+                        <article class="metric-card">
+                            <div class="section-eyebrow" style="color:var(--warning)">Toplam Ödenecek</div>
+                            <div class="earnings-metric-value">${formatMoney(summary.pending_total)}</div>
+                            <div class="earnings-metric-helper">${Number(summary.pending_count || 0)} bekleyen kayıt</div>
+                        </article>
+                        <article class="metric-card">
+                            <div class="section-eyebrow" style="color:var(--success)">Ödenen</div>
+                            <div class="earnings-metric-value">${formatMoney(summary.paid_total)}</div>
+                            <div class="earnings-metric-helper">${Number(summary.paid_count || 0)} tamamlandı</div>
+                        </article>
+                        <article class="metric-card">
+                            <div class="section-eyebrow">Genel Toplam</div>
+                            <div class="earnings-metric-value">${formatMoney(summary.filter_total_payment ?? summary.total)}</div>
+                            <div class="earnings-metric-helper">${Number(summary.earning_count || 0)} hakediş kaydı</div>
+                        </article>
+                    </div>
+                    ${filters.staffId ? selectedPersonSummary(filters.staffId, data) : ''}
+                    <div class="list-stack" style="margin-top:0.85rem">
+                        ${earnings.map((earning) => earningCard(earning, true, false)).join('') || '<div class="empty-state">Bu filtreye uygun hakediş kaydı bulunmuyor.</div>'}
+                    </div>
+                </div>
+            `;
+        };
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:1rem';
         overlay.innerHTML = `
-            <div class="panel-card" style="width:min(100%,560px);max-height:90vh;overflow:auto;padding:1.2rem">
+            <div class="panel-card" style="width:min(100%,860px);max-height:90vh;overflow:auto;padding:1.2rem">
                 <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem">
                     <div>
                         <div class="section-eyebrow">Hakediş Filtresi</div>
@@ -2931,7 +3002,7 @@ const renderEarningsPage = async (root) => {
                             <option value="">Tüm kullanıcılar</option>
                             ${staff.map((person) => `
                                 <option value="${person.id}" ${String(person.id) === String(selectedStaffId) ? 'selected' : ''}>
-                                    ${escapeHtml(person.name || 'Personel')}
+                                    ${escapeHtml(`${person.name || 'Personel'} — ${roleLabel(person.role)} — Bekleyen ${formatMoney(person.pending_total)}`)}
                                 </option>
                             `).join('')}
                         </select>
@@ -2957,6 +3028,9 @@ const renderEarningsPage = async (root) => {
                     <button class="button-secondary" data-popup-clear-earnings>Temizle</button>
                     <button class="button-primary" data-popup-list-earnings>Listele</button>
                 </div>
+                <div data-popup-earnings-result>
+                    <div class="empty-state" style="margin-top:1rem">Filtreleri seçip Listele butonuna basınca sonuçlar burada görünecek.</div>
+                </div>
             </div>
         `;
 
@@ -2966,21 +3040,39 @@ const renderEarningsPage = async (root) => {
         });
         qs('[data-close-earnings-popup]', overlay)?.addEventListener('click', close);
         qs('[data-popup-clear-earnings]', overlay)?.addEventListener('click', () => {
-            selectedStaffId = '';
-            selectedStatus = '';
-            dateFrom = '';
-            dateTo = '';
-            close();
-            handleAsync(load);
+            qs('[data-popup-earnings-staff]', overlay).value = '';
+            qs('[data-popup-earnings-status]', overlay).value = '';
+            qs('[data-popup-earnings-date-from]', overlay).value = '';
+            qs('[data-popup-earnings-date-to]', overlay).value = '';
+            qs('[data-popup-earnings-result]', overlay).innerHTML = '<div class="empty-state" style="margin-top:1rem">Filtreler temizlendi. Listelemek için tekrar Listele butonuna bas.</div>';
         });
-        qs('[data-popup-list-earnings]', overlay)?.addEventListener('click', () => {
-            selectedStaffId = qs('[data-popup-earnings-staff]', overlay)?.value || '';
-            selectedStatus = qs('[data-popup-earnings-status]', overlay)?.value || '';
-            dateFrom = qs('[data-popup-earnings-date-from]', overlay)?.value || '';
-            dateTo = qs('[data-popup-earnings-date-to]', overlay)?.value || '';
-            close();
-            handleAsync(load);
-        });
+        qs('[data-popup-list-earnings]', overlay)?.addEventListener('click', () => handleAsync(async () => {
+            const popupStaffId = qs('[data-popup-earnings-staff]', overlay)?.value || '';
+            const popupStatus = qs('[data-popup-earnings-status]', overlay)?.value || '';
+            let popupDateFrom = qs('[data-popup-earnings-date-from]', overlay)?.value || '';
+            let popupDateTo = qs('[data-popup-earnings-date-to]', overlay)?.value || '';
+            if (popupDateFrom && popupDateTo && popupDateFrom > popupDateTo) {
+                const nextFrom = popupDateTo;
+                popupDateTo = popupDateFrom;
+                popupDateFrom = nextFrom;
+            }
+
+            const resultNode = qs('[data-popup-earnings-result]', overlay);
+            resultNode.innerHTML = skeletonGrid(3);
+            const params = new URLSearchParams();
+            if (popupStaffId) params.set('user_id', popupStaffId);
+            if (popupStatus) params.set('status', popupStatus);
+            if (popupDateFrom) params.set('date_from', popupDateFrom);
+            if (popupDateTo) params.set('date_to', popupDateTo);
+
+            const payload = await apiFetch(`/studios/${selectedStudioId}/earnings${params.toString() ? `?${params.toString()}` : ''}`);
+            resultNode.innerHTML = popupResultHtml(payload.data || {}, {
+                staffId: popupStaffId,
+                status: popupStatus,
+                dateFrom: popupDateFrom,
+                dateTo: popupDateTo,
+            });
+        }));
 
         document.body.appendChild(overlay);
     };
