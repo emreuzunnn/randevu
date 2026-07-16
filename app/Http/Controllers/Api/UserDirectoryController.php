@@ -225,12 +225,18 @@ class UserDirectoryController extends Controller
         $user = request()->user();
         $studios = Studio::query()
             ->whereIn('id', $user?->staffScopeStudioIds() ?? [])
-            ->get(['id', 'name']);
+            ->with('company:id,name')
+            ->get(['id', 'company_id', 'name']);
 
         return response()->json([
             'data' => $studios->map(fn (Studio $studio): array => [
                 'id' => $studio->id,
                 'name' => $studio->name,
+                'company_id' => $studio->company_id,
+                'company' => $studio->company ? [
+                    'id' => $studio->company->id,
+                    'name' => $studio->company->name,
+                ] : null,
             ])->values(),
         ]);
     }

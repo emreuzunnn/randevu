@@ -2639,7 +2639,9 @@ const renderEarningsPage = async (root) => {
     const hasPersonalEarnings = ['supervisor', 'artist', 'designer', 'info', 'sofor', 'calisan'].includes(adminConfig.role);
     const locksToOwnStudio = false;
     let managing = canManage && !hasPersonalEarnings;
+    let companies = [];
     let studios = [];
+    let selectedCompanyId = '';
     let selectedStudioId = '';
     let selectedStaffId = '';
     let selectedStatus = 'pending';
@@ -2671,6 +2673,12 @@ const renderEarningsPage = async (root) => {
                     </div>
                 ` : '<div></div>'}
                 ${canManage ? `
+                    ${adminConfig.isAdmin ? `
+                        <div class="field-wrap" data-earnings-company-wrap style="min-width:min(100%,260px);${managing && !locksToOwnStudio ? '' : 'display:none'}">
+                            <label class="field-label">Şirket</label>
+                            <select class="field-select" data-earnings-company></select>
+                        </div>
+                    ` : ''}
                     <div class="field-wrap" data-earnings-studio-wrap style="min-width:min(100%,280px);${managing && !locksToOwnStudio ? '' : 'display:none'}">
                         <label class="field-label">Stüdyo</label>
                         <select class="field-select" data-earnings-studio></select>
@@ -2683,9 +2691,33 @@ const renderEarningsPage = async (root) => {
     `;
 
     const content = qs('[data-earnings-content]', root);
+    const companyWrap = qs('[data-earnings-company-wrap]', root);
+    const companySelect = qs('[data-earnings-company]', root);
     const studioWrap = qs('[data-earnings-studio-wrap]', root);
     const studioSelect = qs('[data-earnings-studio]', root);
     const lockedStudioLabel = qs('[data-earnings-locked-studio]', root);
+
+    const studioCompanyId = (studio = {}) => String(studio.company?.id ?? studio.company_id ?? '');
+    const filteredStudios = () => adminConfig.isAdmin && selectedCompanyId
+        ? studios.filter((studio) => studioCompanyId(studio) === String(selectedCompanyId))
+        : studios;
+    const syncStudioOptions = () => {
+        const visibleStudios = filteredStudios();
+        if (!visibleStudios.some((studio) => String(studio.id) === String(selectedStudioId))) {
+            selectedStudioId = visibleStudios[0]?.id ? String(visibleStudios[0].id) : '';
+        }
+        if (studioSelect) {
+            studioSelect.innerHTML = visibleStudios.map((studio) =>
+                `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
+            ).join('');
+            studioSelect.value = selectedStudioId;
+        }
+        if (lockedStudioLabel) {
+            lockedStudioLabel.textContent = visibleStudios[0]?.name
+                ? `Stüdyo: ${visibleStudios[0].name}`
+                : 'Atanmış stüdyo bulunamadı';
+        }
+    };
 
     const summaryCards = (summary = {}) => `
         <div class="earnings-metrics">
@@ -2716,8 +2748,10 @@ const renderEarningsPage = async (root) => {
         const summary = data.summary || {};
         const staff = data.staff || [];
         const selectedStudio = studios.find((studio) => String(studio.id) === String(selectedStudioId));
+        const selectedCompany = companies.find((company) => String(company.id) === String(selectedCompanyId));
         const selectedStaff = staff.find((person) => String(person.id) === String(selectedStaffId));
         const filters = [
+            managing && selectedCompany ? `Şirket: ${selectedCompany.name || 'Şirket'}` : '',
             managing && selectedStudio ? `Stüdyo: ${selectedStudio.name || 'Stüdyo'}` : '',
             managing && selectedStaff ? `Personel: ${selectedStaff.name || 'Personel'}` : '',
             selectedStatus ? `Durum: ${selectedStatus === 'pending' ? 'Ödenmeyen' : selectedStatus === 'paid' ? 'Ödenen' : 'Tümü'}` : 'Durum: Tümü',
@@ -2953,7 +2987,7 @@ const renderEarningsPage = async (root) => {
 
     const load = async () => {
         if (managing && !selectedStudioId) {
-            content.innerHTML = '<div class="empty-state">Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.</div>';
+            content.innerHTML = `<div class="empty-state">${adminConfig.isAdmin && selectedCompanyId ? 'Seçili şirkette hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.' : 'Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.'}</div>`;
             return;
         }
 
@@ -3004,19 +3038,29 @@ const renderEarningsPage = async (root) => {
     };
 
     if (canManage) {
-        const payload = await apiFetch('/studios/options');
-        studios = uniqueById(payload.data || []);
-        selectedStudioId = studios[0]?.id ? String(studios[0].id) : '';
-        if (studioSelect) {
-            studioSelect.innerHTML = studios.map((studio) =>
-                `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
+        const [studioPayload, companyPayload] = await Promise.all([
+            apiFetch('/studios/options'),
+            adminConfig.isAdmin ? apiFetch('/companies') : Promise.resolve({ data: [] }),
+        ]);
+        studios = uniqueById(studioPayload.data || []);
+        companies = uniqueById(companyPayload.data || []);
+
+        if (companySelect) {
+            companySelect.innerHTML = companies.map((company) =>
+                `<option value="${company.id}">${escapeHtml(company.name)}</option>`
             ).join('');
-            studioSelect.value = selectedStudioId;
-            if (lockedStudioLabel) {
-                lockedStudioLabel.textContent = studios[0]?.name
-                    ? `Stüdyo: ${studios[0].name}`
-                    : 'Atanmış stüdyo bulunamadı';
-            }
+            selectedCompanyId = companies[0]?.id ? String(companies[0].id) : '';
+            companySelect.value = selectedCompanyId;
+            companySelect.addEventListener('change', () => {
+                selectedCompanyId = companySelect.value;
+                selectedStaffId = '';
+                syncStudioOptions();
+                handleAsync(load);
+            });
+        }
+
+        syncStudioOptions();
+        if (studioSelect) {
             studioSelect.addEventListener('change', () => {
                 selectedStudioId = studioSelect.value;
                 selectedStaffId = '';
@@ -3033,6 +3077,7 @@ const renderEarningsPage = async (root) => {
                 item.classList.toggle('button-primary', active);
                 item.classList.toggle('button-secondary', !active);
             });
+            if (companyWrap) companyWrap.style.display = managing && !locksToOwnStudio ? '' : 'none';
             if (studioWrap) studioWrap.style.display = managing && !locksToOwnStudio ? '' : 'none';
             if (lockedStudioLabel) lockedStudioLabel.style.display = managing ? '' : 'none';
             handleAsync(load);
