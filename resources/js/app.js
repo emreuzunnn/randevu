@@ -2644,9 +2644,10 @@ const renderEarningsPage = async (root) => {
     let selectedCompanyId = '';
     let selectedStudioId = '';
     let selectedStaffId = '';
-    let selectedStatus = 'pending';
+    let selectedStatus = '';
     let dateFrom = '';
     let dateTo = '';
+    let latestEarningsData = {};
     const normalizeDateRange = () => {
         if (dateFrom && dateTo && dateFrom > dateTo) {
             const nextFrom = dateTo;
@@ -2683,6 +2684,7 @@ const renderEarningsPage = async (root) => {
                         <label class="field-label">Stüdyo</label>
                         <select class="field-select" data-earnings-studio></select>
                     </div>
+                    <button class="button-primary" data-open-earnings-filter style="${managing && !locksToOwnStudio ? '' : 'display:none'};align-self:end">Filtrele</button>
                     ${locksToOwnStudio ? '<div class="badge-pill" data-earnings-locked-studio style="display:none">Stüdyo yükleniyor...</div>' : ''}
                 ` : ''}
             </div>
@@ -2695,6 +2697,7 @@ const renderEarningsPage = async (root) => {
     const companySelect = qs('[data-earnings-company]', root);
     const studioWrap = qs('[data-earnings-studio-wrap]', root);
     const studioSelect = qs('[data-earnings-studio]', root);
+    const filterButton = qs('[data-open-earnings-filter]', root);
     const lockedStudioLabel = qs('[data-earnings-locked-studio]', root);
 
     const studioCompanyId = (studio = {}) => String(studio.company?.id ?? studio.company_id ?? '');
@@ -2704,7 +2707,7 @@ const renderEarningsPage = async (root) => {
     const syncStudioOptions = () => {
         const visibleStudios = adminConfig.isAdmin && !selectedCompanyId ? [] : filteredStudios();
         if (!visibleStudios.some((studio) => String(studio.id) === String(selectedStudioId))) {
-            selectedStudioId = visibleStudios[0]?.id ? String(visibleStudios[0].id) : '';
+            selectedStudioId = '';
         }
         if (studioSelect) {
             const placeholder = adminConfig.isAdmin && !selectedCompanyId
@@ -2716,6 +2719,7 @@ const renderEarningsPage = async (root) => {
             studioSelect.value = selectedStudioId;
             studioSelect.disabled = adminConfig.isAdmin && !selectedCompanyId;
         }
+        if (filterButton) filterButton.disabled = !selectedStudioId;
         if (lockedStudioLabel) {
             lockedStudioLabel.textContent = visibleStudios[0]?.name
                 ? `Stüdyo: ${visibleStudios[0].name}`
@@ -2766,12 +2770,17 @@ const renderEarningsPage = async (root) => {
             <article class="metric-card" style="margin-bottom:1rem;border-color:var(--success)">
                 <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
                     <div>
-                        <div class="section-eyebrow" style="color:var(--success)">Seçili Filtre Toplam Ödeme</div>
-                        <div class="earnings-metric-value">${formatMoney(summary.filter_total_payment ?? summary.total)}</div>
-                        <div class="earnings-metric-helper">${Number(summary.earning_count || 0)} hakediş kaydı</div>
+                        <div class="section-eyebrow" style="color:var(--success)">Seçili Filtre Toplam Ödenecek</div>
+                        <div class="earnings-metric-value">${formatMoney(summary.pending_total)}</div>
+                        <div class="earnings-metric-helper">${Number(summary.pending_count || 0)} bekleyen kayıt</div>
                     </div>
-                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(130px,1fr));gap:0.55rem;min-width:min(100%,300px)">
+                        ${statBlock('Ödenen', formatMoney(summary.paid_total))}
+                        ${statBlock('Genel Toplam', formatMoney(summary.filter_total_payment ?? summary.total))}
+                    </div>
+                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end;width:100%">
                         ${filters.map((filter) => `<span class="badge-pill">${escapeHtml(filter)}</span>`).join('')}
+                        <span class="badge-pill">${Number(summary.earning_count || 0)} hakediş kaydı</span>
                     </div>
                 </div>
             </article>
@@ -2805,50 +2814,6 @@ const renderEarningsPage = async (root) => {
                     </div>
                 ` : ''}
             </article>
-        `;
-    };
-
-    const managementFilters = (data = {}) => {
-        const staff = data.staff || [];
-        return `
-            <div class="panel-card" style="margin:1rem 0;padding:1rem">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem">
-                    <div class="field-wrap">
-                        <label class="field-label">Personel</label>
-                        <select class="field-select" data-earnings-staff-filter>
-                            <option value="">Tüm personel</option>
-                            ${staff.map((person) => `
-                                <option value="${person.id}" ${String(person.id) === String(selectedStaffId) ? 'selected' : ''}>
-                                    ${escapeHtml(person.name || 'Personel')}
-                                </option>
-                            `).join('')}
-                        </select>
-                    </div>
-                    <div class="field-wrap">
-                        <label class="field-label">Durum</label>
-                        <select class="field-select" data-earnings-status-filter>
-                            <option value="pending" ${selectedStatus === 'pending' ? 'selected' : ''}>Ödenmeyen</option>
-                            <option value="paid" ${selectedStatus === 'paid' ? 'selected' : ''}>Ödenen</option>
-                            <option value="" ${selectedStatus === '' ? 'selected' : ''}>Tümü</option>
-                        </select>
-                    </div>
-                    <div class="field-wrap">
-                        <label class="field-label">Başlangıç</label>
-                        <input class="field-input" type="date" value="${escapeHtml(dateFrom)}" data-earnings-date-from>
-                    </div>
-                    <div class="field-wrap">
-                        <label class="field-label">Bitiş</label>
-                        <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-earnings-date-to>
-                    </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.8rem">
-                    ${dateRangeBadge()}
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                        <button class="button-primary" data-earnings-apply-filters>Filtrele</button>
-                        <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
-                    </div>
-                </div>
-            </div>
         `;
     };
 
@@ -2909,31 +2874,6 @@ const renderEarningsPage = async (root) => {
     };
 
     const bindManagementActions = (data) => {
-        qs('[data-earnings-staff-filter]', root)?.addEventListener('change', (event) => {
-            selectedStaffId = event.target.value;
-            handleAsync(load);
-        });
-        qs('[data-earnings-status-filter]', root)?.addEventListener('change', (event) => {
-            selectedStatus = event.target.value;
-            handleAsync(load);
-        });
-        qs('[data-earnings-date-from]', root)?.addEventListener('change', (event) => {
-            dateFrom = event.target.value;
-        });
-        qs('[data-earnings-date-to]', root)?.addEventListener('change', (event) => {
-            dateTo = event.target.value;
-        });
-        qs('[data-earnings-apply-filters]', root)?.addEventListener('click', () => {
-            handleAsync(load);
-        });
-        qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
-            selectedStaffId = '';
-            selectedStatus = 'pending';
-            dateFrom = '';
-            dateTo = '';
-            handleAsync(load);
-        });
-
         root.querySelectorAll('[data-save-commission]').forEach((button) => {
             button.addEventListener('click', () => handleAsync(async () => {
                 const card = button.closest('[data-earning-user]');
@@ -2966,6 +2906,85 @@ const renderEarningsPage = async (root) => {
         });
     };
 
+    const openManagementFilterPopup = () => {
+        if (!selectedStudioId) {
+            showToast('Önce stüdyo seçin.', 'warning');
+            return;
+        }
+
+        const staff = latestEarningsData.staff || [];
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:1rem';
+        overlay.innerHTML = `
+            <div class="panel-card" style="width:min(100%,560px);max-height:90vh;overflow:auto;padding:1.2rem">
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem">
+                    <div>
+                        <div class="section-eyebrow">Hakediş Filtresi</div>
+                        <div class="section-title">Listeleme Seçenekleri</div>
+                    </div>
+                    <button class="button-secondary" data-close-earnings-popup style="padding:0.45rem 0.7rem">Kapat</button>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.8rem">
+                    <div class="field-wrap">
+                        <label class="field-label">Kullanıcı</label>
+                        <select class="field-select" data-popup-earnings-staff>
+                            <option value="">Tüm kullanıcılar</option>
+                            ${staff.map((person) => `
+                                <option value="${person.id}" ${String(person.id) === String(selectedStaffId) ? 'selected' : ''}>
+                                    ${escapeHtml(person.name || 'Personel')}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Durum</label>
+                        <select class="field-select" data-popup-earnings-status>
+                            <option value="" ${selectedStatus === '' ? 'selected' : ''}>Tümü</option>
+                            <option value="pending" ${selectedStatus === 'pending' ? 'selected' : ''}>Ödenmeyen</option>
+                            <option value="paid" ${selectedStatus === 'paid' ? 'selected' : ''}>Ödenen</option>
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Başlangıç</label>
+                        <input class="field-input" type="date" value="${escapeHtml(dateFrom)}" data-popup-earnings-date-from>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Bitiş</label>
+                        <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-popup-earnings-date-to>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:0.6rem;flex-wrap:wrap;margin-top:1rem">
+                    <button class="button-secondary" data-popup-clear-earnings>Temizle</button>
+                    <button class="button-primary" data-popup-list-earnings>Listele</button>
+                </div>
+            </div>
+        `;
+
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) close();
+        });
+        qs('[data-close-earnings-popup]', overlay)?.addEventListener('click', close);
+        qs('[data-popup-clear-earnings]', overlay)?.addEventListener('click', () => {
+            selectedStaffId = '';
+            selectedStatus = '';
+            dateFrom = '';
+            dateTo = '';
+            close();
+            handleAsync(load);
+        });
+        qs('[data-popup-list-earnings]', overlay)?.addEventListener('click', () => {
+            selectedStaffId = qs('[data-popup-earnings-staff]', overlay)?.value || '';
+            selectedStatus = qs('[data-popup-earnings-status]', overlay)?.value || '';
+            dateFrom = qs('[data-popup-earnings-date-from]', overlay)?.value || '';
+            dateTo = qs('[data-popup-earnings-date-to]', overlay)?.value || '';
+            close();
+            handleAsync(load);
+        });
+
+        document.body.appendChild(overlay);
+    };
+
     const bindFilterActions = () => {
         qs('[data-earnings-status-filter]', root)?.addEventListener('change', (event) => {
             selectedStatus = event.target.value;
@@ -2982,7 +3001,7 @@ const renderEarningsPage = async (root) => {
         });
         qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
             selectedStaffId = '';
-            selectedStatus = 'pending';
+            selectedStatus = '';
             dateFrom = '';
             dateTo = '';
             handleAsync(load);
@@ -2996,7 +3015,7 @@ const renderEarningsPage = async (root) => {
         }
 
         if (managing && !selectedStudioId) {
-            content.innerHTML = `<div class="empty-state">${adminConfig.isAdmin && selectedCompanyId ? 'Seçili şirket için stüdyo seçin. Stüdyo görünmüyorsa canlı sunucuda backend güncellemesi de deploy edilmelidir.' : 'Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.'}</div>`;
+            content.innerHTML = `<div class="empty-state">${adminConfig.isAdmin && selectedCompanyId ? 'Seçili şirket için stüdyo seçin.' : 'Hakedişleri görmek için stüdyo seçin.'}</div>`;
             return;
         }
 
@@ -3012,11 +3031,13 @@ const renderEarningsPage = async (root) => {
             : `/earnings/me${params.toString() ? `?${params.toString()}` : ''}`);
         const data = payload.data || {};
         const earnings = data.earnings || [];
+        latestEarningsData = data;
+        if (filterButton) filterButton.disabled = !selectedStudioId;
 
         content.innerHTML = `
             ${filterTotalBanner(data)}
             ${summaryCards(data.summary)}
-            ${managing ? managementFilters(data) : personalFilters()}
+            ${managing ? '' : personalFilters()}
             ${managing ? `
                 <div class="earnings-layout">
                     <section>
@@ -3063,16 +3084,24 @@ const renderEarningsPage = async (root) => {
             companySelect.addEventListener('change', () => {
                 selectedCompanyId = companySelect.value;
                 selectedStaffId = '';
+                selectedStatus = '';
+                dateFrom = '';
+                dateTo = '';
                 syncStudioOptions();
                 handleAsync(load);
             });
         }
 
         syncStudioOptions();
+        filterButton?.addEventListener('click', openManagementFilterPopup);
         if (studioSelect) {
             studioSelect.addEventListener('change', () => {
                 selectedStudioId = studioSelect.value;
                 selectedStaffId = '';
+                selectedStatus = '';
+                dateFrom = '';
+                dateTo = '';
+                if (filterButton) filterButton.disabled = !selectedStudioId;
                 handleAsync(load);
             });
         }
@@ -3088,6 +3117,7 @@ const renderEarningsPage = async (root) => {
             });
             if (companyWrap) companyWrap.style.display = managing && !locksToOwnStudio ? '' : 'none';
             if (studioWrap) studioWrap.style.display = managing && !locksToOwnStudio ? '' : 'none';
+            if (filterButton) filterButton.style.display = managing && !locksToOwnStudio ? '' : 'none';
             if (lockedStudioLabel) lockedStudioLabel.style.display = managing ? '' : 'none';
             handleAsync(load);
         });
