@@ -20,15 +20,16 @@ class StaffEarningController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
+        [$dateFrom, $dateTo] = $this->dateRange($validated);
 
         $earnings = StaffEarning::query()
             ->with(['studio:id,name', 'appointment:id,appointment_at,first_name,last_name,price'])
             ->where('user_id', $request->user()->id)
             ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
-            ->when($validated['date_from'] ?? null, function ($query, string $date): void {
+            ->when($dateFrom, function ($query, string $date): void {
                 $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', $date));
             })
-            ->when($validated['date_to'] ?? null, function ($query, string $date): void {
+            ->when($dateTo, function ($query, string $date): void {
                 $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '<=', $date));
             })
             ->latest('id')
@@ -48,8 +49,8 @@ class StaffEarningController extends Controller
                 ],
                 'filters' => [
                     'status' => $validated['status'] ?? null,
-                    'date_from' => $validated['date_from'] ?? null,
-                    'date_to' => $validated['date_to'] ?? null,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
                 ],
                 'earnings' => $earnings->map(fn (StaffEarning $earning): array => $this->earningData($earning))->values(),
             ],
@@ -67,6 +68,7 @@ class StaffEarningController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
+        [$dateFrom, $dateTo] = $this->dateRange($validated);
 
         $earnings = StaffEarning::query()
             ->with([
@@ -77,10 +79,10 @@ class StaffEarningController extends Controller
             ->where('studio_id', $studio->id)
             ->when($validated['user_id'] ?? null, fn ($query, $userId) => $query->where('user_id', $userId))
             ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
-            ->when($validated['date_from'] ?? null, function ($query, string $date): void {
+            ->when($dateFrom, function ($query, string $date): void {
                 $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '>=', $date));
             })
-            ->when($validated['date_to'] ?? null, function ($query, string $date): void {
+            ->when($dateTo, function ($query, string $date): void {
                 $query->whereHas('appointment', fn ($appointmentQuery) => $appointmentQuery->whereDate('appointment_at', '<=', $date));
             })
             ->latest('id')
@@ -117,8 +119,8 @@ class StaffEarningController extends Controller
                 'filters' => [
                     'user_id' => isset($validated['user_id']) ? (int) $validated['user_id'] : null,
                     'status' => $validated['status'] ?? null,
-                    'date_from' => $validated['date_from'] ?? null,
-                    'date_to' => $validated['date_to'] ?? null,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
                 ],
                 'staff' => $staff->map(function (User $user) use ($earnings): array {
                     $userEarnings = $earnings->where('user_id', $user->id);
@@ -195,6 +197,18 @@ class StaffEarningController extends Controller
             'pending_count' => $earnings->where('status', 'pending')->count(),
             'paid_count' => $earnings->where('status', 'paid')->count(),
         ];
+    }
+
+    private function dateRange(array $validated): array
+    {
+        $dateFrom = $validated['date_from'] ?? null;
+        $dateTo = $validated['date_to'] ?? null;
+
+        if ($dateFrom !== null && $dateTo !== null && $dateFrom > $dateTo) {
+            return [$dateTo, $dateFrom];
+        }
+
+        return [$dateFrom, $dateTo];
     }
 
     private function canManageStaffEarnings(?User $user): bool

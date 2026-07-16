@@ -55,6 +55,11 @@ class AppointmentReportService
             'selected_period' => $periodLabel,
             'stats'           => [
                 'total_appointments' => (clone $periodQuery)->count(),
+                'overall_total_appointments' => (clone $base)->count(),
+                'overall_cancelled' => (clone $base)->where('status', 'cancelled')->count(),
+                'overall_completed' => (clone $base)->where('status', 'completed')->count(),
+                'overall_design_appointments' => (clone $base)->where('appointment_type', 'designer')->count(),
+                'overall_ticket_appointments' => (clone $base)->where('appointment_type', 'tattoo')->count(),
                 'cancelled'          => (clone $periodQuery)->where('status', 'cancelled')->count(),
                 'completed'          => (clone $periodQuery)->where('status', 'completed')->count(),
                 'this_week'          => $thisWeek,
@@ -227,6 +232,11 @@ class AppointmentReportService
                     'studio_names' => $staff->studios->pluck('name')->values()->all(),
                     'stats' => [
                         'total_appointments' => (clone $periodQuery)->count(),
+                        'overall_total_appointments' => (clone $base)->count(),
+                        'overall_cancelled' => (clone $base)->where('status', 'cancelled')->count(),
+                        'overall_completed' => (clone $base)->where('status', 'completed')->count(),
+                        'overall_design_appointments' => (clone $base)->where('appointment_type', 'designer')->count(),
+                        'overall_ticket_appointments' => (clone $base)->where('appointment_type', 'tattoo')->count(),
                         'cancelled' => (clone $periodQuery)->where('status', 'cancelled')->count(),
                         'completed' => (clone $periodQuery)->where('status', 'completed')->count(),
                         'this_week' => (clone $base)

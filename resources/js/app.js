@@ -2645,6 +2645,20 @@ const renderEarningsPage = async (root) => {
     let selectedStatus = 'pending';
     let dateFrom = '';
     let dateTo = '';
+    const normalizeDateRange = () => {
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            const nextFrom = dateTo;
+            dateTo = dateFrom;
+            dateFrom = nextFrom;
+        }
+    };
+    const dateRangeBadge = () => {
+        if (!dateFrom && !dateTo) return '';
+        const label = dateFrom && dateTo
+            ? `${dateFrom} - ${dateTo}`
+            : (dateFrom ? `${dateFrom} sonrası` : `${dateTo} öncesi`);
+        return `<span class="badge-pill badge-pill--teal">Tarih: ${escapeHtml(label)}</span>`;
+    };
 
     root.innerHTML = `
         ${pageHeader('Finans', 'Hakedişler', 'Tamamlanan dövme işlemlerinin personel komisyonları ve ödeme durumu.', '<span class="badge-pill badge-pill--success">Komisyon Takibi</span>')}
@@ -2761,8 +2775,12 @@ const renderEarningsPage = async (root) => {
                         <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-earnings-date-to>
                     </div>
                 </div>
-                <div style="display:flex;justify-content:flex-end;margin-top:0.8rem">
-                    <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.8rem">
+                    ${dateRangeBadge()}
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                        <button class="button-primary" data-earnings-apply-filters>Filtrele</button>
+                        <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2788,8 +2806,12 @@ const renderEarningsPage = async (root) => {
                     <input class="field-input" type="date" value="${escapeHtml(dateTo)}" data-earnings-date-to>
                 </div>
             </div>
-            <div style="display:flex;justify-content:flex-end;margin-top:0.8rem">
-                <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-top:0.8rem">
+                ${dateRangeBadge()}
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                    <button class="button-primary" data-earnings-apply-filters>Filtrele</button>
+                    <button class="button-secondary" data-earnings-clear-filters>Filtreleri Temizle</button>
+                </div>
             </div>
         </div>
     `;
@@ -2831,10 +2853,11 @@ const renderEarningsPage = async (root) => {
         });
         qs('[data-earnings-date-from]', root)?.addEventListener('change', (event) => {
             dateFrom = event.target.value;
-            handleAsync(load);
         });
         qs('[data-earnings-date-to]', root)?.addEventListener('change', (event) => {
             dateTo = event.target.value;
+        });
+        qs('[data-earnings-apply-filters]', root)?.addEventListener('click', () => {
             handleAsync(load);
         });
         qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
@@ -2884,10 +2907,11 @@ const renderEarningsPage = async (root) => {
         });
         qs('[data-earnings-date-from]', root)?.addEventListener('change', (event) => {
             dateFrom = event.target.value;
-            handleAsync(load);
         });
         qs('[data-earnings-date-to]', root)?.addEventListener('change', (event) => {
             dateTo = event.target.value;
+        });
+        qs('[data-earnings-apply-filters]', root)?.addEventListener('click', () => {
             handleAsync(load);
         });
         qs('[data-earnings-clear-filters]', root)?.addEventListener('click', () => {
@@ -2906,6 +2930,7 @@ const renderEarningsPage = async (root) => {
         }
 
         content.innerHTML = skeletonGrid(5);
+        normalizeDateRange();
         const params = new URLSearchParams();
         if (selectedStaffId) params.set('user_id', selectedStaffId);
         if (selectedStatus) params.set('status', selectedStatus);
