@@ -190,10 +190,14 @@ class StaffEarningController extends Controller
 
     private function summary($earnings): array
     {
+        $total = round((float) $earnings->sum('earning_amount'), 2);
+
         return [
             'pending_total' => round((float) $earnings->where('status', 'pending')->sum('earning_amount'), 2),
             'paid_total' => round((float) $earnings->where('status', 'paid')->sum('earning_amount'), 2),
-            'total' => round((float) $earnings->sum('earning_amount'), 2),
+            'total' => $total,
+            'filter_total_payment' => $total,
+            'earning_count' => $earnings->count(),
             'pending_count' => $earnings->where('status', 'pending')->count(),
             'paid_count' => $earnings->where('status', 'paid')->count(),
         ];

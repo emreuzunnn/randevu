@@ -2712,6 +2712,34 @@ const renderEarningsPage = async (root) => {
         </div>
     `;
 
+    const filterTotalBanner = (data = {}) => {
+        const summary = data.summary || {};
+        const staff = data.staff || [];
+        const selectedStudio = studios.find((studio) => String(studio.id) === String(selectedStudioId));
+        const selectedStaff = staff.find((person) => String(person.id) === String(selectedStaffId));
+        const filters = [
+            managing && selectedStudio ? `Stüdyo: ${selectedStudio.name || 'Stüdyo'}` : '',
+            managing && selectedStaff ? `Personel: ${selectedStaff.name || 'Personel'}` : '',
+            selectedStatus ? `Durum: ${selectedStatus === 'pending' ? 'Ödenmeyen' : selectedStatus === 'paid' ? 'Ödenen' : 'Tümü'}` : 'Durum: Tümü',
+            dateFrom || dateTo ? `Tarih: ${dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : dateFrom ? `${dateFrom} sonrası` : `${dateTo} öncesi`}` : '',
+        ].filter(Boolean);
+
+        return `
+            <article class="metric-card" style="margin-bottom:1rem;border-color:var(--success)">
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+                    <div>
+                        <div class="section-eyebrow" style="color:var(--success)">Seçili Filtre Toplam Ödeme</div>
+                        <div class="earnings-metric-value">${formatMoney(summary.filter_total_payment ?? summary.total)}</div>
+                        <div class="earnings-metric-helper">${Number(summary.earning_count || 0)} hakediş kaydı</div>
+                    </div>
+                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">
+                        ${filters.map((filter) => `<span class="badge-pill">${escapeHtml(filter)}</span>`).join('')}
+                    </div>
+                </div>
+            </article>
+        `;
+    };
+
     const earningCard = (earning, showUser = false) => {
         const paid = earning.status === 'paid';
         return `
@@ -2943,6 +2971,7 @@ const renderEarningsPage = async (root) => {
         const earnings = data.earnings || [];
 
         content.innerHTML = `
+            ${filterTotalBanner(data)}
             ${summaryCards(data.summary)}
             ${managing ? managementFilters(data) : personalFilters()}
             ${managing ? `
