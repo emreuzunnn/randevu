@@ -1104,6 +1104,12 @@ const renderUsersPage = async (root) => {
 
 const renderAppointmentsPage = async (root) => {
     const locksToOwnStudio = adminConfig.isSupervisor;
+    const pathIsTickets = window.location.pathname.includes('/admin/tickets');
+    let activeRecordType = pathIsTickets ? 'tattoo' : 'designer';
+    let activeTimeScope = 'upcoming';
+    let appointmentStatusFilter = '';
+    let appointmentDateFrom = '';
+    let appointmentDateTo = '';
     const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Biletler' : 'Randevu ve Bilet Yönetimi';
     const desc = isDriverRole()
         ? 'Pick up seçili transferler, müşteri bilgileri ve sürücü aksiyonları.'
@@ -1123,14 +1129,24 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                     ${locksToOwnStudio ? '<div class="badge-pill" data-appointments-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                     ` : '<div></div>'}
-                    <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end">
+                        <button class="button-secondary" data-appointments-filter style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Filtrele</button>
+                        <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.9rem" data-appointments-tabs>
+                    <button class="${activeRecordType === 'designer' ? 'button-primary' : 'button-secondary'}" data-appointments-type-tab="designer" style="padding:0.5rem 0.85rem;font-size:0.78rem">Randevularım</button>
+                    <button class="${activeRecordType === 'tattoo' ? 'button-primary' : 'button-secondary'}" data-appointments-type-tab="tattoo" style="padding:0.5rem 0.85rem;font-size:0.78rem">Biletlerim</button>
+                    <button class="${activeTimeScope === 'upcoming' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="upcoming" style="padding:0.5rem 0.85rem;font-size:0.78rem">Gelecek</button>
+                    <button class="${activeTimeScope === 'past' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="past" style="padding:0.5rem 0.85rem;font-size:0.78rem">Geçmiş</button>
+                    <button class="${activeTimeScope === 'all' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="all" style="padding:0.5rem 0.85rem;font-size:0.78rem">Tümü</button>
                 </div>
                 <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
             </div>
             ${canCreateAppointmentWeb() ? `
             <div class="form-shell">
                 <div class="section-eyebrow" style="margin-bottom:0.4rem">Manuel Giriş</div>
-                <div class="section-title" style="margin-bottom:1rem">Randevu Oluştur / Bilet Aç</div>
+                <div class="section-title" style="margin-bottom:1rem">${pathIsTickets ? 'Bilet Aç' : 'Randevu Oluştur / Bilet Aç'}</div>
                 <form class="form-grid" data-appointment-create-form enctype="multipart/form-data">
                     <div class="form-grid form-grid--split">
                         <div class="field-wrap">
@@ -1141,8 +1157,8 @@ const renderAppointmentsPage = async (root) => {
                         <div class="field-wrap">
                             <label class="field-label">Tür</label>
                             <select class="field-select" name="appointment_type">
-                                <option value="designer">Randevu (Tasarım)</option>
-                                <option value="tattoo">Bilet (Dövme/Piercing)</option>
+                                <option value="designer" ${pathIsTickets ? '' : 'selected'}>Randevu (Tasarım)</option>
+                                <option value="tattoo" ${pathIsTickets ? 'selected' : ''}>Bilet (Dövme/Piercing)</option>
                             </select>
                         </div>
                     </div>
@@ -1203,6 +1219,99 @@ const renderAppointmentsPage = async (root) => {
     bindTicketFields(createAppointmentForm);
     bindDesignerAppointmentFields(createAppointmentForm);
 
+    const syncAppointmentTabs = () => {
+        root.querySelectorAll('[data-appointments-type-tab]').forEach((button) => {
+            const active = button.getAttribute('data-appointments-type-tab') === activeRecordType;
+            button.classList.toggle('button-primary', active);
+            button.classList.toggle('button-secondary', !active);
+        });
+        root.querySelectorAll('[data-appointments-time-tab]').forEach((button) => {
+            const active = button.getAttribute('data-appointments-time-tab') === activeTimeScope;
+            button.classList.toggle('button-primary', active);
+            button.classList.toggle('button-secondary', !active);
+        });
+    };
+
+    const openAppointmentFilterPopup = () => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:1rem';
+        overlay.innerHTML = `
+            <div class="panel-card" style="width:min(100%,540px);max-height:90vh;overflow:auto;padding:1.2rem">
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem">
+                    <div>
+                        <div class="section-eyebrow">Kayıt Filtresi</div>
+                        <div class="section-title">Randevu / Bilet Listele</div>
+                    </div>
+                    <button class="button-secondary" data-close-appointments-filter style="padding:0.45rem 0.7rem">Kapat</button>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.8rem">
+                    <div class="field-wrap">
+                        <label class="field-label">Kayıt Türü</label>
+                        <select class="field-select" data-popup-appointment-type>
+                            <option value="designer" ${activeRecordType === 'designer' ? 'selected' : ''}>Randevu</option>
+                            <option value="tattoo" ${activeRecordType === 'tattoo' ? 'selected' : ''}>Bilet</option>
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Zaman</label>
+                        <select class="field-select" data-popup-appointment-time>
+                            <option value="upcoming" ${activeTimeScope === 'upcoming' ? 'selected' : ''}>Gelecek</option>
+                            <option value="past" ${activeTimeScope === 'past' ? 'selected' : ''}>Geçmiş</option>
+                            <option value="all" ${activeTimeScope === 'all' ? 'selected' : ''}>Tümü</option>
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Durum</label>
+                        <select class="field-select" data-popup-appointment-status>
+                            <option value="" ${appointmentStatusFilter === '' ? 'selected' : ''}>Tümü</option>
+                            ${['confirmed','in_progress','completed','cancelled','rescheduled'].map((status) =>
+                                `<option value="${status}" ${appointmentStatusFilter === status ? 'selected' : ''}>${statusLabel(status)}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Başlangıç</label>
+                        <input class="field-input" type="date" value="${escapeHtml(appointmentDateFrom)}" data-popup-appointment-date-from>
+                    </div>
+                    <div class="field-wrap">
+                        <label class="field-label">Bitiş</label>
+                        <input class="field-input" type="date" value="${escapeHtml(appointmentDateTo)}" data-popup-appointment-date-to>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:0.6rem;flex-wrap:wrap;margin-top:1rem">
+                    <button class="button-secondary" data-clear-appointments-filter>Temizle</button>
+                    <button class="button-primary" data-apply-appointments-filter>Listele</button>
+                </div>
+            </div>
+        `;
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) close();
+        });
+        qs('[data-close-appointments-filter]', overlay)?.addEventListener('click', close);
+        qs('[data-clear-appointments-filter]', overlay)?.addEventListener('click', () => {
+            qs('[data-popup-appointment-status]', overlay).value = '';
+            qs('[data-popup-appointment-date-from]', overlay).value = '';
+            qs('[data-popup-appointment-date-to]', overlay).value = '';
+        });
+        qs('[data-apply-appointments-filter]', overlay)?.addEventListener('click', () => {
+            activeRecordType = qs('[data-popup-appointment-type]', overlay)?.value || 'designer';
+            activeTimeScope = qs('[data-popup-appointment-time]', overlay)?.value || 'upcoming';
+            appointmentStatusFilter = qs('[data-popup-appointment-status]', overlay)?.value || '';
+            appointmentDateFrom = qs('[data-popup-appointment-date-from]', overlay)?.value || '';
+            appointmentDateTo = qs('[data-popup-appointment-date-to]', overlay)?.value || '';
+            if (appointmentDateFrom && appointmentDateTo && appointmentDateFrom > appointmentDateTo) {
+                const nextFrom = appointmentDateTo;
+                appointmentDateTo = appointmentDateFrom;
+                appointmentDateFrom = nextFrom;
+            }
+            close();
+            syncAppointmentTabs();
+            handleAsync(renderAppointments);
+        });
+        document.body.appendChild(overlay);
+    };
+
     const loadStudios = async () => {
         if (!studioSelect && !createStudioSelect) return;
         const payload = await apiFetch('/studios/options');
@@ -1232,7 +1341,13 @@ const renderAppointmentsPage = async (root) => {
     const endpointForRole = () => {
         if (isDriverRole()) return '/my-appointments';
         if (isArtistLikeRole()) return '/my-artist-appointments';
-        return studioSelect?.value ? `/studios/${studioSelect.value}/appointments` : null;
+        if (!studioSelect?.value) return null;
+        const params = new URLSearchParams();
+        if (activeRecordType) params.set('appointment_type', activeRecordType);
+        if (appointmentStatusFilter) params.set('status', appointmentStatusFilter);
+        if (appointmentDateFrom) params.set('date_from', appointmentDateFrom);
+        if (appointmentDateTo) params.set('date_to', appointmentDateTo);
+        return `/studios/${studioSelect.value}/appointments${params.toString() ? `?${params.toString()}` : ''}`;
     };
 
     const renderImageThumb = (apt) => {
@@ -1251,7 +1366,15 @@ const renderAppointmentsPage = async (root) => {
 
         listNode.innerHTML = skeletonGrid(4);
         const payload = await apiFetch(endpoint);
-        const appointments = payload.data || [];
+        const now = Date.now();
+        const appointments = (payload.data || []).filter((apt) => {
+            const typeMatches = !activeRecordType || apt.appointment_type === activeRecordType;
+            const dateMs = apt.appointment_at ? new Date(apt.appointment_at).getTime() : null;
+            const timeMatches = activeTimeScope === 'all'
+                || (activeTimeScope === 'upcoming' ? (dateMs === null || dateMs >= now) : (dateMs !== null && dateMs < now));
+            const statusMatches = !appointmentStatusFilter || apt.status === appointmentStatusFilter;
+            return typeMatches && timeMatches && statusMatches;
+        });
 
         listNode.innerHTML = appointments.length
             ? appointments.map((apt, i) => {
@@ -1321,7 +1444,7 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                 </article>
             `}).join('')
-            : '<div class="empty-state">Bu kapsamda kayıt bulunmuyor.</div>';
+            : `<div class="empty-state">Bu kapsamda ${activeRecordType === 'tattoo' ? 'bilet' : 'randevu'} bulunmuyor.</div>`;
 
         listNode.querySelectorAll('[data-appointment-save]').forEach((btn) => {
             btn.addEventListener('click', () => handleAsync(async () => {
@@ -1377,6 +1500,21 @@ const renderAppointmentsPage = async (root) => {
     await loadStudios();
     await renderAppointments();
 
+    root.querySelectorAll('[data-appointments-type-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+            activeRecordType = button.getAttribute('data-appointments-type-tab') || 'designer';
+            syncAppointmentTabs();
+            handleAsync(renderAppointments);
+        });
+    });
+    root.querySelectorAll('[data-appointments-time-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+            activeTimeScope = button.getAttribute('data-appointments-time-tab') || 'upcoming';
+            syncAppointmentTabs();
+            handleAsync(renderAppointments);
+        });
+    });
+    qs('[data-appointments-filter]', root)?.addEventListener('click', openAppointmentFilterPopup);
     studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
     createAppointmentForm?.addEventListener('submit', (e) => {

@@ -412,6 +412,7 @@ class AppointmentController extends Controller
 
         $filters = $request->validate([
             'appointment_type' => ['nullable', 'string', 'in:designer,tattoo'],
+            'status' => ['nullable', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
         ]);
@@ -425,6 +426,8 @@ class AppointmentController extends Controller
                 ->where('assigned_artist_user_id', $user->id))
             ->when(isset($filters['appointment_type']), fn ($query) => $query
                 ->where('appointment_type', $filters['appointment_type']))
+            ->when(isset($filters['status']), fn ($query) => $query
+                ->where('status', $filters['status']))
             ->when(isset($filters['date_from']), fn ($query) => $query
                 ->whereDate('appointment_at', '>=', $filters['date_from']))
             ->when(isset($filters['date_to']), fn ($query) => $query
