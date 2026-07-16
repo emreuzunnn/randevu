@@ -2702,15 +2702,19 @@ const renderEarningsPage = async (root) => {
         ? studios.filter((studio) => studioCompanyId(studio) === String(selectedCompanyId))
         : studios;
     const syncStudioOptions = () => {
-        const visibleStudios = filteredStudios();
+        const visibleStudios = adminConfig.isAdmin && !selectedCompanyId ? [] : filteredStudios();
         if (!visibleStudios.some((studio) => String(studio.id) === String(selectedStudioId))) {
             selectedStudioId = visibleStudios[0]?.id ? String(visibleStudios[0].id) : '';
         }
         if (studioSelect) {
-            studioSelect.innerHTML = visibleStudios.map((studio) =>
+            const placeholder = adminConfig.isAdmin && !selectedCompanyId
+                ? '<option value="">Önce şirket seçin</option>'
+                : '<option value="">Stüdyo seçin</option>';
+            studioSelect.innerHTML = placeholder + visibleStudios.map((studio) =>
                 `<option value="${studio.id}">${escapeHtml(studio.name)}</option>`
             ).join('');
             studioSelect.value = selectedStudioId;
+            studioSelect.disabled = adminConfig.isAdmin && !selectedCompanyId;
         }
         if (lockedStudioLabel) {
             lockedStudioLabel.textContent = visibleStudios[0]?.name
@@ -2986,8 +2990,13 @@ const renderEarningsPage = async (root) => {
     };
 
     const load = async () => {
+        if (managing && adminConfig.isAdmin && !selectedCompanyId) {
+            content.innerHTML = '<div class="empty-state">Hakedişleri görmek için önce şirket seçin.</div>';
+            return;
+        }
+
         if (managing && !selectedStudioId) {
-            content.innerHTML = `<div class="empty-state">${adminConfig.isAdmin && selectedCompanyId ? 'Seçili şirkette hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.' : 'Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.'}</div>`;
+            content.innerHTML = `<div class="empty-state">${adminConfig.isAdmin && selectedCompanyId ? 'Seçili şirket için stüdyo seçin. Stüdyo görünmüyorsa canlı sunucuda backend güncellemesi de deploy edilmelidir.' : 'Hakedişlerini yönetebileceğiniz stüdyo bulunmuyor.'}</div>`;
             return;
         }
 
@@ -3046,10 +3055,10 @@ const renderEarningsPage = async (root) => {
         companies = uniqueById(companyPayload.data || []);
 
         if (companySelect) {
-            companySelect.innerHTML = companies.map((company) =>
+            companySelect.innerHTML = '<option value="">Şirket seçin</option>' + companies.map((company) =>
                 `<option value="${company.id}">${escapeHtml(company.name)}</option>`
             ).join('');
-            selectedCompanyId = companies[0]?.id ? String(companies[0].id) : '';
+            selectedCompanyId = '';
             companySelect.value = selectedCompanyId;
             companySelect.addEventListener('change', () => {
                 selectedCompanyId = companySelect.value;
