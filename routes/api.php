@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\StudioManagerController;
 use App\Http\Controllers\Api\StaffEarningController;
 use App\Http\Controllers\Api\StudioStaffController;
 use App\Http\Controllers\Api\StudioStaffInvitationController;
+use App\Http\Controllers\Api\TicketPdfTemplateController;
 use App\Http\Controllers\Api\UserDirectoryController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +112,7 @@ Route::middleware(['api.auth'])->group(function (): void {
     Route::get('/studios/options', [UserDirectoryController::class, 'studioOptions']);
     Route::get('/users/options', [UserDirectoryController::class, 'userOptions']);
     Route::get('/users/lookup-by-code/{code}', [UserDirectoryController::class, 'lookupByProfileCode']);
+    Route::get('/companies/{company}/ticket-pdf-template', [TicketPdfTemplateController::class, 'show']);
 
     // Herhangi bir kullanıcının profilini görüntüle (giriş yapılmış kullanıcılar)
     Route::get('/users/{user}', [UserProfileController::class, 'show']);
@@ -141,6 +143,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
     Route::get('/companies', [CompanyController::class, 'index']);
     // Yeni stüdyo oluşturur (şirket limiti kontrol edilir).
     Route::post('/studios', [StudioController::class, 'store']);
+    Route::patch('/companies/{company}/ticket-pdf-template', [TicketPdfTemplateController::class, 'update']);
+    Route::post('/companies/{company}/ticket-pdf-template/logo', [TicketPdfTemplateController::class, 'uploadLogo']);
 });
 
 /*

@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLogController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\PublicTicketHistoryController;
 use App\Http\Controllers\Webhook\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,7 @@ Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.
 Route::get('/webhook/whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('webhook.whatsapp.verify');
 Route::post('/webhook/whatsapp', [WhatsAppWebhookController::class, 'receive'])->name('webhook.whatsapp.receive');
 Route::get('/test-whatsapp', [WhatsAppWebhookController::class, 'sendTestMessage'])->name('webhook.whatsapp.test');
+Route::get('/ticket-history/{appointment}/{token}', [PublicTicketHistoryController::class, 'show'])->name('ticket-history.show');
 
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
@@ -37,6 +39,7 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
     Route::get('/tickets', [AdminAppointmentController::class, 'tickets'])->name('tickets.index');
     Route::get('/tickets/{appointment}', [AdminAppointmentController::class, 'show'])->name('tickets.show');
+    Route::view('/ticket-pdf-template', 'admin.ticket-pdf-template.index')->name('ticket-pdf-template.index');
     Route::view('/earnings', 'admin.earnings.index')->name('earnings.index');
 
     Route::view('/appointment-requests', 'admin.appointment-requests.index')->name('appointment-requests.index');

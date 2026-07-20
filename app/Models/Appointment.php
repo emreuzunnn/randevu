@@ -52,6 +52,7 @@ class Appointment extends Model
         'tattoo_image_paths',
         'completed_tattoo_image_path',
         'pickup_required',
+        'public_token',
     ];
 
     protected function casts(): array

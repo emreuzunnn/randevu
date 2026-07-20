@@ -15,9 +15,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: [
+        $csrfExcept = [
             'webhook/whatsapp',
-        ]);
+        ];
+
+        if (env('APP_ENV') === 'local') {
+            $csrfExcept[] = 'admin/login';
+        }
+
+        $middleware->validateCsrfTokens(except: $csrfExcept);
 
         $middleware->alias([
             'admin.panel' => AdminPanelAccessMiddleware::class,

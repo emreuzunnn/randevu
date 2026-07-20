@@ -73,7 +73,7 @@
                 </p>
             </div>
 
-            <form action="{{ route('admin.login.submit') }}" method="POST" class="form-grid">
+            <form action="{{ route('admin.login.submit', [], false) }}" method="POST" class="form-grid">
                 @csrf
 
                 <div class="field-wrap">

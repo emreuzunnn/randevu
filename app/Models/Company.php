@@ -19,6 +19,7 @@ class Company extends Model
         'about',
         'website',
         'gallery_images',
+        'ticket_pdf_template',
         'is_active',
         'max_studio_count',
     ];
@@ -29,6 +30,7 @@ class Company extends Model
             'is_active'        => 'boolean',
             'max_studio_count' => 'integer',
             'gallery_images'   => 'array',
+            'ticket_pdf_template' => 'array',
         ];
     }
 

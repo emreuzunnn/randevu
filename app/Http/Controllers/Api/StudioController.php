@@ -37,6 +37,8 @@ class StudioController extends Controller
                 'location' => $studio->location,
                 'slug' => $studio->slug,
                 'logo_path' => $studio->logo_path,
+                'instagram' => $studio->instagram,
+                'facebook' => $studio->facebook,
                 'company' => $studio->company ? [
                     'id' => $studio->company->id,
                     'name' => $studio->company->name,
@@ -57,6 +59,8 @@ class StudioController extends Controller
             'company_id'                 => ['nullable', 'integer', 'exists:companies,id'],
             'name'                       => ['required', 'string', 'max:255'],
             'location'                   => ['nullable', 'string', 'max:255'],
+            'instagram'                  => ['nullable', 'string', 'max:255'],
+            'facebook'                   => ['nullable', 'string', 'max:255'],
         ]);
 
         $company = isset($validated['company_id'])
@@ -87,6 +91,8 @@ class StudioController extends Controller
             'owner_user_id'             => $request->user()->id,
             'name'                      => $validated['name'],
             'location'                  => $validated['location'] ?? null,
+            'instagram'                 => $validated['instagram'] ?? null,
+            'facebook'                  => $validated['facebook'] ?? null,
             'slug'                      => Str::slug($validated['name']) . '-' . Str::random(5),
         ]);
 
@@ -100,6 +106,8 @@ class StudioController extends Controller
                 'location' => $studio->location,
                 'slug'     => $studio->slug,
                 'company_id' => $studio->company_id,
+                'instagram' => $studio->instagram,
+                'facebook' => $studio->facebook,
             ],
         ], 201);
     }
@@ -124,6 +132,8 @@ class StudioController extends Controller
             'opening_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'closing_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'logo_path'    => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'instagram'    => ['sometimes', 'nullable', 'string', 'max:255'],
+            'facebook'     => ['sometimes', 'nullable', 'string', 'max:255'],
             'company_id'   => ['sometimes', 'integer', 'exists:companies,id'],
         ]);
 
@@ -147,6 +157,8 @@ class StudioController extends Controller
                 'slug',
                 'about',
                 'logo_path',
+                'instagram',
+                'facebook',
                 'opening_time',
                 'closing_time',
                 'gallery_images',

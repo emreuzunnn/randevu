@@ -82,6 +82,7 @@ class AppointmentController extends Controller
                 'pax'              => $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
                 ...$this->ticketFieldsFor($appointment),
+                'public_history_url' => $this->publicHistoryUrlFor($appointment),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -102,6 +103,9 @@ class AppointmentController extends Controller
                 'studio' => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
+                    'company_id' => $appointment->studio->company_id,
+                    'instagram' => $appointment->studio->instagram,
+                    'facebook' => $appointment->studio->facebook,
                     'company' => $appointment->studio->company ? [
                         'id'   => $appointment->studio->company->id,
                         'name' => $appointment->studio->company->name,
@@ -138,6 +142,8 @@ class AppointmentController extends Controller
                     'studio' => $appointment->studio ? [
                         'id'   => $appointment->studio->id,
                         'name' => $appointment->studio->name,
+                        'instagram' => $appointment->studio->instagram,
+                        'facebook' => $appointment->studio->facebook,
                     ] : null,
                     'customer'          => $limitedView ? [] : $this->formatCustomer($appointment),
                     'place'             => $limitedView ? null : $appointment->place,
@@ -220,6 +226,8 @@ class AppointmentController extends Controller
                     'studio' => $appointment->studio ? [
                         'id'   => $appointment->studio->id,
                         'name' => $appointment->studio->name,
+                        'instagram' => $appointment->studio->instagram,
+                        'facebook' => $appointment->studio->facebook,
                         'company' => $appointment->studio->company ? [
                             'id'   => $appointment->studio->company->id,
                             'name' => $appointment->studio->company->name,
@@ -445,6 +453,7 @@ class AppointmentController extends Controller
                 'pax'              => $limitedView ? null : $appointment->pax,
                 'price'            => $this->visiblePriceFor($appointment),
                 ...$this->ticketFieldsFor($appointment, $limitedView),
+                'public_history_url' => $limitedView ? null : $this->publicHistoryUrlFor($appointment),
                 'appointment_at'   => optional($appointment->appointment_at)->toIso8601String(),
                 'appointment_type' => $appointment->appointment_type,
                 'status'           => $appointment->status,
@@ -466,6 +475,9 @@ class AppointmentController extends Controller
                 'studio' => [
                     'id'   => $studio->id,
                     'name' => $studio->name,
+                    'company_id' => $studio->company_id,
+                    'instagram' => $studio->instagram,
+                    'facebook' => $studio->facebook,
                 ],
                 'created_at' => optional($appointment->created_at)->toIso8601String(),
                 ];
@@ -957,6 +969,22 @@ class AppointmentController extends Controller
                 ? (self::PAYMENT_METHODS[$appointment->payment_method] ?? $appointment->payment_method)
                 : null,
         ];
+    }
+
+    private function publicHistoryUrlFor(Appointment $appointment): ?string
+    {
+        if ($appointment->appointment_type !== 'tattoo') {
+            return null;
+        }
+
+        if (! $appointment->public_token) {
+            $appointment->forceFill(['public_token' => Str::random(48)])->saveQuietly();
+        }
+
+        return route('ticket-history.show', [
+            'appointment' => $appointment->id,
+            'token' => $appointment->public_token,
+        ]);
     }
 
     /**

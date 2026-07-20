@@ -20,6 +20,8 @@ class Studio extends Model
         'location',
         'slug',
         'logo_path',
+        'instagram',
+        'facebook',
         'about',
         'opening_time',
         'closing_time',

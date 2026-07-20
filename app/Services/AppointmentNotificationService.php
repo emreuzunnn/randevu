@@ -116,7 +116,7 @@ class AppointmentNotificationService
 
         return $this->send(
             $recipients,
-            $accepted ? "{$assigneeLabel} Randevuyu Kabul Etti" : "{$assigneeLabel} Randevuyu Reddetti",
+            $accepted ? "{$assigneeLabel} Atamayı Kabul Etti" : "{$assigneeLabel} Atamayı Reddetti",
             "{$artist->fullName()}, {$appointment->appointment_at?->format('d.m.Y H:i')} tarihli {$recordLabel} kaydını "
                 .($accepted ? 'kabul etti.' : 'reddetti.'),
             'artist_response',

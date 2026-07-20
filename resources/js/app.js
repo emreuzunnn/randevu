@@ -232,6 +232,22 @@ const requestStatusClass = (status) => ({
     rejected: 'badge-pill badge-pill--danger',
 }[status] || 'badge-pill');
 
+const assignmentStatusLabel = (appointment = {}) => {
+    const hasAssignee = appointment.assigned_artist_user_id || appointment.artist;
+    if (!hasAssignee || ['completed', 'cancelled'].includes(appointment.status)) return '';
+    if (appointment.artist_status === 'pending') return 'Atama Bekliyor';
+    if (appointment.artist_status === 'accepted') return 'Atama Kabul Edildi';
+    if (appointment.artist_status === 'rejected') return 'Atama Reddedildi';
+    return '';
+};
+
+const assignmentStatusClass = (appointment = {}) => {
+    if (appointment.artist_status === 'accepted') return 'badge-pill badge-pill--success';
+    if (appointment.artist_status === 'rejected') return 'badge-pill badge-pill--danger';
+    if (appointment.artist_status === 'pending') return 'badge-pill badge-pill--warning';
+    return 'badge-pill';
+};
+
 /* ── Toast ──────────────────────────────────────────────────── */
 
 const toastRoot = () => qs('#admin-toast-root');
@@ -327,6 +343,651 @@ const formatMoney = (value) =>
         currency: 'EUR',
         minimumFractionDigits: 2,
     }).format(Number(value || 0));
+
+/* ── Bilet PDF demo şablonu ─────────────────────────────────── */
+
+const TICKET_PDF_TEMPLATE_KEY = 'tattodesk.ticketPdfTemplate.v1';
+
+const DEFAULT_TICKET_PDF_TEMPLATE = {
+    language: 'de',
+    logoUrl: '',
+    brandTitle: 'SOUL OF INK',
+    brandSubtitle: 'TATTOO & PIERCING',
+    brandTagline: 'THE ART OF TRUST, THE MARK OF QUALITY',
+    footer: {
+        email: 'inksoulof@gmail.com',
+        phone: '+90 545 424 37 39',
+        address: 'Gündoğdu Mahallesi 18.Sokak No:8',
+        instagram: 'soulofink.gundogdu',
+        facebook: 'soulofink.gundogdu',
+    },
+    translations: {
+        de: {
+            name: 'Germany (+49)',
+            labels: {
+                documentDate: 'Datum des Dokuments',
+                ticketCode: 'Ticketcode',
+                customerName: 'Vorname Familienname',
+                phone: 'Telefon',
+                hotelRoom: 'Hotel / Zimmernummer',
+                ticketType: 'Art des Tickets',
+                infoStaff: 'Info -Mitarbeiter',
+                reservationDate: 'Reservierungsdatum',
+                reservationTime: 'Reservierungszeit',
+                pickup: 'Abholung',
+                quantity: 'Menge',
+                deposit: 'Kaution',
+                remaining: 'Rest',
+                artist: 'Tattoo-Künstler',
+                signature: 'UNTERSCHRIFT',
+            },
+            contractText: [
+                '1. Die Anzahlung wird geleistet, um den Termin des Kunden zu sichern. Bei Absage oder Nichterscheinen des Kunden kann die Anzahlung nicht zurückerstattet werden.',
+                '2. Sollte der Kunde den Termin verschieben wollen, muss er das Studio mindestens 24 Stunden vorher informieren. Andernfalls kann eine neue Anzahlung erforderlich sein.',
+                '3. Das Studio ist für Änderungen am Entwurf, die medizinische Eignung und die endgültige Durchführung berechtigt, notwendige Hinweise zu geben.',
+            ].join('\n'),
+            acceptanceText: 'Der Kunde akzeptiert die oben genannten Informationen und Bedingungen.',
+            receiptText: 'Diese Quittung wird für die Reservierung und Zahlung ausgestellt.',
+            confirmationText: 'Mit seiner Unterschrift bestätigt der Kunde die Richtigkeit der Angaben.',
+        },
+        tr: {
+            name: 'Turkey (+90)',
+            labels: {
+                documentDate: 'Belge Tarihi',
+                ticketCode: 'Bilet Kodu',
+                customerName: 'Ad Soyad',
+                phone: 'Telefon',
+                hotelRoom: 'Otel / Oda Numarası',
+                ticketType: 'Bilet Türü',
+                infoStaff: 'Info Personeli',
+                reservationDate: 'Rezervasyon Tarihi',
+                reservationTime: 'Rezervasyon Saati',
+                pickup: 'Transfer',
+                quantity: 'Kişi',
+                deposit: 'Depozito',
+                remaining: 'Kalan',
+                artist: 'Dövme Sanatçısı',
+                signature: 'İMZA',
+            },
+            contractText: [
+                '1. Alınan depozito müşterinin randevu saatini güvence altına almak içindir. Müşteri iptal eder veya gelmezse depozito iade edilmez.',
+                '2. Müşteri randevusunu değiştirmek isterse stüdyoya en az 24 saat önce bilgi vermelidir. Aksi durumda yeni depozito istenebilir.',
+                '3. Stüdyo tasarım değişikliği, sağlık uygunluğu ve işlem planı hakkında gerekli yönlendirmeleri yapma hakkına sahiptir.',
+            ].join('\n'),
+            acceptanceText: 'Müşteri yukarıdaki bilgi ve koşulları kabul eder.',
+            receiptText: 'Bu belge rezervasyon ve ödeme kaydı için düzenlenmiştir.',
+            confirmationText: 'Müşteri imzası ile bilgilerin doğruluğunu onaylar.',
+        },
+        en: {
+            name: 'United Kingdom (+44)',
+            labels: {
+                documentDate: 'Document Date',
+                ticketCode: 'Ticket Code',
+                customerName: 'Full Name',
+                phone: 'Phone',
+                hotelRoom: 'Hotel / Room Number',
+                ticketType: 'Ticket Type',
+                infoStaff: 'Info Staff',
+                reservationDate: 'Reservation Date',
+                reservationTime: 'Reservation Time',
+                pickup: 'Pickup',
+                quantity: 'Quantity',
+                deposit: 'Deposit',
+                remaining: 'Remaining',
+                artist: 'Tattoo Artist',
+                signature: 'SIGNATURE',
+            },
+            contractText: [
+                '1. The deposit is collected to secure the customer appointment. If the customer cancels or does not attend, the deposit is non-refundable.',
+                '2. If the customer wants to reschedule, the studio must be informed at least 24 hours before the appointment. Otherwise, a new deposit may be required.',
+                '3. The studio may provide necessary guidance regarding design changes, medical suitability and the final procedure plan.',
+            ].join('\n'),
+            acceptanceText: 'The customer accepts the information and conditions above.',
+            receiptText: 'This receipt is issued for reservation and payment records.',
+            confirmationText: 'By signing, the customer confirms that the information is correct.',
+        },
+    },
+};
+
+Object.entries({
+    pl: 'Poland (+48)',
+    nl: 'Netherlands (+31)',
+    ru: 'Russia (+7)',
+    ch: 'Switzerland (+41)',
+    be: 'Belgium (+32)',
+    et: 'Estonia (+372)',
+    sv: 'Sweden (+46)',
+    no: 'Norway (+47)',
+    da: 'Denmark (+45)',
+    fi: 'Finland (+358)',
+}).forEach(([language, name]) => {
+    DEFAULT_TICKET_PDF_TEMPLATE.translations[language] = {
+        ...JSON.parse(JSON.stringify(DEFAULT_TICKET_PDF_TEMPLATE.translations.en)),
+        name,
+    };
+});
+
+const cloneTicketPdfTemplate = () => JSON.parse(JSON.stringify(DEFAULT_TICKET_PDF_TEMPLATE));
+
+const normalizeTicketPdfTemplate = (stored = {}) => {
+    const template = cloneTicketPdfTemplate();
+    Object.assign(template, stored || {});
+    template.footer = { ...DEFAULT_TICKET_PDF_TEMPLATE.footer, ...(stored?.footer || {}) };
+    template.translations = cloneTicketPdfTemplate().translations;
+    Object.entries(stored?.translations || {}).forEach(([language, translation]) => {
+        template.translations[language] = {
+            ...(template.translations[language] || { name: language.toUpperCase(), labels: {} }),
+            ...translation,
+            labels: {
+                ...(template.translations[language]?.labels || {}),
+                ...(translation?.labels || {}),
+            },
+        };
+    });
+    return template;
+};
+
+const loadTicketPdfTemplate = () => {
+    try {
+        return normalizeTicketPdfTemplate(JSON.parse(localStorage.getItem(TICKET_PDF_TEMPLATE_KEY) || '{}'));
+    } catch (error) {
+        return cloneTicketPdfTemplate();
+    }
+};
+
+const saveTicketPdfTemplate = (template) => {
+    localStorage.setItem(TICKET_PDF_TEMPLATE_KEY, JSON.stringify(normalizeTicketPdfTemplate(template)));
+};
+
+const ticketPdfTemplateFromApi = (template = {}) => {
+    const normalized = normalizeTicketPdfTemplate({
+        language: template.default_language || template.language,
+        logoUrl: template.logo_url || template.logoUrl,
+        brandTitle: template.brand_title || template.brandTitle,
+        brandSubtitle: template.brand_subtitle || template.brandSubtitle,
+        brandTagline: template.brand_tagline || template.brandTagline,
+        footer: template.footer,
+        translations: Object.fromEntries(Object.entries(template.translations || {}).map(([language, item]) => [
+            language,
+            {
+                name: item.name,
+                labels: item.labels,
+                contractText: item.contract_text || item.contractText,
+                acceptanceText: item.acceptance_text || item.acceptanceText,
+                receiptText: item.receipt_text || item.receiptText,
+                confirmationText: item.confirmation_text || item.confirmationText,
+            },
+        ])),
+    });
+    return normalized;
+};
+
+const ticketPdfTemplateToApi = (template = {}) => ({
+    default_language: template.language || 'de',
+    logo_url: template.logoUrl || '',
+    brand_title: template.brandTitle || '',
+    brand_subtitle: template.brandSubtitle || '',
+    brand_tagline: template.brandTagline || '',
+    footer: template.footer || {},
+    translations: Object.fromEntries(Object.entries(template.translations || {}).map(([language, item]) => [
+        language,
+        {
+            name: item.name || language.toUpperCase(),
+            labels: item.labels || {},
+            contract_text: item.contractText || '',
+            acceptance_text: item.acceptanceText || '',
+            receipt_text: item.receiptText || '',
+            confirmation_text: item.confirmationText || '',
+        },
+    ])),
+});
+
+const fetchTicketPdfTemplate = async (companyId = null) => {
+    if (!companyId) return loadTicketPdfTemplate();
+    const payload = await apiFetch(`/companies/${companyId}/ticket-pdf-template`);
+    return ticketPdfTemplateFromApi(payload.data || {});
+};
+
+const persistTicketPdfTemplate = async (companyId, template) => {
+    if (!companyId) {
+        saveTicketPdfTemplate(template);
+        return normalizeTicketPdfTemplate(template);
+    }
+    const payload = await apiFetch(`/companies/${companyId}/ticket-pdf-template`, {
+        method: 'PATCH',
+        body: ticketPdfTemplateToApi(template),
+    });
+    return ticketPdfTemplateFromApi(payload.data || {});
+};
+
+const uploadTicketPdfLogo = async (companyId, file) => {
+    if (!companyId || !file) return null;
+    const formData = new FormData();
+    formData.append('logo', file);
+    const payload = await apiFetch(`/companies/${companyId}/ticket-pdf-template/logo`, {
+        method: 'POST',
+        body: formData,
+    });
+    return payload.logo_url || payload.data?.logo_url || null;
+};
+
+const ticketPdfLanguageForAppointment = (appointment = {}, fallbackLanguage = 'de') => {
+    const code = String(appointment.customer?.phone_country_code || '').replace(/\s+/g, '');
+    const languageByCode = {
+        '+90': 'tr',
+        '+49': 'de',
+        '+44': 'en',
+        '+48': 'pl',
+        '+31': 'nl',
+        '+7': 'ru',
+        '+41': 'ch',
+        '+32': 'be',
+        '+372': 'et',
+        '+46': 'sv',
+        '+47': 'no',
+        '+45': 'da',
+        '+358': 'fi',
+    };
+    return languageByCode[code] || (DEFAULT_TICKET_PDF_TEMPLATE.translations[fallbackLanguage] ? fallbackLanguage : 'en');
+};
+
+const ticketPdfLocale = (language) => ({
+    de: 'de-DE',
+    tr: 'tr-TR',
+    en: 'en-GB',
+    pl: 'pl-PL',
+    nl: 'nl-NL',
+    ru: 'ru-RU',
+    ch: 'de-CH',
+    be: 'nl-BE',
+    et: 'et-EE',
+    sv: 'sv-SE',
+    no: 'nb-NO',
+    da: 'da-DK',
+    fi: 'fi-FI',
+}[language] || 'tr-TR');
+
+const ticketPdfMoney = (value, language = 'tr') =>
+    new Intl.NumberFormat(ticketPdfLocale(language), {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+    }).format(Number(value || 0));
+
+const ticketPdfDateParts = (value, language = 'tr') => {
+    const date = value ? new Date(value) : new Date();
+    return {
+        date: new Intl.DateTimeFormat(ticketPdfLocale(language), { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
+        time: new Intl.DateTimeFormat(ticketPdfLocale(language), { hour: '2-digit', minute: '2-digit' }).format(date),
+    };
+};
+
+const paragraphHtml = (value) =>
+    String(value || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('');
+
+const ticketPdfDisplayData = (appointment = {}, language = 'de') => {
+    const appointmentDate = ticketPdfDateParts(appointment.appointment_at, language);
+    const documentDate = ticketPdfDateParts(new Date().toISOString(), language);
+    const customerName = `${appointment.customer?.first_name || ''} ${appointment.customer?.last_name || ''}`.trim();
+    const phone = `${appointment.customer?.phone_country_code || ''} ${appointment.customer?.phone_number || ''}`.trim();
+    const hotelRoom = [appointment.customer?.hotel_name, appointment.customer?.room_number].filter(Boolean).join(' / ');
+    const price = Number(appointment.price || 0);
+    const deposit = Number(appointment.deposit_amount || 0);
+    return {
+        documentDate: documentDate.date,
+        ticketCode: appointment.ticket_code || appointment.code || `TD-${String(appointment.id || 'DEMO').padStart(6, '0')}`,
+        customerName: customerName || 'Demo Müşteri',
+        phone: phone || '—',
+        hotelRoom: hotelRoom || appointment.place || '—',
+        ticketType: ticketMetaLine(appointment) || 'Tattoo',
+        infoStaff: appointment.created_by?.name || appointment.info?.name || appointment.created_by_name || '—',
+        reservationDate: appointmentDate.date,
+        reservationTime: appointmentDate.time,
+        pickup: appointment.pickup_required ? (language === 'de' ? 'Ja' : language === 'en' ? 'Yes' : 'Evet') : (language === 'de' ? 'Nein' : language === 'en' ? 'No' : 'Hayır'),
+        quantity: appointment.pax || 1,
+        deposit: ticketPdfMoney(deposit, language),
+        remaining: ticketPdfMoney(Math.max(price - deposit, 0), language),
+        artist: appointment.artist?.name || appointment.assigned_artist?.name || '—',
+    };
+};
+
+const sampleTicketPdfAppointment = () => ({
+    id: 1,
+    appointment_type: 'tattoo',
+    appointment_at: new Date().toISOString(),
+    pax: 1,
+    price: 500,
+    deposit_amount: 100,
+    pickup_required: true,
+    ticket_type_labels: ['Dövme', 'Piercing'],
+    tattoo_type_label: 'Freehand',
+    payment_method_label: 'Nakit',
+    customer: {
+        first_name: 'Demo',
+        last_name: 'Müşteri',
+        phone_country_code: '+90',
+        phone_number: '5551112233',
+        hotel_name: 'Demo Hotel',
+        room_number: '204',
+    },
+    artist: { name: 'Artist Demo' },
+    created_by: { name: 'Info Demo' },
+});
+
+const openTicketPdfPrintWindow = async (appointment = null, companyId = null) => {
+    const template = await fetchTicketPdfTemplate(companyId);
+    const language = ticketPdfLanguageForAppointment(appointment || {}, template.language || 'de');
+    const footer = {
+        ...(template.footer || {}),
+        instagram: appointment?.studio?.instagram || template.footer?.instagram || '',
+        facebook: appointment?.studio?.facebook || template.footer?.facebook || '',
+    };
+    const instagramIcon = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2.8" y="2.8" width="18.4" height="18.4" rx="5.2" fill="none" stroke="white" stroke-width="2.2"/>
+            <circle cx="12" cy="12" r="4.15" fill="none" stroke="white" stroke-width="2.2"/>
+            <circle cx="17.35" cy="6.65" r="1.45" fill="white"/>
+        </svg>
+    `;
+    const facebookIcon = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="white" d="M15.1 8.2h2.35V4.35c-.4-.06-1.78-.17-3.38-.17-3.35 0-5.65 2.1-5.65 5.95v3.35H4.65v4.3h3.77V24h4.62v-6.22h3.62l.57-4.3h-4.19V10.55c0-1.24.34-2.35 2.06-2.35Z"/>
+        </svg>
+    `;
+    const translation = template.translations[language] || template.translations.de;
+    const labels = translation.labels || {};
+    const data = ticketPdfDisplayData(appointment || sampleTicketPdfAppointment(), language);
+    const labelRowsLeft = ['documentDate', 'ticketCode', 'customerName', 'phone', 'hotelRoom', 'ticketType', 'infoStaff'];
+    const labelRowsRight = ['reservationDate', 'reservationTime', 'pickup', 'quantity', 'deposit', 'remaining', 'artist'];
+    const rowHtml = (key) => `
+        <div class="ticket-info-row">
+            <span>${escapeHtml(labels[key] || key)} :</span>
+            <strong>${escapeHtml(data[key] || '—')}</strong>
+        </div>
+    `;
+    const logoHtml = template.logoUrl
+        ? `<img src="${escapeHtml(template.logoUrl)}" alt="Logo">`
+        : `<div class="print-logo-fallback">${escapeHtml(template.brandTitle || 'Tattoodesk')}</div>`;
+    const watermarkHtml = template.logoUrl
+        ? `<img src="${escapeHtml(template.logoUrl)}" alt="Watermark logo">`
+        : '';
+    const printWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!printWindow) {
+        showToast('Yazdırma penceresi açılamadı. Tarayıcı popup iznini kontrol edin.', 'error');
+        return;
+    }
+    printWindow.document.write(`
+        <!doctype html>
+        <html lang="${escapeHtml(language)}">
+        <head>
+            <meta charset="utf-8">
+            <title>${escapeHtml(data.ticketCode)} PDF</title>
+            <style>
+                @page { size: A4; margin: 18mm; }
+                * { box-sizing: border-box; }
+                body { margin: 0; background: #eceff3; color: #1b1f28; font-family: Arial, Helvetica, sans-serif; }
+                .sheet { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 18mm; background: #fff; position: relative; overflow: hidden; }
+                .watermark { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: 620px; height: 620px; opacity: .18; pointer-events: none; display: grid; place-items: center; }
+                .watermark img { max-width: 100%; max-height: 100%; object-fit: contain; }
+                .ticket-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+                .brand { display: flex; gap: 14px; align-items: center; color: #b79a50; }
+                .brand-logo { width: 84px; height: 84px; display: grid; place-items: center; border: 1px solid rgba(183,154,80,.35); border-radius: 12px; overflow: hidden; }
+                .brand-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+                .print-logo-fallback { font-size: 11px; font-weight: 800; text-align: center; padding: 8px; }
+                .brand-title { font-size: 31px; font-weight: 800; line-height: 1; letter-spacing: .04em; }
+                .brand-subtitle { margin-top: 5px; font-size: 13px; font-weight: 700; letter-spacing: .22em; color: #1b1f28; }
+                .brand-tagline { margin-top: 7px; font-size: 8px; letter-spacing: .16em; color: #b79a50; }
+                .qr { width: 86px; height: 86px; border: 2px solid #20242c; display: grid; place-items: center; font-size: 11px; font-weight: 800; text-align: center; background:
+                    linear-gradient(90deg, #20242c 8px, transparent 8px) 0 0 / 18px 18px,
+                    linear-gradient(#20242c 8px, transparent 8px) 0 0 / 18px 18px,
+                    #fff; color: #20242c; overflow: hidden; }
+                .qr img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+                .ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; margin-top: 34px; }
+                .ticket-info-row { display: grid; grid-template-columns: 160px 1fr; gap: 8px; align-items: baseline; font-size: 12px; margin-bottom: 12px; }
+                .ticket-info-row span { font-weight: 700; color: #111827; }
+                .ticket-info-row strong { min-height: 18px; border-bottom: 1px solid #d8dbe2; font-size: 12px; font-weight: 600; color: #20242c; }
+                .contract { margin-top: 34px; font-size: 12px; line-height: 1.75; color: #222733; }
+                .contract p { margin: 0 0 11px; }
+                .acceptance { margin-top: 24px; font-size: 12px; line-height: 1.65; }
+                .signature { margin-top: 34px; display: grid; grid-template-columns: 1fr 190px; gap: 30px; align-items: end; }
+                .signature-line { border-bottom: 1px solid #111827; height: 54px; }
+                .signature-title { margin-top: 8px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 16mm; display: flex; justify-content: space-between; gap: 18px; font-size: 11px; color: #222733; }
+                .footer strong { color: #b79a50; }
+                .social-row { display: flex; align-items: center; gap: 7px; justify-content: flex-end; margin-bottom: 5px; }
+                .social-icon { width: 17px; height: 17px; border-radius: 5px; display: inline-grid; place-items: center; color: #fff; overflow: hidden; }
+                .social-icon svg { width: 13px; height: 13px; display: block; }
+                .social-icon--instagram { background: linear-gradient(135deg, #f58529, #dd2a7b 45%, #8134af 75%, #515bd4); }
+                .social-icon--facebook { background: #1877f2; border-radius: 50%; }
+                @media print {
+                    body { background: #fff; }
+                    .sheet { margin: 0; box-shadow: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <main class="sheet">
+                ${watermarkHtml ? `<div class="watermark">${watermarkHtml}</div>` : ''}
+                <header class="ticket-header">
+                    <div class="brand">
+                        <div class="brand-logo">${logoHtml}</div>
+                        <div>
+                            <div class="brand-title">${escapeHtml(template.brandTitle)}</div>
+                            <div class="brand-subtitle">${escapeHtml(template.brandSubtitle)}</div>
+                            <div class="brand-tagline">${escapeHtml(template.brandTagline)}</div>
+                        </div>
+                    </div>
+                    <div class="qr">
+                        ${appointment?.public_history_url
+                            ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(appointment.public_history_url)}" alt="QR">`
+                            : escapeHtml(data.ticketCode)
+                        }
+                    </div>
+                </header>
+                <section class="ticket-grid">
+                    <div>${labelRowsLeft.map(rowHtml).join('')}</div>
+                    <div>${labelRowsRight.map(rowHtml).join('')}</div>
+                </section>
+                <section class="contract">${paragraphHtml(translation.contractText)}</section>
+                <section class="acceptance">
+                    <p>${escapeHtml(translation.acceptanceText || '')}</p>
+                    <p>${escapeHtml(translation.receiptText || '')}</p>
+                    <p>${escapeHtml(translation.confirmationText || '')}</p>
+                </section>
+                <section class="signature">
+                    <div>${escapeHtml(data.documentDate)} ${escapeHtml(data.reservationTime)}</div>
+                    <div>
+                        <div class="signature-line"></div>
+                        <div class="signature-title">${escapeHtml(labels.signature || 'SIGNATURE')}</div>
+                    </div>
+                </section>
+                <footer class="footer">
+                    <div>
+                        <div><strong>Email</strong> ${escapeHtml(footer.email)}</div>
+                        <div><strong>Tel</strong> ${escapeHtml(footer.phone)}</div>
+                        <div>${escapeHtml(footer.address)}</div>
+                    </div>
+                    <div>
+                        ${footer.instagram ? `<div class="social-row"><span class="social-icon social-icon--instagram">${instagramIcon}</span><span>${escapeHtml(footer.instagram)}</span></div>` : ''}
+                        ${footer.facebook ? `<div class="social-row"><span class="social-icon social-icon--facebook">${facebookIcon}</span><span>${escapeHtml(footer.facebook)}</span></div>` : ''}
+                    </div>
+                </footer>
+            </main>
+            <script>
+                window.addEventListener('load', () => {
+                    window.setTimeout(() => window.print(), 250);
+                });
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+};
+
+const ticketPdfTemplateEditorHtml = (template, activeLanguage) => {
+    const translation = template.translations[activeLanguage] || template.translations.de;
+    const labels = translation.labels || {};
+    const labelFields = Object.keys(DEFAULT_TICKET_PDF_TEMPLATE.translations.de.labels);
+    return `
+        <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-bottom:1rem">
+            ${Object.entries(template.translations).map(([language, item]) => `
+                <button class="${language === activeLanguage ? 'button-primary' : 'button-secondary'}" data-ticket-pdf-language="${language}" style="padding:0.45rem 0.75rem;font-size:0.75rem">${escapeHtml(item.name || language.toUpperCase())}</button>
+            `).join('')}
+        </div>
+        <div class="form-grid">
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap">
+                    <label class="field-label">Logo URL / Base64</label>
+                    <input class="field-input" data-ticket-pdf-field="logoUrl" value="${escapeHtml(template.logoUrl || '')}" placeholder="https://... veya dosya seç">
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Logo Dosyası</label>
+                    <input class="field-input" type="file" accept="image/*" data-ticket-pdf-logo-file>
+                </div>
+            </div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">Marka Başlığı</label><input class="field-input" data-ticket-pdf-field="brandTitle" value="${escapeHtml(template.brandTitle)}"></div>
+                <div class="field-wrap"><label class="field-label">Alt Başlık</label><input class="field-input" data-ticket-pdf-field="brandSubtitle" value="${escapeHtml(template.brandSubtitle)}"></div>
+            </div>
+            <div class="field-wrap"><label class="field-label">Slogan</label><input class="field-input" data-ticket-pdf-field="brandTagline" value="${escapeHtml(template.brandTagline)}"></div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">E-posta</label><input class="field-input" data-ticket-pdf-footer="email" value="${escapeHtml(template.footer.email)}"></div>
+                <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" data-ticket-pdf-footer="phone" value="${escapeHtml(template.footer.phone)}"></div>
+            </div>
+            <div class="field-wrap"><label class="field-label">Adres</label><input class="field-input" data-ticket-pdf-footer="address" value="${escapeHtml(template.footer.address)}"></div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">Instagram</label><input class="field-input" data-ticket-pdf-footer="instagram" value="${escapeHtml(template.footer.instagram)}"></div>
+                <div class="field-wrap"><label class="field-label">Facebook</label><input class="field-input" data-ticket-pdf-footer="facebook" value="${escapeHtml(template.footer.facebook)}"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0.65rem">
+                ${labelFields.map((key) => `
+                    <div class="field-wrap">
+                        <label class="field-label">${escapeHtml(key)}</label>
+                        <input class="field-input" data-ticket-pdf-label="${escapeHtml(key)}" value="${escapeHtml(labels[key] || '')}">
+                    </div>
+                `).join('')}
+            </div>
+            <div class="field-wrap">
+                <label class="field-label">Sözleşme Metni (${escapeHtml(translation.name || activeLanguage.toUpperCase())})</label>
+                <textarea class="field-input" rows="8" data-ticket-pdf-translation="contractText">${escapeHtml(translation.contractText || '')}</textarea>
+            </div>
+            <div class="field-wrap"><label class="field-label">Kabul Metni</label><textarea class="field-input" rows="2" data-ticket-pdf-translation="acceptanceText">${escapeHtml(translation.acceptanceText || '')}</textarea></div>
+            <div class="field-wrap"><label class="field-label">Makbuz Metni</label><textarea class="field-input" rows="2" data-ticket-pdf-translation="receiptText">${escapeHtml(translation.receiptText || '')}</textarea></div>
+            <div class="field-wrap"><label class="field-label">Onay Metni</label><textarea class="field-input" rows="2" data-ticket-pdf-translation="confirmationText">${escapeHtml(translation.confirmationText || '')}</textarea></div>
+        </div>
+    `;
+};
+
+const openTicketPdfTemplateEditor = async (companyId = null, previewAppointment = null) => {
+    let template = await fetchTicketPdfTemplate(companyId);
+    let activeLanguage = template.language || 'de';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.52);display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+        <div class="panel-card" style="width:min(100%,980px);max-height:92vh;overflow:auto;padding:1.2rem">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem">
+                <div>
+                    <div class="section-eyebrow">PDF Şablonu</div>
+                    <div class="section-title">Bilet Yazdırma Alanı</div>
+                    <p style="margin-top:0.35rem;font-size:0.78rem;color:var(--text-muted)">Sabit metinleri dil bazlı, logo ve iletişim alanlarını ise ortak düzenleyin.</p>
+                </div>
+                <button class="button-secondary" data-ticket-pdf-close style="padding:0.45rem 0.7rem">Kapat</button>
+            </div>
+            <div data-ticket-pdf-editor-body></div>
+            <div style="display:flex;justify-content:flex-end;gap:0.6rem;flex-wrap:wrap;margin-top:1rem">
+                ${companyId ? '' : '<button class="button-secondary" data-ticket-pdf-reset>Varsayılana Dön</button>'}
+                <button class="button-secondary" data-ticket-pdf-preview>Önizle / Yazdır</button>
+                <button class="button-primary" data-ticket-pdf-save>Kaydet</button>
+            </div>
+        </div>
+    `;
+    const body = qs('[data-ticket-pdf-editor-body]', overlay);
+    const readForm = () => {
+        overlay.querySelectorAll('[data-ticket-pdf-field]').forEach((input) => {
+            template[input.getAttribute('data-ticket-pdf-field')] = input.value;
+        });
+        overlay.querySelectorAll('[data-ticket-pdf-footer]').forEach((input) => {
+            template.footer[input.getAttribute('data-ticket-pdf-footer')] = input.value;
+        });
+        overlay.querySelectorAll('[data-ticket-pdf-label]').forEach((input) => {
+            template.translations[activeLanguage].labels[input.getAttribute('data-ticket-pdf-label')] = input.value;
+        });
+        overlay.querySelectorAll('[data-ticket-pdf-translation]').forEach((input) => {
+            template.translations[activeLanguage][input.getAttribute('data-ticket-pdf-translation')] = input.value;
+        });
+        template.language = activeLanguage;
+    };
+    const render = () => {
+        body.innerHTML = ticketPdfTemplateEditorHtml(template, activeLanguage);
+        body.querySelectorAll('[data-ticket-pdf-language]').forEach((button) => {
+            button.addEventListener('click', () => {
+                readForm();
+                activeLanguage = button.getAttribute('data-ticket-pdf-language') || 'de';
+                template.language = activeLanguage;
+                render();
+            });
+        });
+        qs('[data-ticket-pdf-logo-file]', body)?.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (companyId) {
+                handleAsync(async () => {
+                    readForm();
+                    const logoUrl = await uploadTicketPdfLogo(companyId, file);
+                    if (logoUrl) {
+                        template.logoUrl = logoUrl;
+                        const input = qs('[data-ticket-pdf-field="logoUrl"]', body);
+                        if (input) input.value = logoUrl;
+                        showToast('PDF logosu yüklendi.', 'success');
+                    }
+                });
+                return;
+            }
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                template.logoUrl = String(reader.result || '');
+                const input = qs('[data-ticket-pdf-field="logoUrl"]', body);
+                if (input) input.value = template.logoUrl;
+            });
+            reader.readAsDataURL(file);
+        });
+    };
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close();
+    });
+    qs('[data-ticket-pdf-close]', overlay)?.addEventListener('click', close);
+    qs('[data-ticket-pdf-reset]', overlay)?.addEventListener('click', () => {
+        if (!window.confirm('PDF şablonu varsayılan demo haline dönsün mü?')) return;
+        template = cloneTicketPdfTemplate();
+        activeLanguage = template.language;
+        saveTicketPdfTemplate(template);
+        render();
+        showToast('PDF şablonu varsayılana döndü.', 'success');
+    });
+    qs('[data-ticket-pdf-save]', overlay)?.addEventListener('click', () => {
+        handleAsync(async () => {
+            readForm();
+            template = await persistTicketPdfTemplate(companyId, template);
+            activeLanguage = template.language || activeLanguage;
+            showToast('PDF şablonu kaydedildi.', 'success');
+        });
+    });
+    qs('[data-ticket-pdf-preview]', overlay)?.addEventListener('click', () => {
+        handleAsync(async () => {
+            readForm();
+            await persistTicketPdfTemplate(companyId, template);
+            await openTicketPdfPrintWindow(previewAppointment || sampleTicketPdfAppointment(), companyId);
+        });
+    });
+    render();
+    document.body.appendChild(overlay);
+};
 
 /* ── Durum badge CSS ────────────────────────────────────────── */
 
@@ -1105,12 +1766,21 @@ const renderUsersPage = async (root) => {
 const renderAppointmentsPage = async (root) => {
     const locksToOwnStudio = adminConfig.isSupervisor;
     const pathIsTickets = window.location.pathname.includes('/admin/tickets');
-    let activeRecordType = pathIsTickets ? 'tattoo' : 'designer';
+    const routeRecordType = pathIsTickets ? 'tattoo' : 'designer';
+    const recordTypeLocked = window.location.pathname.includes('/admin/tickets')
+        || window.location.pathname.includes('/admin/appointments');
+    let activeRecordType = routeRecordType;
     let activeTimeScope = 'upcoming';
     let appointmentStatusFilter = '';
     let appointmentDateFrom = '';
     let appointmentDateTo = '';
-    const title = isDriverRole() ? 'Transferler' : isArtistLikeRole() ? 'Atanan Biletler' : 'Randevu ve Bilet Yönetimi';
+    const title = isDriverRole()
+        ? 'Transferler'
+        : isArtistLikeRole()
+            ? 'Atanan Biletler'
+            : pathIsTickets
+                ? 'Bilet Yönetimi'
+                : 'Randevu Yönetimi';
     const desc = isDriverRole()
         ? 'Pick up seçili transferler, müşteri bilgileri ve sürücü aksiyonları.'
         : isArtistLikeRole()
@@ -1130,94 +1800,37 @@ const renderAppointmentsPage = async (root) => {
                     ${locksToOwnStudio ? '<div class="badge-pill" data-appointments-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                     ` : '<div></div>'}
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end">
+                        ${canCreateAppointmentWeb() ? `<button class="button-primary" data-open-appointment-create style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">${pathIsTickets ? 'Bilet Aç' : 'Randevu Oluştur'}</button>` : ''}
                         <button class="button-secondary" data-appointments-filter style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Filtrele</button>
                         <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
                     </div>
                 </div>
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.9rem" data-appointments-tabs>
-                    <button class="${activeRecordType === 'designer' ? 'button-primary' : 'button-secondary'}" data-appointments-type-tab="designer" style="padding:0.5rem 0.85rem;font-size:0.78rem">Randevularım</button>
-                    <button class="${activeRecordType === 'tattoo' ? 'button-primary' : 'button-secondary'}" data-appointments-type-tab="tattoo" style="padding:0.5rem 0.85rem;font-size:0.78rem">Biletlerim</button>
+                    <span class="badge-pill ${activeRecordType === 'tattoo' ? 'badge-pill--purple' : 'badge-pill--teal'}" style="font-size:0.72rem">${activeRecordType === 'tattoo' ? 'Sadece Biletler' : 'Sadece Randevular'}</span>
                     <button class="${activeTimeScope === 'upcoming' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="upcoming" style="padding:0.5rem 0.85rem;font-size:0.78rem">Gelecek</button>
                     <button class="${activeTimeScope === 'past' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="past" style="padding:0.5rem 0.85rem;font-size:0.78rem">Geçmiş</button>
                     <button class="${activeTimeScope === 'all' ? 'button-primary' : 'button-secondary'}" data-appointments-time-tab="all" style="padding:0.5rem 0.85rem;font-size:0.78rem">Tümü</button>
                 </div>
                 <div class="list-stack" data-appointments-list>${skeletonGrid(4)}</div>
             </div>
-            ${canCreateAppointmentWeb() ? `
-            <div class="form-shell">
-                <div class="section-eyebrow" style="margin-bottom:0.4rem">Manuel Giriş</div>
-                <div class="section-title" style="margin-bottom:1rem">${pathIsTickets ? 'Bilet Aç' : 'Randevu Oluştur / Bilet Aç'}</div>
-                <form class="form-grid" data-appointment-create-form enctype="multipart/form-data">
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap">
-                            <label class="field-label">Stüdyo</label>
-                            <select class="field-select" name="studio_id" data-appointment-create-studio ${locksToOwnStudio ? 'style="display:none"' : ''} required></select>
-                            ${locksToOwnStudio ? '<div class="badge-pill" data-appointment-create-locked-studio>Stüdyo yükleniyor...</div>' : ''}
-                        </div>
-                        <div class="field-wrap">
-                            <label class="field-label">Tür</label>
-                            <select class="field-select" name="appointment_type">
-                                <option value="designer" ${pathIsTickets ? '' : 'selected'}>Randevu (Tasarım)</option>
-                                <option value="tattoo" ${pathIsTickets ? 'selected' : ''}>Bilet (Dövme/Piercing)</option>
-                            </select>
-                        </div>
-                    </div>
-                    ${ticketFieldsMarkup()}
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="customer[first_name]" required></div>
-                        <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="customer[last_name]" required></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap">
-                            <label class="field-label">Ülke Kodu</label>
-                            <select class="field-select" name="customer[phone_country_code]">
-                                <option value="+90">🇹🇷 Turkey +90</option>
-                                <option value="+49">🇩🇪 Germany +49</option>
-                                <option value="+44">🇬🇧 United Kingdom +44</option>
-                                <option value="+48">🇵🇱 Poland +48</option>
-                                <option value="+31">🇳🇱 Netherlands +31</option>
-                                <option value="+7">🇷🇺 Russia +7</option>
-                                <option value="+41">🇨🇭 Switzerland +41</option>
-                                <option value="+32">🇧🇪 Belgium +32</option>
-                                <option value="+372">🇪🇪 Estonia +372</option>
-                                <option value="+46">🇸🇪 Sweden +46</option>
-                                <option value="+47">🇳🇴 Norway +47</option>
-                                <option value="+45">🇩🇰 Denmark +45</option>
-                                <option value="+358">🇫🇮 Finland +358</option>
-                            </select>
-                        </div>
-                        <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="customer[phone_number]" inputmode="tel"></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Otel</label><input class="field-input" name="customer[hotel_name]"></div>
-                        <div class="field-wrap"><label class="field-label">Oda</label><input class="field-input" name="customer[room_number]"></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap"><label class="field-label">Tarih/Saat</label><input class="field-input" name="appointment_at" type="datetime-local" required></div>
-                        <div class="field-wrap"><label class="field-label">Kişi</label><input class="field-input" name="pax" type="number" min="1" value="1" required></div>
-                    </div>
-                    <div class="form-grid form-grid--split">
-                        <div class="field-wrap" data-price-field><label class="field-label">Fiyat <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="price" type="number" min="0" step="0.01"></div>
-                        <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*"></div>
-                    </div>
-                    <div class="field-wrap"><label class="field-label" data-appointment-images-label>Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
-                    <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
-                    <label data-pickup-field style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
-                    <button class="button-primary" type="submit" style="justify-content:center">Kaydı Oluştur</button>
-                </form>
-            </div>
-            ` : ''}
         </div>
     `;
 
     const studioSelect = qs('[data-appointments-studio-select]', root);
-    const createStudioSelect = qs('[data-appointment-create-studio]', root);
     const lockedStudioLabel = qs('[data-appointments-locked-studio]', root);
-    const createLockedStudioLabel = qs('[data-appointment-create-locked-studio]', root);
     const listNode = qs('[data-appointments-list]', root);
-    const createAppointmentForm = qs('[data-appointment-create-form]', root);
-    bindTicketFields(createAppointmentForm);
-    bindDesignerAppointmentFields(createAppointmentForm);
+    let studioOptions = [];
+    let lastRenderedAppointments = [];
+
+    const companyIdForAppointment = (appointment = null) => {
+        const appointmentStudioId = appointment?.studio?.id || studioSelect?.value;
+        const option = studioOptions.find((studio) => String(studio.id) === String(appointmentStudioId));
+        return appointment?.studio?.company_id
+            || appointment?.studio?.company?.id
+            || option?.company_id
+            || option?.company?.id
+            || null;
+    };
 
     const syncAppointmentTabs = () => {
         root.querySelectorAll('[data-appointments-type-tab]').forEach((button) => {
@@ -1245,13 +1858,15 @@ const renderAppointmentsPage = async (root) => {
                     <button class="button-secondary" data-close-appointments-filter style="padding:0.45rem 0.7rem">Kapat</button>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.8rem">
-                    <div class="field-wrap">
-                        <label class="field-label">Kayıt Türü</label>
-                        <select class="field-select" data-popup-appointment-type>
-                            <option value="designer" ${activeRecordType === 'designer' ? 'selected' : ''}>Randevu</option>
-                            <option value="tattoo" ${activeRecordType === 'tattoo' ? 'selected' : ''}>Bilet</option>
-                        </select>
-                    </div>
+                    ${recordTypeLocked ? '' : `
+                        <div class="field-wrap">
+                            <label class="field-label">Kayıt Türü</label>
+                            <select class="field-select" data-popup-appointment-type>
+                                <option value="designer" ${activeRecordType === 'designer' ? 'selected' : ''}>Randevu</option>
+                                <option value="tattoo" ${activeRecordType === 'tattoo' ? 'selected' : ''}>Bilet</option>
+                            </select>
+                        </div>
+                    `}
                     <div class="field-wrap">
                         <label class="field-label">Zaman</label>
                         <select class="field-select" data-popup-appointment-time>
@@ -1295,7 +1910,9 @@ const renderAppointmentsPage = async (root) => {
             qs('[data-popup-appointment-date-to]', overlay).value = '';
         });
         qs('[data-apply-appointments-filter]', overlay)?.addEventListener('click', () => {
-            activeRecordType = qs('[data-popup-appointment-type]', overlay)?.value || 'designer';
+            activeRecordType = recordTypeLocked
+                ? routeRecordType
+                : (qs('[data-popup-appointment-type]', overlay)?.value || 'designer');
             activeTimeScope = qs('[data-popup-appointment-time]', overlay)?.value || 'upcoming';
             appointmentStatusFilter = qs('[data-popup-appointment-status]', overlay)?.value || '';
             appointmentDateFrom = qs('[data-popup-appointment-date-from]', overlay)?.value || '';
@@ -1313,29 +1930,151 @@ const renderAppointmentsPage = async (root) => {
     };
 
     const loadStudios = async () => {
-        if (!studioSelect && !createStudioSelect) return;
+        if (!studioSelect && !canCreateAppointmentWeb()) return;
         const payload = await apiFetch('/studios/options');
         const studios = uniqueById(payload.data || []);
+        studioOptions = studios;
         if (studioSelect) {
             studioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         }
-        if (createStudioSelect) {
-            createStudioSelect.innerHTML = studios.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-        }
         if (locksToOwnStudio && studios[0]?.id) {
             if (studioSelect) studioSelect.value = String(studios[0].id);
-            if (createStudioSelect) createStudioSelect.value = String(studios[0].id);
         }
         if (lockedStudioLabel) {
             lockedStudioLabel.textContent = studios[0]?.name
                 ? `Stüdyo: ${studios[0].name}`
                 : 'Atanmış stüdyo bulunamadı';
         }
+    };
+
+    const appointmentCreateFormMarkup = () => `
+        <form class="form-grid" data-appointment-create-form enctype="multipart/form-data">
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap">
+                    <label class="field-label">Stüdyo</label>
+                    <select class="field-select" name="studio_id" data-appointment-create-studio ${locksToOwnStudio ? 'style="display:none"' : ''} required></select>
+                    ${locksToOwnStudio ? '<div class="badge-pill" data-appointment-create-locked-studio>Stüdyo yükleniyor...</div>' : ''}
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Tür</label>
+                    <input type="hidden" name="appointment_type" value="${routeRecordType}">
+                    <div class="badge-pill ${routeRecordType === 'tattoo' ? 'badge-pill--purple' : 'badge-pill--teal'}" style="width:max-content">${routeRecordType === 'tattoo' ? 'Bilet' : 'Randevu'}</div>
+                </div>
+            </div>
+            ${ticketFieldsMarkup()}
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">Ad</label><input class="field-input" name="customer[first_name]" required></div>
+                <div class="field-wrap"><label class="field-label">Soyad</label><input class="field-input" name="customer[last_name]" required></div>
+            </div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap">
+                    <label class="field-label">Ülke Kodu</label>
+                    <select class="field-select" name="customer[phone_country_code]">
+                        <option value="+90">🇹🇷 Turkey +90</option>
+                        <option value="+49">🇩🇪 Germany +49</option>
+                        <option value="+44">🇬🇧 United Kingdom +44</option>
+                        <option value="+48">🇵🇱 Poland +48</option>
+                        <option value="+31">🇳🇱 Netherlands +31</option>
+                        <option value="+7">🇷🇺 Russia +7</option>
+                        <option value="+41">🇨🇭 Switzerland +41</option>
+                        <option value="+32">🇧🇪 Belgium +32</option>
+                        <option value="+372">🇪🇪 Estonia +372</option>
+                        <option value="+46">🇸🇪 Sweden +46</option>
+                        <option value="+47">🇳🇴 Norway +47</option>
+                        <option value="+45">🇩🇰 Denmark +45</option>
+                        <option value="+358">🇫🇮 Finland +358</option>
+                    </select>
+                </div>
+                <div class="field-wrap"><label class="field-label">Telefon</label><input class="field-input" name="customer[phone_number]" inputmode="tel"></div>
+            </div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">Otel</label><input class="field-input" name="customer[hotel_name]"></div>
+                <div class="field-wrap"><label class="field-label">Oda</label><input class="field-input" name="customer[room_number]"></div>
+            </div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap"><label class="field-label">Tarih/Saat</label><input class="field-input" name="appointment_at" type="datetime-local" required></div>
+                <div class="field-wrap"><label class="field-label">Kişi</label><input class="field-input" name="pax" type="number" min="1" value="1" required></div>
+            </div>
+            <div class="form-grid form-grid--split">
+                <div class="field-wrap" data-price-field><label class="field-label">Fiyat <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="price" type="number" min="0" step="0.01"></div>
+                <div class="field-wrap"><label class="field-label">Müşteri Fotoğrafı</label><input class="field-input" name="image" type="file" accept="image/*"></div>
+            </div>
+            <div class="field-wrap"><label class="field-label" data-appointment-images-label>Dövme Görselleri <span style="color:var(--text-subtle)">(en fazla 3)</span></label><input class="field-input" name="tattoo_images[]" type="file" accept="image/*" multiple></div>
+            <div class="field-wrap"><label class="field-label">Not</label><textarea class="field-input" name="notes" rows="3"></textarea></div>
+            <label data-pickup-field style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--text-muted)"><input type="checkbox" name="pickup_required" value="1"> Pick up gerekli</label>
+            <button class="button-primary" type="submit" style="justify-content:center">${routeRecordType === 'tattoo' ? 'Bileti Aç' : 'Randevuyu Oluştur'}</button>
+        </form>
+    `;
+
+    const populateCreateStudios = (overlay) => {
+        const createStudioSelect = qs('[data-appointment-create-studio]', overlay);
+        const createLockedStudioLabel = qs('[data-appointment-create-locked-studio]', overlay);
+        if (createStudioSelect) {
+            createStudioSelect.innerHTML = studioOptions.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+            if (studioSelect?.value) createStudioSelect.value = studioSelect.value;
+            if (locksToOwnStudio && studioOptions[0]?.id) createStudioSelect.value = String(studioOptions[0].id);
+        }
         if (createLockedStudioLabel) {
-            createLockedStudioLabel.textContent = studios[0]?.name
-                ? `Stüdyo: ${studios[0].name}`
+            createLockedStudioLabel.textContent = studioOptions[0]?.name
+                ? `Stüdyo: ${studioOptions[0].name}`
                 : 'Atanmış stüdyo bulunamadı';
         }
+    };
+
+    const bindCreateAppointmentForm = (form, close) => {
+        bindTicketFields(form);
+        bindDesignerAppointmentFields(form);
+        form?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleAsync(async () => {
+                validateTicketFields(form);
+                const tattooFiles = form.querySelector('input[name="tattoo_images[]"]')?.files;
+                const isTicket = form.querySelector('[name="appointment_type"]')?.value === 'tattoo';
+                if (isTicket && tattooFiles && tattooFiles.length > 3) {
+                    throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
+                }
+                const studioId = form.querySelector('[name="studio_id"]')?.value;
+                if (!studioId) throw new Error('Stüdyo seçin.');
+                const formData = new FormData(form);
+                formData.delete('studio_id');
+                if (formData.get('appointment_type') === 'designer') {
+                    formData.delete('price');
+                    formData.set('pickup_required', '1');
+                }
+                if (formData.get('appointment_at')) {
+                    formData.set('appointment_at', new Date(formData.get('appointment_at')).toISOString());
+                }
+                await apiFetch(`/studios/${studioId}/appointments`, { method: 'POST', body: formData });
+                showToast((formData.get('appointment_type') === 'tattoo' ? 'Bilet açıldı.' : 'Randevu oluşturuldu.'), 'success');
+                close();
+                await renderAppointments();
+            });
+        });
+    };
+
+    const openCreateAppointmentPopup = () => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:1rem';
+        overlay.innerHTML = `
+            <div class="panel-card" style="width:min(100%,760px);max-height:92vh;overflow:auto;padding:1.2rem">
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem">
+                    <div>
+                        <div class="section-eyebrow">Yeni Kayıt</div>
+                        <div class="section-title">${routeRecordType === 'tattoo' ? 'Bilet Aç' : 'Randevu Oluştur'}</div>
+                    </div>
+                    <button class="button-secondary" data-close-appointment-create style="padding:0.45rem 0.7rem">Kapat</button>
+                </div>
+                ${appointmentCreateFormMarkup()}
+            </div>
+        `;
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) close();
+        });
+        qs('[data-close-appointment-create]', overlay)?.addEventListener('click', close);
+        populateCreateStudios(overlay);
+        bindCreateAppointmentForm(qs('[data-appointment-create-form]', overlay), close);
+        document.body.appendChild(overlay);
     };
 
     const endpointForRole = () => {
@@ -1375,6 +2114,7 @@ const renderAppointmentsPage = async (root) => {
             const statusMatches = !appointmentStatusFilter || apt.status === appointmentStatusFilter;
             return typeMatches && timeMatches && statusMatches;
         });
+        lastRenderedAppointments = appointments;
 
         listNode.innerHTML = appointments.length
             ? appointments.map((apt, i) => {
@@ -1383,6 +2123,7 @@ const renderAppointmentsPage = async (root) => {
                 const studioId = apt.studio?.id || studioSelect?.value || '';
                 const limited = apt.artist_limited_view;
                 const metaLine = ticketMetaLine(apt);
+                const assignmentLabel = assignmentStatusLabel(apt);
                 const ticketTimePending = apt.appointment_type === 'tattoo'
                     && apt.appointment_at
                     && new Date(apt.appointment_at).getTime() > Date.now();
@@ -1402,6 +2143,7 @@ const renderAppointmentsPage = async (root) => {
                         </div>
                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;flex-shrink:0">
                             <span class="${statusClass(apt.status)}" style="font-size:0.65rem">${statusLabel(apt.status)}</span>
+                            ${assignmentLabel ? `<span class="${assignmentStatusClass(apt)}" style="font-size:0.6rem">${escapeHtml(assignmentLabel)}</span>` : ''}
                             ${apt.appointment_type ? `<span class="badge-pill badge-pill--teal" style="font-size:0.6rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>` : ''}
                             ${apt.price !== null && apt.price !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">${escapeHtml(apt.price)} €</span>` : ''}
                             ${apt.deposit_amount !== null && apt.deposit_amount !== undefined ? `<span class="badge-pill" style="font-size:0.6rem">Depozito ${escapeHtml(apt.deposit_amount)} €</span>` : ''}
@@ -1425,6 +2167,7 @@ const renderAppointmentsPage = async (root) => {
                     ` : ''}
                     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
                         <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.4rem 0.75rem;font-size:0.75rem">Detay</a>
+                        ${apt.appointment_type === 'tattoo' ? `<button class="button-secondary" data-ticket-print="${apt.id}" style="padding:0.4rem 0.75rem;font-size:0.75rem">Yazdır</button>` : ''}
                         ${canManageAppointmentRecords() ? `
                             ${apt.appointment_type === 'tattoo' ? `<label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-muted)"><input type="checkbox" data-appointment-pickup ${apt.pickup_required ? 'checked' : ''}> Pick up</label>` : ''}
                             <button class="button-secondary" data-appointment-save style="padding:0.4rem 0.75rem;font-size:0.75rem">Kaydet</button>
@@ -1445,6 +2188,14 @@ const renderAppointmentsPage = async (root) => {
                 </article>
             `}).join('')
             : `<div class="empty-state">Bu kapsamda ${activeRecordType === 'tattoo' ? 'bilet' : 'randevu'} bulunmuyor.</div>`;
+
+        listNode.querySelectorAll('[data-ticket-print]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-ticket-print');
+                const appointment = lastRenderedAppointments.find((item) => String(item.id) === String(id));
+                handleAsync(() => openTicketPdfPrintWindow(appointment || sampleTicketPdfAppointment(), companyIdForAppointment(appointment)));
+            });
+        });
 
         listNode.querySelectorAll('[data-appointment-save]').forEach((btn) => {
             btn.addEventListener('click', () => handleAsync(async () => {
@@ -1515,36 +2266,9 @@ const renderAppointmentsPage = async (root) => {
         });
     });
     qs('[data-appointments-filter]', root)?.addEventListener('click', openAppointmentFilterPopup);
+    qs('[data-open-appointment-create]', root)?.addEventListener('click', openCreateAppointmentPopup);
     studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
-    createAppointmentForm?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleAsync(async () => {
-            const form = e.target;
-            validateTicketFields(form);
-            const tattooFiles = form.querySelector('input[name="tattoo_images[]"]')?.files;
-            const isTicket = form.querySelector('[name="appointment_type"]')?.value === 'tattoo';
-            if (isTicket && tattooFiles && tattooFiles.length > 3) {
-                throw new Error('En fazla 3 dövme görseli ekleyebilirsiniz.');
-            }
-            const studioId = form.querySelector('[name="studio_id"]')?.value;
-            if (!studioId) throw new Error('Stüdyo seçin.');
-            const formData = new FormData(form);
-            formData.delete('studio_id');
-            if (formData.get('appointment_type') === 'designer') {
-                formData.delete('price');
-                formData.set('pickup_required', '1');
-            }
-            if (formData.get('appointment_at')) {
-                formData.set('appointment_at', new Date(formData.get('appointment_at')).toISOString());
-            }
-            await apiFetch(`/studios/${studioId}/appointments`, { method: 'POST', body: formData });
-            showToast((formData.get('appointment_type') === 'tattoo' ? 'Bilet açıldı.' : 'Randevu oluşturuldu.'), 'success');
-            form.reset();
-            form.querySelector('[name="appointment_type"]')?.dispatchEvent(new Event('change'));
-            await renderAppointments();
-        });
-    });
 };
 
 /* ── Stüdyolar ──────────────────────────────────────────────── */
@@ -1574,6 +2298,10 @@ const renderStudiosPage = async (root) => {
                     </div>
                     <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" required></div>
                     <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location"></div>
+                    <div class="form-grid form-grid--split">
+                        <div class="field-wrap"><label class="field-label">Instagram <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="instagram" placeholder="soulofink.gundogdu"></div>
+                        <div class="field-wrap"><label class="field-label">Facebook <span style="color:var(--text-subtle)">(opsiyonel)</span></label><input class="field-input" name="facebook" placeholder="soulofink.gundogdu"></div>
+                    </div>
                     <button class="button-primary" type="submit" style="justify-content:center">Stüdyo Oluştur</button>
                 </form>
             </div>
@@ -1608,12 +2336,17 @@ const renderStudiosPage = async (root) => {
                 </div>
                 <div style="display:grid;grid-template-columns:1fr;gap:0.6rem;margin-bottom:1.25rem">
                     ${statBlock('Konum', escapeHtml(studio.location || '—'))}
+                    ${statBlock('Sosyal', [studio.instagram ? `Instagram: ${escapeHtml(studio.instagram)}` : '', studio.facebook ? `Facebook: ${escapeHtml(studio.facebook)}` : ''].filter(Boolean).join('<br>') || '—')}
                 </div>
                 <div style="padding-top:1.1rem;border-top:1px solid var(--border)">
                     <form class="form-grid" data-studio-form data-studio-id="${studio.id}">
                         <div class="form-grid form-grid--split">
                             <div class="field-wrap"><label class="field-label">Stüdyo Adı</label><input class="field-input" name="name" value="${escapeHtml(studio.name)}"></div>
                             <div class="field-wrap"><label class="field-label">Konum</label><input class="field-input" name="location" value="${escapeHtml(studio.location || '')}"></div>
+                        </div>
+                        <div class="form-grid form-grid--split">
+                            <div class="field-wrap"><label class="field-label">Instagram</label><input class="field-input" name="instagram" value="${escapeHtml(studio.instagram || '')}" placeholder="soulofink.gundogdu"></div>
+                            <div class="field-wrap"><label class="field-label">Facebook</label><input class="field-input" name="facebook" value="${escapeHtml(studio.facebook || '')}" placeholder="soulofink.gundogdu"></div>
                         </div>
                         <div class="field-wrap"><label class="field-label">Logo URL</label><input class="field-input" name="logo_path" value="${escapeHtml(studio.logo_path || '')}" placeholder="https://..."></div>
                         <button class="button-primary" type="submit" style="justify-content:center">Ayarları Kaydet</button>
@@ -2073,7 +2806,7 @@ const renderAppointmentRequestsPage = async (root) => {
         setActiveTab();
         listNode.innerHTML = skeletonGrid(4);
         const payload = await apiFetch(`/appointment-requests?direction=${encodeURIComponent(direction)}`);
-        const requests = payload.data || [];
+        const requests = (payload.data || []).filter((request) => request.status === 'pending');
 
         listNode.innerHTML = requests.length
             ? requests.map((request, i) => {
@@ -2109,22 +2842,6 @@ const renderAppointmentRequestsPage = async (root) => {
                     ` : ''}
                     <div style="display:flex;align-items:flex-end;gap:0.6rem;flex-wrap:wrap;margin-top:0.85rem;padding-top:0.85rem;border-top:1px solid var(--border)">
                         ${canRespond ? `
-                            <div class="field-wrap" style="max-width:160px">
-                                <label class="field-label">Fiyat</label>
-                                <input class="field-input" data-request-price type="number" min="0" step="0.01" value="${escapeHtml(request.price ?? '')}" required>
-                            </div>
-                            ${request.request_type === 'tattoo' ? `
-                                <div class="field-wrap" style="max-width:160px">
-                                    <label class="field-label">Depozito</label>
-                                    <input class="field-input" data-request-deposit type="number" min="0" step="0.01" value="${escapeHtml(request.deposit_amount ?? '')}">
-                                </div>
-                                <div class="field-wrap" style="max-width:190px">
-                                    <label class="field-label">Ödeme</label>
-                                    <select class="field-select" data-request-payment>
-                                        ${Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => `<option value="${value}" ${request.payment_method === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
-                                    </select>
-                                </div>
-                            ` : ''}
                             <button class="button-primary" data-request-accept style="padding:0.45rem 0.85rem;font-size:0.75rem">Kabul Et</button>
                             <button class="button-ghost" data-request-reject style="padding:0.45rem 0.85rem;font-size:0.75rem">Reddet</button>
                         ` : ''}
@@ -2137,16 +2854,9 @@ const renderAppointmentRequestsPage = async (root) => {
         listNode.querySelectorAll('[data-request-accept]').forEach((button) => {
             button.addEventListener('click', () => handleAsync(async () => {
                 const card = button.closest('[data-request-card]');
-                const price = qs('[data-request-price]', card)?.value;
-                if (!price) throw new Error('Talebi kabul etmek için fiyat girin.');
-                const body = { price };
-                const depositAmount = qs('[data-request-deposit]', card)?.value;
-                const paymentMethod = qs('[data-request-payment]', card)?.value;
-                if (depositAmount !== undefined && depositAmount !== '') body.deposit_amount = depositAmount;
-                if (paymentMethod) body.payment_method = paymentMethod;
                 await apiFetch(`/appointment-requests/${card?.getAttribute('data-request-id')}/accept`, {
                     method: 'PATCH',
-                    body,
+                    body: {},
                 });
                 showToast('Talep kabul edildi ve randevuya dönüştü.', 'success');
                 await renderRequests();
@@ -2751,23 +3461,132 @@ const renderProfileAppointmentsPage = async (root) => {
 };
 
 const renderSettingsPage = async (root) => {
+    const canSendTestNotification = adminConfig.isAdmin || adminConfig.role === 'admin';
+
     root.innerHTML = `
-        ${pageHeader('Ayarlar', 'Uygulama Ayarları', 'Web panel teması ve bildirim testi.', '<span class="badge-pill">Web</span>')}
+        ${pageHeader('Ayarlar', 'Uygulama Ayarları', canSendTestNotification ? 'Web panel teması ve bildirim testi.' : 'Web panel teması.', '<span class="badge-pill">Web</span>')}
         <div class="data-grid">
             <div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Tema</div>
                 <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55">Web panel mevcut sistem temasını kullanır. Mobil uygulamada varsayılan light, kullanıcı seçerse dark kalır.</p>
             </div>
-            <div class="panel-card">
+            ${canSendTestNotification ? `<div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Bildirim Testi</div>
                 <button class="button-primary" data-test-notification style="justify-content:center">Test Bildirimi Gönder</button>
-            </div>
+            </div>` : ''}
         </div>
     `;
     qs('[data-test-notification]', root)?.addEventListener('click', () => handleAsync(async () => {
         await apiFetch('/notifications/test', { method: 'POST', body: {} });
         showToast('Test bildirimi tetiklendi.', 'success');
     }));
+};
+
+const renderTicketPdfTemplatePage = async (root) => {
+    if (!['admin', 'yonetici'].includes(adminConfig.role)) {
+        root.innerHTML = `
+            ${pageHeader('PDF Şablonu', 'Yetkisiz Alan', 'Bilet PDF metinleri ve logoları yalnızca admin veya şirket yöneticisi tarafından düzenlenebilir.', '<span class="badge-pill badge-pill--danger">403</span>')}
+            <div class="empty-state">Bu sayfayı görüntüleme yetkiniz yok.</div>
+        `;
+        return;
+    }
+
+    const canSelectCompany = adminConfig.isAdmin || adminConfig.role === 'admin';
+
+    root.innerHTML = `
+        ${pageHeader('PDF Şablonu', 'Bilet PDF Ayarları', 'Şirket bazlı logo, footer ve dil metinlerini buradan düzenleyin.', '<span class="badge-pill badge-pill--purple">Bilet PDF</span>')}
+        <div class="panel-card">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+                ${canSelectCompany ? `<div class="field-wrap" style="min-width:min(100%,320px);flex:1">
+                    <label class="field-label">Şirket</label>
+                    <select class="field-select" data-ticket-pdf-company></select>
+                </div>` : `<div class="field-wrap" style="min-width:min(100%,320px);flex:1">
+                    <label class="field-label">Şirket</label>
+                    <div class="badge-pill" data-ticket-pdf-company-name style="width:max-content;max-width:100%">Şirket yükleniyor...</div>
+                </div>`}
+                <button class="button-primary" data-ticket-pdf-edit style="padding:0.58rem 0.95rem">PDF Şablonunu Düzenle</button>
+            </div>
+            <div data-ticket-pdf-summary>${skeletonGrid(1)}</div>
+        </div>
+    `;
+
+    const companySelect = qs('[data-ticket-pdf-company]', root);
+    const companyNameBadge = qs('[data-ticket-pdf-company-name]', root);
+    const summaryNode = qs('[data-ticket-pdf-summary]', root);
+    let companies = [];
+    let currentTemplate = null;
+
+    const selectedCompanyId = () => canSelectCompany ? (companySelect?.value || companies[0]?.id || null) : (companies[0]?.id || null);
+
+    const renderSummary = () => {
+        if (!currentTemplate) {
+            summaryNode.innerHTML = '<div class="empty-state">PDF şablonu yüklenemedi.</div>';
+            return;
+        }
+        const logo = currentTemplate.logoUrl || '';
+        summaryNode.innerHTML = `
+            <div style="display:grid;grid-template-columns:96px 1fr;gap:1rem;align-items:center">
+                <div style="width:96px;height:96px;border-radius:0.85rem;border:1px solid var(--border);background:var(--surface-soft);display:grid;place-items:center;overflow:hidden">
+                    ${logo ? `<img src="${escapeHtml(logo)}" alt="PDF logo" style="width:100%;height:100%;object-fit:contain">` : '<span style="font-size:0.72rem;color:var(--text-subtle)">Logo yok</span>'}
+                </div>
+                <div>
+                    <div style="font-weight:800;color:var(--text-main);font-size:1rem">${escapeHtml(currentTemplate.brandTitle || 'PDF Şablonu')}</div>
+                    <div style="margin-top:0.3rem;color:var(--text-muted);font-size:0.82rem">${escapeHtml(currentTemplate.brandSubtitle || '')}</div>
+                    <div style="margin-top:0.55rem;display:flex;gap:0.45rem;flex-wrap:wrap">
+                        <span class="badge-pill">Varsayılan dil: ${escapeHtml((currentTemplate.language || 'de').toUpperCase())}</span>
+                        <span class="badge-pill">Logo ve metinler şirket bazlı</span>
+                    </div>
+                    <div style="margin-top:0.9rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+                        <label class="button-secondary" style="padding:0.5rem 0.85rem;font-size:0.78rem;cursor:pointer">
+                            Logo Dosyası Seç
+                            <input type="file" accept="image/*" data-ticket-pdf-logo-direct style="display:none">
+                        </label>
+                        <span style="font-size:0.72rem;color:var(--text-subtle)">PNG, JPG veya WEBP yükleyebilirsiniz.</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        qs('[data-ticket-pdf-logo-direct]', summaryNode)?.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            handleAsync(async () => {
+                const companyId = selectedCompanyId();
+                if (!companyId) throw new Error('Şirket seçin.');
+                const logoUrl = await uploadTicketPdfLogo(companyId, file);
+                if (logoUrl) {
+                    showToast('PDF logosu yüklendi.', 'success');
+                    await loadTemplate();
+                }
+            });
+        });
+    };
+
+    const loadTemplate = async () => {
+        const companyId = selectedCompanyId();
+        if (!companyId) {
+            summaryNode.innerHTML = '<div class="empty-state">Şirket bulunamadı.</div>';
+            return;
+        }
+        summaryNode.innerHTML = skeletonGrid(1);
+        currentTemplate = await fetchTicketPdfTemplate(companyId);
+        renderSummary();
+    };
+
+    const payload = await apiFetch('/companies');
+    companies = payload.data || [];
+    if (canSelectCompany && companySelect) {
+        companySelect.innerHTML = companies.map((company) => `<option value="${company.id}">${escapeHtml(company.name)}</option>`).join('');
+    } else if (companyNameBadge) {
+        companyNameBadge.textContent = companies[0]?.name || 'Şirket bulunamadı';
+    }
+    companySelect?.addEventListener('change', () => handleAsync(loadTemplate));
+    qs('[data-ticket-pdf-edit]', root)?.addEventListener('click', () => {
+        handleAsync(async () => {
+            await openTicketPdfTemplateEditor(selectedCompanyId(), sampleTicketPdfAppointment());
+            await loadTemplate();
+        });
+    });
+    await loadTemplate();
 };
 
 /* ── Hakedişler ─────────────────────────────────────────────── */
@@ -3371,6 +4190,7 @@ const pageInitializers = [
     ['[data-admin-profile]', renderProfilePage],
     ['[data-admin-profile-appointments]', renderProfileAppointmentsPage],
     ['[data-admin-earnings]', renderEarningsPage],
+    ['[data-admin-ticket-pdf-template]', renderTicketPdfTemplatePage],
     ['[data-admin-settings]', renderSettingsPage],
     ['[data-admin-studios]',      renderStudiosPage],
 ];
