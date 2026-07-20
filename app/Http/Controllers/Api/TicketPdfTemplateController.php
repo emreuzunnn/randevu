@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class TicketPdfTemplateController extends Controller
@@ -74,7 +75,7 @@ class TicketPdfTemplateController extends Controller
             Str::uuid() . '.' . $file->getClientOriginalExtension(),
             'public',
         );
-        $url = '/storage/' . $path;
+        $url = Storage::disk('public')->url($path);
 
         $template = $this->templateFor($company);
         $template['logo_url'] = $url;
@@ -222,6 +223,10 @@ class TicketPdfTemplateController extends Controller
     {
         if (! $url) {
             return null;
+        }
+
+        if (str_starts_with($url, '/storage/')) {
+            return Storage::disk('public')->url(ltrim(Str::after($url, '/storage/'), '/'));
         }
 
         $parts = parse_url($url);
