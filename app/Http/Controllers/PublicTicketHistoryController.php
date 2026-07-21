@@ -15,7 +15,7 @@ class PublicTicketHistoryController extends Controller
         $phoneCode = preg_replace('/\D+/', '', (string) $appointment->phone_country_code);
 
         $appointments = Appointment::query()
-            ->with(['studio.company'])
+            ->with(['studio.company', 'assignedArtist'])
             ->where(function ($query) use ($phoneNumber, $phoneCode): void {
                 $query->whereRaw("replace(replace(replace(phone_number, ' ', ''), '-', ''), '+', '') = ?", [$phoneNumber]);
 

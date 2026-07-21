@@ -890,6 +890,19 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
     const watermarkHtml = template.logoUrl
         ? `<img src="${escapeHtml(template.logoUrl)}" alt="Watermark logo">`
         : '';
+    const qrCodeUrl = appointment?.public_history_url
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=H&margin=10&data=${encodeURIComponent(appointment.public_history_url)}`
+        : '';
+    const qrHtml = qrCodeUrl
+        ? `
+            <img class="qr-code-image" src="${qrCodeUrl}" alt="QR">
+            ${template.logoUrl ? `
+                <span class="qr-logo">
+                    <img src="${escapeHtml(template.logoUrl)}" alt="QR logo">
+                </span>
+            ` : ''}
+        `
+        : escapeHtml(data.ticketCode);
     const printWindow = window.open('', '_blank', 'width=900,height=1100');
     if (!printWindow) {
         showToast('Yazdırma penceresi açılamadı. Tarayıcı popup iznini kontrol edin.', 'error');
@@ -916,11 +929,13 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .brand-title { font-size: 31px; font-weight: 800; line-height: 1; letter-spacing: .04em; }
                 .brand-subtitle { margin-top: 5px; font-size: 13px; font-weight: 700; letter-spacing: .22em; color: #1b1f28; }
                 .brand-tagline { margin-top: 7px; font-size: 8px; letter-spacing: .16em; color: #b79a50; }
-                .qr { width: 86px; height: 86px; border: 2px solid #20242c; display: grid; place-items: center; font-size: 11px; font-weight: 800; text-align: center; background:
+                .qr { position: relative; width: 86px; height: 86px; border: 2px solid #20242c; display: grid; place-items: center; font-size: 11px; font-weight: 800; text-align: center; background:
                     linear-gradient(90deg, #20242c 8px, transparent 8px) 0 0 / 18px 18px,
                     linear-gradient(#20242c 8px, transparent 8px) 0 0 / 18px 18px,
                     #fff; color: #20242c; overflow: hidden; }
-                .qr img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+                .qr-code-image { width: 100%; height: 100%; object-fit: cover; background: #fff; display: block; }
+                .qr-logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 27px; height: 27px; border-radius: 8px; background: #fff; border: 2px solid #fff; box-shadow: 0 2px 7px rgba(17,24,39,.22); padding: 3px; display: grid; place-items: center; }
+                .qr-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
                 .ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; margin-top: 34px; }
                 .ticket-info-row { display: grid; grid-template-columns: 160px 1fr; gap: 8px; align-items: baseline; font-size: 12px; margin-bottom: 12px; }
                 .ticket-info-row span { font-weight: 700; color: #111827; }
@@ -957,10 +972,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                         </div>
                     </div>
                     <div class="qr">
-                        ${appointment?.public_history_url
-                            ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(appointment.public_history_url)}" alt="QR">`
-                            : escapeHtml(data.ticketCode)
-                        }
+                        ${qrHtml}
                     </div>
                 </header>
                 <section class="ticket-grid">
@@ -1983,6 +1995,7 @@ const renderAppointmentsPage = async (root) => {
     let appointmentStatusFilter = '';
     let appointmentDateFrom = '';
     let appointmentDateTo = '';
+    let appointmentSearchQuery = '';
     const title = isDriverRole()
         ? 'Transferler'
         : isArtistLikeRole()
@@ -2008,7 +2021,11 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                     ${locksToOwnStudio ? '<div class="badge-pill" data-appointments-locked-studio>Stüdyo yükleniyor...</div>' : ''}
                     ` : '<div></div>'}
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end">
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;align-items:flex-end">
+                        <div class="field-wrap" style="min-width:min(100%,260px)">
+                            <label class="field-label">Genel Arama</label>
+                            <input class="field-input" data-appointments-search placeholder="Ad, telefon, otel, oda, not..." value="${escapeHtml(appointmentSearchQuery)}" style="padding:0.55rem 0.75rem;font-size:0.78rem">
+                        </div>
                         ${canCreateAppointmentWeb() ? `<button class="button-primary" data-open-appointment-create style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">${pathIsTickets ? 'Bilet Aç' : 'Randevu Oluştur'}</button>` : ''}
                         <button class="button-secondary" data-appointments-filter style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Filtrele</button>
                         <button class="button-secondary" data-appointments-refresh style="padding:0.55rem 0.85rem;font-size:0.78rem;flex-shrink:0">Yenile</button>
@@ -2517,6 +2534,35 @@ const renderAppointmentsPage = async (root) => {
             : '<div style="width:42px;height:42px;border-radius:0.55rem;border:1px solid var(--border);background:var(--surface-soft);flex-shrink:0"></div>';
     };
 
+    const appointmentSearchHaystack = (apt) => [
+        apt.id,
+        apt.customer?.first_name,
+        apt.customer?.last_name,
+        apt.customer?.phone_country_code,
+        apt.customer?.phone_number,
+        apt.customer?.hotel_name,
+        apt.customer?.room_number,
+        apt.customer?.customer_notes,
+        apt.place,
+        apt.notes,
+        apt.status,
+        statusLabel(apt.status),
+        apt.appointment_type,
+        APPOINTMENT_TYPE_LABELS[apt.appointment_type],
+        apt.ticket_type_labels?.join(' '),
+        apt.ticket_types?.join(' '),
+        apt.tattoo_type_label,
+        apt.tattoo_type,
+        apt.payment_method_label,
+        apt.payment_method,
+        apt.artist?.name,
+        apt.studio?.name,
+        apt.studio?.company?.name,
+        ticketMetaLine(apt),
+    ].filter((value) => value !== null && value !== undefined)
+        .join(' ')
+        .toLocaleLowerCase('tr-TR');
+
     const renderAppointments = async () => {
         const endpoint = endpointForRole();
         if (!endpoint) {
@@ -2527,13 +2573,15 @@ const renderAppointmentsPage = async (root) => {
         listNode.innerHTML = skeletonGrid(4);
         const payload = await apiFetch(endpoint);
         const now = Date.now();
+        const search = appointmentSearchQuery.trim().toLocaleLowerCase('tr-TR');
         const appointments = (payload.data || []).filter((apt) => {
             const typeMatches = !activeRecordType || apt.appointment_type === activeRecordType;
             const dateMs = apt.appointment_at ? new Date(apt.appointment_at).getTime() : null;
             const timeMatches = activeTimeScope === 'all'
                 || (activeTimeScope === 'upcoming' ? (dateMs === null || dateMs >= now) : (dateMs !== null && dateMs < now));
             const statusMatches = !appointmentStatusFilter || apt.status === appointmentStatusFilter;
-            return typeMatches && timeMatches && statusMatches;
+            const searchMatches = !search || appointmentSearchHaystack(apt).includes(search);
+            return typeMatches && timeMatches && statusMatches && searchMatches;
         });
         lastRenderedAppointments = appointments;
 
@@ -2586,7 +2634,7 @@ const renderAppointmentsPage = async (root) => {
                     </div>
                 </article>
             `}).join('')
-            : `<div class="empty-state">Bu kapsamda ${activeRecordType === 'tattoo' ? 'bilet' : 'randevu'} bulunmuyor.</div>`;
+            : `<div class="empty-state">${appointmentSearchQuery.trim() ? 'Aramanıza uygun kayıt bulunamadı.' : `Bu kapsamda ${activeRecordType === 'tattoo' ? 'bilet' : 'randevu'} bulunmuyor.`}</div>`;
 
         listNode.querySelectorAll('[data-ticket-print]').forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -2649,6 +2697,13 @@ const renderAppointmentsPage = async (root) => {
     qs('[data-open-appointment-create]', root)?.addEventListener('click', openCreateAppointmentPopup);
     studioSelect?.addEventListener('change', () => handleAsync(renderAppointments));
     qs('[data-appointments-refresh]', root)?.addEventListener('click', () => handleAsync(renderAppointments));
+    const searchInput = qs('[data-appointments-search]', root);
+    let searchTimer = null;
+    searchInput?.addEventListener('input', () => {
+        appointmentSearchQuery = searchInput.value || '';
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => handleAsync(renderAppointments), 220);
+    });
 };
 
 /* ── Stüdyolar ──────────────────────────────────────────────── */

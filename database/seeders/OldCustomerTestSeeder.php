@@ -90,6 +90,9 @@ class OldCustomerTestSeeder extends Seeder
             return;
         }
 
+        $phoneKey = trim(strtolower(preg_replace('/[^a-z0-9]+/i', '-', $customer['phone_country_code'].'-'.$customer['phone_number'])), '-');
+        $tokenPrefix = 'old-customer-'.$phoneKey;
+
         $base = [
             'studio_id' => $studio->id,
             'created_by_user_id' => $creator->id,
@@ -113,6 +116,7 @@ class OldCustomerTestSeeder extends Seeder
             'appointment_type' => 'tattoo',
             'assigned_artist_user_id' => $artist?->id,
             'appointment_at' => now()->subDays(28)->setTime(14, 0),
+            'public_token' => $tokenPrefix.'-coverup',
             'price' => 420,
             'deposit_amount' => 120,
             'payment_method' => 'cash',
@@ -142,6 +146,7 @@ class OldCustomerTestSeeder extends Seeder
             'appointment_type' => 'tattoo',
             'assigned_artist_user_id' => $artist?->id,
             'appointment_at' => now()->subDays(3)->setTime(16, 15),
+            'public_token' => $tokenPrefix.'-piercing',
             'price' => 280,
             'deposit_amount' => 80,
             'payment_method' => 'credit_card',
@@ -152,6 +157,53 @@ class OldCustomerTestSeeder extends Seeder
             ],
             'completed_tattoo_image_path' => 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80',
             'notes' => 'Yakın tarihli eski müşteri test kaydı.',
+        ]));
+
+        Appointment::create(array_merge($base, [
+            'appointment_type' => 'tattoo',
+            'assigned_artist_user_id' => $artist?->id,
+            'appointment_at' => now()->subDays(7)->setTime(18, 45),
+            'public_token' => $tokenPrefix.'-cancelled',
+            'status' => 'cancelled',
+            'driver_status' => 'cancelled',
+            'artist_status' => 'rejected',
+            'price' => 190,
+            'deposit_amount' => 50,
+            'payment_method' => 'cash',
+            'ticket_types' => ['cream_sale', 'piercing_make'],
+            'tattoo_type' => 'refresh',
+            'pickup_required' => false,
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1542856391-010fb87dcfed?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1552627019-947c3789ffb5?auto=format&fit=crop&w=900&q=80',
+            ],
+            'completed_tattoo_image_path' => null,
+            'notes' => 'İptal edilen bilet geçmişte görünmeli.',
+        ]));
+
+        Appointment::create(array_merge($base, [
+            'appointment_type' => 'tattoo',
+            'assigned_artist_user_id' => $artist?->id,
+            'appointment_at' => now()->addDays(2)->setTime(12, 20),
+            'public_token' => $tokenPrefix.'-qr-test',
+            'status' => 'confirmed',
+            'driver_status' => null,
+            'artist_status' => 'accepted',
+            'price' => 510,
+            'deposit_amount' => 150,
+            'payment_method' => 'credit_card',
+            'ticket_types' => ['tattoo', 'piercing'],
+            'tattoo_type' => 'freehand',
+            'photo_path' => 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
+            'source_image_path' => 'https://images.unsplash.com/photo-1601848714157-d845bb5c11ff?auto=format&fit=crop&w=900&q=80',
+            'tattoo_image_paths' => [
+                'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80',
+            ],
+            'completed_tattoo_image_path' => null,
+            'customer_notes' => 'QR geçmiş ekranı test bileti. Müşteri bütün geçmiş kayıtlarını güvenli biçimde görmeli.',
+            'notes' => 'Bu kaydın QR kodu test için önerilir.',
         ]));
     }
 
