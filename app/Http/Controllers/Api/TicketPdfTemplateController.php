@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class TicketPdfTemplateController extends Controller
 {
@@ -70,12 +72,46 @@ class TicketPdfTemplateController extends Controller
         ]);
 
         $file = $request->file('logo');
-        $path = $file->storeAs(
-            'logos/ticket-pdf/' . $company->id,
-            Str::uuid() . '.' . $file->getClientOriginalExtension(),
-            'public',
-        );
-        $url = Storage::disk('public')->url($path);
+        $directory = 'logos/ticket-pdf/' . $company->id;
+
+        try {
+            Storage::disk('public')->makeDirectory($directory);
+
+            $path = $file->storeAs(
+                $directory,
+                Str::uuid() . '.' . strtolower($file->getClientOriginalExtension()),
+                'public',
+            );
+        } catch (Throwable $exception) {
+            Log::error('Ticket PDF logo upload failed.', [
+                'company_id' => $company->id,
+                'disk' => 'public',
+                'directory' => $directory,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Logo sunucuya kaydedilemedi. storage/app/public klasörünün yazma iznini kontrol edin.',
+            ], 500);
+        }
+
+        if (! is_string($path) || $path === '') {
+            Log::error('Ticket PDF logo upload returned empty path.', [
+                'company_id' => $company->id,
+                'disk' => 'public',
+                'directory' => $directory,
+                'is_valid_upload' => $file?->isValid(),
+                'upload_error' => $file?->getErrorMessage(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Logo yüklenemedi. Sunucu dosya yazma iznini veya PHP upload limitini kontrol edin.',
+            ], 500);
+        }
+
+        $url = $this->publicStorageUrl($path);
 
         $template = $this->templateFor($company);
         $template['logo_url'] = $url;
@@ -225,20 +261,35 @@ class TicketPdfTemplateController extends Controller
             return null;
         }
 
+        if (str_starts_with($url, 'logos/ticket-pdf/')) {
+            return $this->publicStorageUrl($url);
+        }
+
+        if (str_starts_with($url, 'storage/logos/ticket-pdf/')) {
+            return '/'.ltrim($url, '/');
+        }
+
         if (str_starts_with($url, '/storage/')) {
-            return Storage::disk('public')->url(ltrim(Str::after($url, '/storage/'), '/'));
+            return $url;
         }
 
         $parts = parse_url($url);
-        $host = $parts['host'] ?? null;
         $path = $parts['path'] ?? null;
 
-        if ($path !== null && str_starts_with($path, '/storage/')
-            && in_array($host, ['localhost', '127.0.0.1'], true)) {
+        if ($path !== null && str_contains($path, '/storage/logos/ticket-pdf/')) {
+            return '/storage/'.ltrim(Str::after($path, '/storage/'), '/');
+        }
+
+        if ($path !== null && str_starts_with($path, '/storage/')) {
             return $path;
         }
 
         return $url;
+    }
+
+    private function publicStorageUrl(string $path): string
+    {
+        return '/storage/'.ltrim($path, '/');
     }
 
     /**

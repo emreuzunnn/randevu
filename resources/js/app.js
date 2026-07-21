@@ -322,6 +322,45 @@ const apiFetch = async (path, options = {}) => {
     return payload;
 };
 
+const optimizeImageForUpload = (file, maxSize = 1200, quality = 0.9) => new Promise((resolve) => {
+    if (!(file instanceof File) || !file.type.startsWith('image/') || file.type === 'image/gif') {
+        resolve(file);
+        return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        if (scale >= 1 && file.size <= 900 * 1024) {
+            resolve(file);
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                resolve(file);
+                return;
+            }
+
+            const optimizedName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+            resolve(new File([blob], optimizedName, { type: 'image/webp', lastModified: Date.now() }));
+        }, 'image/webp', quality);
+    };
+    image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+    };
+    image.src = objectUrl;
+});
+
 /* ── Tarih formatları ───────────────────────────────────────── */
 
 const formatDate = (value) => {
@@ -736,8 +775,9 @@ const persistTicketPdfTemplate = async (companyId, template) => {
 
 const uploadTicketPdfLogo = async (companyId, file) => {
     if (!companyId || !file) return null;
+    const uploadFile = await optimizeImageForUpload(file);
     const formData = new FormData();
-    formData.append('logo', file);
+    formData.append('logo', uploadFile);
     const payload = await apiFetch(`/companies/${companyId}/ticket-pdf-template/logo`, {
         method: 'POST',
         body: formData,

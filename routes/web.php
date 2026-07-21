@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\PublicTicketHistoryController;
 use App\Http\Controllers\Webhook\WhatsAppWebhookController;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -23,6 +24,14 @@ Route::get('/webhook/whatsapp', [WhatsAppWebhookController::class, 'verify'])->n
 Route::post('/webhook/whatsapp', [WhatsAppWebhookController::class, 'receive'])->name('webhook.whatsapp.receive');
 Route::get('/test-whatsapp', [WhatsAppWebhookController::class, 'sendTestMessage'])->name('webhook.whatsapp.test');
 Route::get('/ticket-history/{appointment}/{token}', [PublicTicketHistoryController::class, 'show'])->name('ticket-history.show');
+Route::get('/storage/logos/ticket-pdf/{path}', function (string $path) {
+    abort_if(str_contains($path, '..'), 404);
+
+    $storagePath = 'logos/ticket-pdf/'.ltrim($path, '/');
+    abort_unless(Storage::disk('public')->exists($storagePath), 404);
+
+    return Storage::disk('public')->response($storagePath);
+})->where('path', '.*')->name('public.ticket-pdf-logo');
 
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');

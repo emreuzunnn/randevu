@@ -32,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.auth' => ApiTokenMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);
+
+        $middleware->redirectGuestsTo(fn (Request $request) => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (AuthenticationException $exception, Request $request) {
