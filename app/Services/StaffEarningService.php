@@ -29,7 +29,6 @@ class StaffEarningService
             $appointment->appointment_type !== 'tattoo'
             || $appointment->status !== 'completed'
             || $appointment->studio_id === null
-            || $appointment->created_by_user_id === null
             || $appointment->price === null
             || (float) $appointment->price <= 0
         ) {
@@ -38,9 +37,16 @@ class StaffEarningService
             return null;
         }
 
+        $earningUserId = $appointment->assigned_info_user_id ?: $appointment->created_by_user_id;
+        if ($earningUserId === null) {
+            $existing?->delete();
+
+            return null;
+        }
+
         $membership = $appointment->studio
             ?->users()
-            ->where('users.id', $appointment->created_by_user_id)
+            ->where('users.id', $earningUserId)
             ->wherePivot('is_active', true)
             ->first();
 
@@ -66,7 +72,7 @@ class StaffEarningService
             ['appointment_id' => $appointment->id],
             [
                 'studio_id' => $appointment->studio_id,
-                'user_id' => $appointment->created_by_user_id,
+                'user_id' => $earningUserId,
                 'role' => $role->value,
                 'commission_rate' => $rate,
                 'gross_amount' => $grossAmount,

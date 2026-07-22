@@ -625,6 +625,9 @@ class ApiTestSeeder extends Seeder
         foreach ($appointments1 as $data) {
             $data['price'] ??= fake()->numberBetween(70, 520);
             $data = $this->withTicketDefaults($data);
+            if (($data['appointment_type'] ?? null) === 'tattoo') {
+                $data['assigned_info_user_id'] ??= $info1->id;
+            }
             $data['pickup_required'] ??= false;
             $data['tattoo_image_paths'] ??= [
                 'https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=80',
@@ -763,6 +766,9 @@ class ApiTestSeeder extends Seeder
         foreach ($appointments2 as $data) {
             $data['price'] ??= fake()->numberBetween(85, 650);
             $data = $this->withTicketDefaults($data);
+            if (($data['appointment_type'] ?? null) === 'tattoo') {
+                $data['assigned_info_user_id'] ??= $info2->id;
+            }
             $data['pickup_required'] ??= false;
             $data['tattoo_image_paths'] ??= [
                 'https://images.unsplash.com/photo-1562962230-16e4623d36e6?auto=format&fit=crop&w=900&q=80',

@@ -57,7 +57,7 @@ class AppointmentController extends Controller
         $accessibleStudioIds = $user->accessibleStudioIds();
 
         $appointments = Appointment::query()
-            ->with(['createdBy', 'assignedArtist', 'studio.company'])
+            ->with(['createdBy', 'assignedInfo', 'assignedArtist', 'studio.company'])
             ->whereIn('studio_id', $accessibleStudioIds)
             ->when(isset($filters['studio_id']), fn ($query) => $query
                 ->where('studio_id', (int) $filters['studio_id']))
@@ -93,6 +93,12 @@ class AppointmentController extends Controller
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                 'pickup_required'   => (bool) $appointment->pickup_required,
+                'assigned_info_user_id' => $appointment->assigned_info_user_id,
+                'info_staff' => $appointment->assignedInfo ? [
+                    'id' => $appointment->assignedInfo->id,
+                    'name' => $appointment->assignedInfo->fullName(),
+                    'profile_image' => $appointment->assignedInfo->profile_image,
+                ] : null,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -320,7 +326,7 @@ class AppointmentController extends Controller
 
     private function appointmentDetailResponse(Appointment $appointment): JsonResponse
     {
-        $appointment->load(['createdBy', 'assignedArtist', 'studio.company']);
+        $appointment->load(['createdBy', 'assignedInfo', 'assignedArtist', 'studio.company']);
         $limitedView = $this->appointmentPrivacyLimitedView($appointment);
         $currentUser = request()->user();
 
@@ -350,6 +356,12 @@ class AppointmentController extends Controller
                 'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
                 'is_old_customer'  => $limitedView ? null : $appointment->is_old_customer,
                 'artist_limited_view' => $limitedView,
+                'assigned_info_user_id' => $limitedView ? null : $appointment->assigned_info_user_id,
+                'info_staff' => ! $limitedView && $appointment->assignedInfo ? [
+                    'id' => $appointment->assignedInfo->id,
+                    'name' => $appointment->assignedInfo->fullName(),
+                    'profile_image' => $appointment->assignedInfo->profile_image,
+                ] : null,
                 'studio'           => $appointment->studio ? [
                     'id'   => $appointment->studio->id,
                     'name' => $appointment->studio->name,
@@ -429,7 +441,7 @@ class AppointmentController extends Controller
             && $user->hasStudioRole($studio, [UserRole::Artist]);
 
         $appointments = $studio->appointments()
-            ->with(['createdBy', 'assignedArtist'])
+            ->with(['createdBy', 'assignedInfo', 'assignedArtist'])
             ->when($artistOnlyView, fn ($query) => $query
                 ->where('assigned_artist_user_id', $user->id))
             ->when(isset($filters['appointment_type']), fn ($query) => $query
@@ -465,6 +477,12 @@ class AppointmentController extends Controller
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                 'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
                 'artist_limited_view' => $limitedView,
+                'assigned_info_user_id' => $limitedView ? null : $appointment->assigned_info_user_id,
+                'info_staff' => ! $limitedView && $appointment->assignedInfo ? [
+                    'id' => $appointment->assignedInfo->id,
+                    'name' => $appointment->assignedInfo->fullName(),
+                    'profile_image' => $appointment->assignedInfo->profile_image,
+                ] : null,
                 'assigned_artist_user_id' => $appointment->assigned_artist_user_id,
                 'artist' => $appointment->assignedArtist ? [
                     'id'            => $appointment->assignedArtist->id,
@@ -692,6 +710,7 @@ class AppointmentController extends Controller
             'ticket_types'                => ['required_if:appointment_type,tattoo', 'nullable', 'array', 'max:4'],
             'ticket_types.*'              => ['string', 'in:'.implode(',', array_keys(self::TICKET_TYPES))],
             'tattoo_type'                 => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::TATTOO_TYPES))],
+            'assigned_info_user_id'       => ['nullable', 'integer', 'exists:users,id'],
             'appointment_at'              => ['required', 'date'],
             'appointment_type'            => ['nullable', 'string', 'in:designer,tattoo'],
             'notes'                       => ['nullable', 'string'],
@@ -705,6 +724,11 @@ class AppointmentController extends Controller
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
         $appointmentType = $validated['appointment_type'] ?? 'designer';
+        $validated['assigned_info_user_id'] = $this->resolveAssignedInfoUserId(
+            $studio,
+            $appointmentType,
+            $validated['assigned_info_user_id'] ?? null
+        );
         $validated = $this->normalizeTicketAttributes($validated, $appointmentType, true);
 
         $sourceImagePath = $validated['source_image_path'] ?? $validated['slip_image_path'] ?? null;
@@ -732,6 +756,7 @@ class AppointmentController extends Controller
             'payment_method'    => $validated['payment_method'] ?? null,
             'ticket_types'      => $validated['ticket_types'] ?? [],
             'tattoo_type'       => $validated['tattoo_type'] ?? null,
+            'assigned_info_user_id' => $validated['assigned_info_user_id'] ?? null,
             'appointment_at'    => $validated['appointment_at'],
             'notes'             => $validated['notes'] ?? null,
             'source_image_path' => $sourceImagePath,
@@ -772,6 +797,7 @@ class AppointmentController extends Controller
             'ticket_types'                => ['required_if:appointment_type,tattoo', 'nullable', 'array', 'max:4'],
             'ticket_types.*'              => ['string', 'in:'.implode(',', array_keys(self::TICKET_TYPES))],
             'tattoo_type'                 => ['required_if:appointment_type,tattoo', 'nullable', 'string', 'in:'.implode(',', array_keys(self::TATTOO_TYPES))],
+            'assigned_info_user_id'       => ['nullable', 'integer', 'exists:users,id'],
             'appointment_at'              => ['sometimes', 'date'],
             'appointment_type'            => ['sometimes', 'string', 'in:designer,tattoo'],
             'status'                      => ['sometimes', 'string', 'in:confirmed,in_progress,completed,cancelled,rescheduled'],
@@ -785,9 +811,17 @@ class AppointmentController extends Controller
             'pickup_required'              => ['sometimes', 'boolean'],
         ]);
         $validated = $this->withoutUnauthorizedPrice($validated, $request->user());
+        $nextAppointmentType = $validated['appointment_type'] ?? $appointment->appointment_type;
+        if (array_key_exists('assigned_info_user_id', $validated) || $nextAppointmentType !== 'tattoo') {
+            $validated['assigned_info_user_id'] = $this->resolveAssignedInfoUserId(
+                $studio,
+                $nextAppointmentType,
+                $validated['assigned_info_user_id'] ?? null
+            );
+        }
         $validated = $this->normalizeTicketAttributes(
             $validated,
-            $validated['appointment_type'] ?? $appointment->appointment_type,
+            $nextAppointmentType,
             false
         );
         $completionAppointmentAt = array_key_exists('appointment_at', $validated)
@@ -987,6 +1021,34 @@ class AppointmentController extends Controller
         ]);
     }
 
+    private function resolveAssignedInfoUserId(Studio $studio, string $appointmentType, mixed $userId): ?int
+    {
+        if ($appointmentType !== 'tattoo' || $userId === null || $userId === '') {
+            return null;
+        }
+
+        $infoUser = User::query()->find((int) $userId);
+        if ($infoUser === null || $infoUser->banned_at !== null) {
+            throw ValidationException::withMessages([
+                'assigned_info_user_id' => ['Info personeli bulunamadı.'],
+            ]);
+        }
+
+        $isActiveInfo = $studio->users()
+            ->where('users.id', $infoUser->id)
+            ->wherePivot('role', UserRole::Info->value)
+            ->wherePivot('is_active', true)
+            ->exists();
+
+        if (! $isActiveInfo) {
+            throw ValidationException::withMessages([
+                'assigned_info_user_id' => ['Seçilen kullanıcı bu stüdyoda aktif info personeli değil.'],
+            ]);
+        }
+
+        return (int) $infoUser->id;
+    }
+
     /**
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
@@ -1000,6 +1062,7 @@ class AppointmentController extends Controller
             $attributes['deposit_amount'] = null;
             $attributes['price'] = null;
             $attributes['pickup_required'] = true;
+            $attributes['assigned_info_user_id'] = null;
 
             return $attributes;
         }

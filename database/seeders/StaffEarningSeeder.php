@@ -20,14 +20,18 @@ class StaffEarningSeeder extends Seeder
             ->where('appointment_type', 'tattoo')
             ->where('status', 'completed')
             ->whereNotNull('studio_id')
-            ->whereNotNull('created_by_user_id')
             ->whereNotNull('price')
             ->where('price', '>', 0)
             ->orderBy('id')
             ->each(function (Appointment $appointment) use (&$earningIndex): void {
+                $userId = $appointment->assigned_info_user_id ?: $appointment->created_by_user_id;
+                if ($userId === null) {
+                    return;
+                }
+
                 $membership = $appointment->studio
                     ?->users()
-                    ->where('users.id', $appointment->created_by_user_id)
+                    ->where('users.id', $userId)
                     ->wherePivot('is_active', true)
                     ->first();
 
@@ -42,7 +46,7 @@ class StaffEarningSeeder extends Seeder
                     return;
                 }
 
-                $userId = (int) $appointment->created_by_user_id;
+                $userId = (int) $userId;
                 $isPaid = $earningIndex % 2 === 1;
                 $earningIndex++;
                 $grossAmount = (float) $appointment->price;

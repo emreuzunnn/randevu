@@ -2243,6 +2243,13 @@ const renderAppointmentsPage = async (root) => {
                     <div style="font-size:0.92rem;font-weight:850;color:var(--text-main)">İşlem türü ve ödeme detayları</div>
                 </div>
                 ${ticketFieldsMarkup()}
+                <div class="field-wrap" style="margin-top:0.85rem">
+                    <label class="field-label">Infocu Hakedişi</label>
+                    <select class="field-select" name="assigned_info_user_id" data-ticket-info-select>
+                        <option value="">Infocu seçilmedi</option>
+                    </select>
+                    <div style="margin-top:0.35rem;font-size:0.72rem;color:var(--text-subtle)">Seçilen infocu, bilet tamamlanınca kendi komisyon oranı kadar hakediş kazanır.</div>
+                </div>
             </section>
             ` : ticketFieldsMarkup()}
             <section style="border:1px solid var(--border);background:var(--surface);border-radius:1rem;padding:1rem">
@@ -2363,6 +2370,39 @@ const renderAppointmentsPage = async (root) => {
 
         createStudioSelect?.addEventListener('change', () => handleAsync(loadLogo));
         handleAsync(loadLogo);
+    };
+
+    const bindCreateInfoStaffOptions = (overlay) => {
+        const infoSelect = qs('[data-ticket-info-select]', overlay);
+        const createStudioSelect = qs('[data-appointment-create-studio]', overlay);
+        if (!infoSelect) return;
+
+        const loadInfoStaff = async () => {
+            const studioId = createStudioSelect?.value || studioSelect?.value || studioOptions[0]?.id;
+            if (!studioId) {
+                infoSelect.innerHTML = '<option value="">Infocu bulunamadı</option>';
+                return;
+            }
+
+            infoSelect.disabled = true;
+            infoSelect.innerHTML = '<option value="">Infocular yükleniyor...</option>';
+
+            try {
+                const payload = await apiFetch(`/users/options?roles=info&studio_id=${encodeURIComponent(studioId)}`);
+                const users = uniqueById(payload.data || []);
+                infoSelect.innerHTML = [
+                    '<option value="">Infocu seçilmedi</option>',
+                    ...users.map((user) => `<option value="${user.id}">${escapeHtml(user.name || user.email || `#${user.id}`)}</option>`),
+                ].join('');
+                infoSelect.disabled = false;
+            } catch (error) {
+                infoSelect.innerHTML = '<option value="">Infocu listesi alınamadı</option>';
+                infoSelect.disabled = false;
+            }
+        };
+
+        createStudioSelect?.addEventListener('change', () => handleAsync(loadInfoStaff));
+        handleAsync(loadInfoStaff);
     };
 
     const bindOldCustomerLookup = (form) => {
@@ -2551,6 +2591,7 @@ const renderAppointmentsPage = async (root) => {
         qs('[data-close-appointment-create]', overlay)?.addEventListener('click', close);
         populateCreateStudios(overlay);
         bindCreatePopupLogo(overlay);
+        bindCreateInfoStaffOptions(overlay);
         bindCreateAppointmentForm(qs('[data-appointment-create-form]', overlay), close);
         document.body.appendChild(overlay);
     };
@@ -2653,6 +2694,7 @@ const renderAppointmentsPage = async (root) => {
                             <span class="${statusClass(apt.status)}" style="font-size:0.58rem;padding:0.22rem 0.44rem">${statusLabel(apt.status)}</span>
                             ${assignmentLabel ? `<span class="${assignmentStatusClass(apt)}" style="font-size:0.58rem;padding:0.22rem 0.44rem">${escapeHtml(assignmentLabel)}</span>` : ''}
                             ${apt.appointment_type ? `<span class="badge-pill ${apt.appointment_type === 'tattoo' ? 'badge-pill--purple' : 'badge-pill--teal'}" style="font-size:0.58rem;padding:0.22rem 0.44rem">${APPOINTMENT_TYPE_LABELS[apt.appointment_type] ?? apt.appointment_type}</span>` : ''}
+                            ${apt.info_staff?.name ? `<span class="badge-pill" style="font-size:0.58rem;padding:0.22rem 0.44rem">Info: ${escapeHtml(apt.info_staff.name)}</span>` : ''}
                             ${apt.appointment_type === 'tattoo' && apt.price !== null && apt.price !== undefined && String(apt.price).trim() !== '' ? `<span class="badge-pill" style="font-size:0.58rem;padding:0.22rem 0.44rem">${escapeHtml(apt.price)} €</span>` : ''}
                             <a href="/admin/appointments/${apt.id}" class="button-ghost" style="padding:0.32rem 0.58rem;font-size:0.68rem">Detay</a>
                             ${apt.appointment_type === 'tattoo' ? `<button class="button-secondary" data-ticket-print="${apt.id}" style="padding:0.32rem 0.58rem;font-size:0.68rem">Yazdır</button>` : ''}

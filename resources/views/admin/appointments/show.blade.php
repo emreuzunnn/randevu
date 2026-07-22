@@ -191,6 +191,14 @@
                         {{ trim(($appointment->createdBy?->name ?? '') . ' ' . ($appointment->createdBy?->surname ?? '')) ?: '—' }}
                     </span>
                 </div>
+                @if($appointment->appointment_type === 'tattoo')
+                    <div class="detail-row">
+                        <span class="detail-label">Infocu</span>
+                        <span class="detail-value">
+                            {{ trim(($appointment->assignedInfo?->name ?? '') . ' ' . ($appointment->assignedInfo?->surname ?? '')) ?: '—' }}
+                        </span>
+                    </div>
+                @endif
                 @if($appointment->assignedArtist)
                     <div class="detail-row">
                         <span class="detail-label">Artist</span>

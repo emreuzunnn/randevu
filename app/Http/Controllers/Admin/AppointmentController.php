@@ -39,7 +39,7 @@ class AppointmentController extends Controller
 
         if ($selectedStudio !== null) {
             $appointments = $selectedStudio->appointments()
-                ->with(['createdBy', 'assignedArtist'])
+                ->with(['createdBy', 'assignedInfo', 'assignedArtist'])
                 ->where('appointment_type', $appointmentType)
                 ->latest('appointment_at')
                 ->get();
@@ -52,7 +52,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): View
     {
-        $appointment->load(['assignedArtist', 'createdBy', 'studio.company']);
+        $appointment->load(['assignedArtist', 'assignedInfo', 'createdBy', 'studio.company']);
         $user = request()->user();
         $canAccess = false;
 

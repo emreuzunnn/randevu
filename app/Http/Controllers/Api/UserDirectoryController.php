@@ -70,18 +70,33 @@ class UserDirectoryController extends Controller
     public function userOptions(Request $request): JsonResponse
     {
         $authUser = $request->user();
-        abort_unless($authUser?->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]), 403);
+        abort_unless($authUser instanceof User, 403);
 
         $requestedRoles = collect(explode(',', (string) $request->query('roles')))
             ->filter()
             ->map(fn (string $role): string => UserRole::fromValue($role)->value)
             ->values();
-        $manageableRoles = collect($authUser->manageableStaffRoles())
-            ->map(static fn (UserRole $role): string => $role->value);
-        $roles = $requestedRoles->intersect($manageableRoles)->values();
-
         $companyId = $request->query('company_id');
-        $scopeStudioIds = $authUser->staffScopeStudioIds();
+        $studioId = $request->query('studio_id');
+        $canManageDirectory = $authUser->hasAnyRole([UserRole::Admin, UserRole::Yonetici, UserRole::Supervisor]);
+
+        if ($canManageDirectory) {
+            $manageableRoles = collect($authUser->manageableStaffRoles())
+                ->map(static fn (UserRole $role): string => $role->value);
+            $roles = $requestedRoles->intersect($manageableRoles)->values();
+            $scopeStudioIds = $authUser->staffScopeStudioIds();
+        } else {
+            abort_unless(
+                $studioId
+                    && $authUser->canAccessStudio((int) $studioId)
+                    && $requestedRoles->count() === 1
+                    && $requestedRoles->first() === UserRole::Info->value,
+                403
+            );
+
+            $roles = collect([UserRole::Info->value]);
+            $scopeStudioIds = [(int) $studioId];
+        }
 
         $users = User::query()
             ->whereNull('banned_at')
@@ -103,6 +118,13 @@ class UserDirectoryController extends Controller
                     fn ($sq) => $sq->whereIn('studios.id', $scopeStudioIds)
                 )
             )
+            ->when($studioId, fn ($q) => $q->whereHas(
+                'studios',
+                fn ($sq) => $sq
+                    ->where('studios.id', (int) $studioId)
+                    ->whereIn('studio_user.role', $roles->all())
+                    ->where('studio_user.is_active', true)
+            ))
             ->when($companyId, fn ($q) => $q->whereHas(
                 'studios',
                 fn ($sq) => $sq->where('company_id', (int) $companyId)

@@ -25,6 +25,7 @@ class Appointment extends Model
         'studio_id',
         'customer_id',
         'created_by_user_id',
+        'assigned_info_user_id',
         'assigned_artist_user_id',
         'appointment_type',
         'first_name',
@@ -82,6 +83,11 @@ class Appointment extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function assignedInfo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_info_user_id');
     }
 
     public function assignedArtist(): BelongsTo

@@ -39,6 +39,7 @@ class AppointmentService
             return Appointment::query()->create([
                 'studio_id'               => $studio->id,
                 'created_by_user_id'      => $user->id,
+                'assigned_info_user_id'   => $attributes['assigned_info_user_id'] ?? null,
                 'assigned_artist_user_id' => null,
                 'artist_status'           => null,
                 'appointment_type'        => $attributes['appointment_type'] ?? 'designer',
@@ -84,6 +85,9 @@ class AppointmentService
             $appointment->fill([
                 ...$customerData,
                 'appointment_type'  => $attributes['appointment_type'] ?? $appointment->appointment_type,
+                'assigned_info_user_id' => array_key_exists('assigned_info_user_id', $attributes)
+                    ? $attributes['assigned_info_user_id']
+                    : $appointment->assigned_info_user_id,
                 'pax'               => $attributes['pax'] ?? $appointment->pax,
                 'price'             => array_key_exists('price', $attributes) ? $attributes['price'] : $appointment->price,
                 'deposit_amount'    => array_key_exists('deposit_amount', $attributes) ? $attributes['deposit_amount'] : $appointment->deposit_amount,
