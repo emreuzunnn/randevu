@@ -854,6 +854,7 @@ const ticketPdfDisplayData = (appointment = {}, language = 'de') => {
     const deposit = Number(appointment.deposit_amount || 0);
     return {
         documentDate: documentDate.date,
+        documentTime: documentDate.time,
         ticketCode: appointment.ticket_code || appointment.code || `TD-${String(appointment.id || 'DEMO').padStart(6, '0')}`,
         customerName: customerName || 'Demo Müşteri',
         phone: phone || '—',
@@ -916,7 +917,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
     const translation = template.translations[language] || template.translations.de;
     const labels = translation.labels || {};
     const data = ticketPdfDisplayData(appointment || sampleTicketPdfAppointment(), language);
-    const labelRowsLeft = ['documentDate', 'ticketCode', 'customerName', 'phone', 'hotelRoom', 'ticketType', 'infoStaff'];
+    const labelRowsLeft = ['ticketCode', 'customerName', 'phone', 'hotelRoom', 'ticketType', 'infoStaff'];
     const labelRowsRight = ['reservationDate', 'reservationTime', 'pickup', 'quantity', 'deposit', 'remaining', 'artist'];
     const rowHtml = (key) => `
         <div class="ticket-info-row">
@@ -931,7 +932,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
         ? `<img src="${escapeHtml(template.logoUrl)}" alt="Watermark logo">`
         : '';
     const qrCodeUrl = appointment?.public_history_url
-        ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=H&margin=10&data=${encodeURIComponent(appointment.public_history_url)}`
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&ecc=H&margin=2&data=${encodeURIComponent(appointment.public_history_url)}`
         : '';
     const qrHtml = qrCodeUrl
         ? `
@@ -969,12 +970,12 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .brand-title { font-size: 31px; font-weight: 800; line-height: 1; letter-spacing: .04em; }
                 .brand-subtitle { margin-top: 5px; font-size: 13px; font-weight: 700; letter-spacing: .22em; color: #1b1f28; }
                 .brand-tagline { margin-top: 7px; font-size: 8px; letter-spacing: .16em; color: #b79a50; }
-                .qr { position: relative; width: 86px; height: 86px; border: 2px solid #20242c; display: grid; place-items: center; font-size: 11px; font-weight: 800; text-align: center; background:
+                .qr { position: relative; width: 112px; height: 112px; border: none; display: grid; place-items: center; font-size: 11px; font-weight: 800; text-align: center; background:
                     linear-gradient(90deg, #20242c 8px, transparent 8px) 0 0 / 18px 18px,
                     linear-gradient(#20242c 8px, transparent 8px) 0 0 / 18px 18px,
                     #fff; color: #20242c; overflow: hidden; }
                 .qr-code-image { width: 100%; height: 100%; object-fit: cover; background: #fff; display: block; }
-                .qr-logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 27px; height: 27px; border-radius: 8px; background: #fff; border: 2px solid #fff; box-shadow: 0 2px 7px rgba(17,24,39,.22); padding: 3px; display: grid; place-items: center; }
+                .qr-logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 8px; background: #fff; border: 2px solid #fff; box-shadow: 0 2px 7px rgba(17,24,39,.22); padding: 3px; display: grid; place-items: center; }
                 .qr-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
                 .ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; margin-top: 34px; }
                 .ticket-info-row { display: grid; grid-template-columns: 160px 1fr; gap: 8px; align-items: baseline; font-size: 12px; margin-bottom: 12px; }
@@ -986,7 +987,9 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .signature { margin-top: 34px; display: grid; grid-template-columns: 1fr 190px; gap: 30px; align-items: end; }
                 .signature-line { border-bottom: 1px solid #111827; height: 54px; }
                 .signature-title { margin-top: 8px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
-                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 16mm; display: flex; justify-content: space-between; gap: 18px; font-size: 11px; color: #222733; }
+                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 10mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; }
+                .footer-contact { max-width: 62%; line-height: 1.55; }
+                .footer-social { margin-left: auto; text-align: right; line-height: 1.4; }
                 .footer strong { color: #b79a50; }
                 .social-row { display: flex; align-items: center; gap: 7px; justify-content: flex-end; margin-bottom: 5px; }
                 .social-icon { width: 17px; height: 17px; border-radius: 5px; display: inline-grid; place-items: center; color: #fff; overflow: hidden; }
@@ -1026,19 +1029,19 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                     <p>${escapeHtml(translation.confirmationText || '')}</p>
                 </section>
                 <section class="signature">
-                    <div>${escapeHtml(data.documentDate)} ${escapeHtml(data.reservationTime)}</div>
+                    <div>${escapeHtml(data.documentDate)} ${escapeHtml(data.documentTime)}</div>
                     <div>
                         <div class="signature-line"></div>
                         <div class="signature-title">${escapeHtml(labels.signature || 'SIGNATURE')}</div>
                     </div>
                 </section>
                 <footer class="footer">
-                    <div>
+                    <div class="footer-contact">
                         <div><strong>Email</strong> ${escapeHtml(footer.email)}</div>
                         <div><strong>Tel</strong> ${escapeHtml(footer.phone)}</div>
                         <div>${escapeHtml(footer.address)}</div>
                     </div>
-                    <div>
+                    <div class="footer-social">
                         ${footer.instagram ? `<div class="social-row"><span class="social-icon social-icon--instagram">${instagramIcon}</span><span>${escapeHtml(footer.instagram)}</span></div>` : ''}
                         ${footer.facebook ? `<div class="social-row"><span class="social-icon social-icon--facebook">${facebookIcon}</span><span>${escapeHtml(footer.facebook)}</span></div>` : ''}
                     </div>
@@ -4390,6 +4393,8 @@ const renderEarningsPage = async (root) => {
         }
 
         const staff = latestEarningsData.staff || [];
+        let currentPopupData = null;
+        let currentPopupFilters = {};
         const selectedPersonSummary = (personId, data = latestEarningsData) => {
             const person = (data.staff || []).find((item) => String(item.id) === String(personId));
             if (!person) return '';
@@ -4414,6 +4419,7 @@ const renderEarningsPage = async (root) => {
         const popupResultHtml = (data = {}, filters = {}) => {
             const summary = data.summary || {};
             const earnings = data.earnings || [];
+            const pendingEarnings = earnings.filter((earning) => earning.status === 'pending');
             const selectedPerson = (data.staff || []).find((person) => String(person.id) === String(filters.staffId));
             const filterChips = [
                 selectedPerson ? `Kullanıcı: ${selectedPerson.name || 'Personel'}` : 'Kullanıcı: Tümü',
@@ -4430,8 +4436,15 @@ const renderEarningsPage = async (root) => {
                             <div class="section-eyebrow">Liste Sonucu</div>
                             <div class="section-title">Hakediş Detayları</div>
                         </div>
-                        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">
-                            ${filterChips.map((chip) => `<span class="badge-pill">${escapeHtml(chip)}</span>`).join('')}
+                        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end">
+                            ${pendingEarnings.length ? `
+                                <button class="button-primary" data-popup-pay-all-earnings style="padding:0.45rem 0.8rem;font-size:0.75rem">
+                                    Tümünü Öde
+                                </button>
+                            ` : ''}
+                            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:flex-end">
+                                ${filterChips.map((chip) => `<span class="badge-pill">${escapeHtml(chip)}</span>`).join('')}
+                            </div>
                         </div>
                     </div>
                     <div class="earnings-metrics">
@@ -4453,7 +4466,7 @@ const renderEarningsPage = async (root) => {
                     </div>
                     ${filters.staffId ? selectedPersonSummary(filters.staffId, data) : ''}
                     <div class="list-stack" style="margin-top:0.85rem">
-                        ${earnings.map((earning) => earningCard(earning, true, false)).join('') || '<div class="empty-state">Bu filtreye uygun hakediş kaydı bulunmuyor.</div>'}
+                        ${earnings.map((earning) => earningCard(earning, true, true)).join('') || '<div class="empty-state">Bu filtreye uygun hakediş kaydı bulunmuyor.</div>'}
                     </div>
                 </div>
             `;
@@ -4509,18 +4522,7 @@ const renderEarningsPage = async (root) => {
         `;
 
         const close = () => overlay.remove();
-        overlay.addEventListener('click', (event) => {
-            if (event.target === overlay) close();
-        });
-        qs('[data-close-earnings-popup]', overlay)?.addEventListener('click', close);
-        qs('[data-popup-clear-earnings]', overlay)?.addEventListener('click', () => {
-            qs('[data-popup-earnings-staff]', overlay).value = '';
-            qs('[data-popup-earnings-status]', overlay).value = '';
-            qs('[data-popup-earnings-date-from]', overlay).value = '';
-            qs('[data-popup-earnings-date-to]', overlay).value = '';
-            qs('[data-popup-earnings-result]', overlay).innerHTML = '<div class="empty-state" style="margin-top:1rem">Filtreler temizlendi. Listelemek için tekrar Listele butonuna bas.</div>';
-        });
-        qs('[data-popup-list-earnings]', overlay)?.addEventListener('click', () => handleAsync(async () => {
+        const runPopupSearch = async () => {
             const popupStaffId = qs('[data-popup-earnings-staff]', overlay)?.value || '';
             const popupStatus = qs('[data-popup-earnings-status]', overlay)?.value || '';
             let popupDateFrom = qs('[data-popup-earnings-date-from]', overlay)?.value || '';
@@ -4540,13 +4542,92 @@ const renderEarningsPage = async (root) => {
             if (popupDateTo) params.set('date_to', popupDateTo);
 
             const payload = await apiFetch(`/studios/${selectedStudioId}/earnings${params.toString() ? `?${params.toString()}` : ''}`);
-            resultNode.innerHTML = popupResultHtml(payload.data || {}, {
+            currentPopupData = payload.data || {};
+            currentPopupFilters = {
                 staffId: popupStaffId,
                 status: popupStatus,
                 dateFrom: popupDateFrom,
                 dateTo: popupDateTo,
+            };
+            resultNode.innerHTML = popupResultHtml(currentPopupData, currentPopupFilters);
+        };
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) close();
+        });
+        overlay.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-popup-pay-all-earnings]');
+            if (!button) return;
+
+            handleAsync(async () => {
+                const pendingEarnings = (currentPopupData?.earnings || [])
+                    .filter((earning) => earning.status === 'pending' && earning.id);
+                if (!pendingEarnings.length) {
+                    showToast('Ödenecek bekleyen hakediş bulunmuyor.', 'warning');
+                    return;
+                }
+
+                const total = pendingEarnings.reduce(
+                    (sum, earning) => sum + Number(earning.earning_amount || 0),
+                    0,
+                );
+                if (!window.confirm(`${pendingEarnings.length} hakediş kaydı toplam ${formatMoney(total)} olarak ödendi işaretlensin mi?`)) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = 'Ödeniyor...';
+                for (const earning of pendingEarnings) {
+                    await apiFetch(`/studios/${selectedStudioId}/earnings/${earning.id}/paid`, {
+                        method: 'PATCH',
+                        body: {},
+                    });
+                }
+
+                showToast(`${pendingEarnings.length} hakediş ödendi olarak işaretlendi.`, 'success');
+                await runPopupSearch();
+                await load();
             });
-        }));
+        });
+        overlay.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-mark-earning-paid]');
+            if (!button) return;
+
+            handleAsync(async () => {
+                const card = button.closest('[data-earning-id]');
+                const earningId = card?.getAttribute('data-earning-id');
+                const earning = (currentPopupData?.earnings || [])
+                    .find((item) => String(item.id) === String(earningId));
+                if (!earning || earning.status === 'paid') {
+                    showToast('Bu hakediş zaten ödenmiş görünüyor.', 'warning');
+                    return;
+                }
+
+                if (!window.confirm(`${earning.user_name || 'Personel'} için ${formatMoney(earning.earning_amount)} ödendi olarak işaretlensin mi?`)) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = 'Ödeniyor...';
+                await apiFetch(`/studios/${selectedStudioId}/earnings/${earning.id}/paid`, {
+                    method: 'PATCH',
+                    body: {},
+                });
+                showToast('Hakediş ödendi olarak işaretlendi ve personele bildirim gönderildi.', 'success');
+                await runPopupSearch();
+                await load();
+            });
+        });
+        qs('[data-close-earnings-popup]', overlay)?.addEventListener('click', close);
+        qs('[data-popup-clear-earnings]', overlay)?.addEventListener('click', () => {
+            qs('[data-popup-earnings-staff]', overlay).value = '';
+            qs('[data-popup-earnings-status]', overlay).value = '';
+            qs('[data-popup-earnings-date-from]', overlay).value = '';
+            qs('[data-popup-earnings-date-to]', overlay).value = '';
+            currentPopupData = null;
+            currentPopupFilters = {};
+            qs('[data-popup-earnings-result]', overlay).innerHTML = '<div class="empty-state" style="margin-top:1rem">Filtreler temizlendi. Listelemek için tekrar Listele butonuna bas.</div>';
+        });
+        qs('[data-popup-list-earnings]', overlay)?.addEventListener('click', () => handleAsync(runPopupSearch));
 
         document.body.appendChild(overlay);
     };

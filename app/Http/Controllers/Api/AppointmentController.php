@@ -868,10 +868,13 @@ class AppointmentController extends Controller
     }
 
     public function destroy(
+        Request $request,
         Studio $studio,
         Appointment $appointment,
         AppointmentService $appointmentService
     ): JsonResponse {
+        abort_unless($request->user()?->hasRole(UserRole::Admin), 403);
+
         $appointment = $studio->appointments()
             ->whereKey($appointment->id)
             ->firstOrFail();

@@ -294,8 +294,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,designer,info,sof
     Route::patch('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'update']);
 });
 
-// Randevu silme: yalnızca supervisor ve üstü
-Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(function (): void {
+// Randevu silme: yalnızca platform admini
+Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     Route::delete('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 });
 

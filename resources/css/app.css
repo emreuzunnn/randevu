@@ -46,6 +46,7 @@
 
     /* Layout */
     --sidebar-w:  16rem;
+    --sidebar-collapsed-w: 4.75rem;
     --topbar-h:   4.5rem;
 
     /* Radii */
@@ -112,6 +113,7 @@
         overflow: hidden;
         box-shadow: 8px 0 24px rgba(15, 23, 42, 0.08);
         flex-shrink: 0;
+        transition: width 180ms ease, min-width 180ms ease;
     }
 
     /* Brand */
@@ -120,10 +122,19 @@
         border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
+    .sidebar-brand-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
     .sidebar-logo {
         display: flex;
         align-items: center;
         gap: 0.6rem;
+        min-width: 0;
     }
 
     .sidebar-logo__mark {
@@ -140,6 +151,11 @@
 
     .sidebar-logo__mark svg { color: #1D4ED8; }
 
+    .sidebar-logo__copy {
+        min-width: 0;
+        transition: opacity 140ms ease, width 180ms ease;
+    }
+
     .sidebar-logo__text {
         font-size: 0.975rem;
         font-weight: 700;
@@ -154,6 +170,29 @@
         color: #94A3B8;
         margin-top: 0.12rem;
     }
+
+    .sidebar-toggle {
+        width: 2rem;
+        height: 2rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: var(--r-md);
+        background: rgba(255,255,255,0.06);
+        color: #CBD5E1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: background 130ms ease, color 130ms ease, border-color 130ms ease;
+    }
+
+    .sidebar-toggle:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.16);
+        color: #FFFFFF;
+    }
+
+    .sidebar-toggle__expand { display: none; }
 
     /* Nav */
     .admin-sidebar__nav {
@@ -189,6 +228,7 @@
         transition: all 130ms ease;
         position: relative;
         border: 1px solid transparent;
+        white-space: nowrap;
     }
 
     .admin-nav-link svg {
@@ -252,6 +292,70 @@
         font-size: 0.65rem;
         color: #94A3B8;
         margin-top: 0.12rem;
+    }
+
+    .admin-sidebar-collapsed .admin-sidebar {
+        width: var(--sidebar-collapsed-w);
+        min-width: var(--sidebar-collapsed-w);
+    }
+
+    .admin-sidebar-collapsed .admin-sidebar__brand {
+        padding: 1.1rem 0.7rem 0.85rem;
+    }
+
+    .admin-sidebar-collapsed .sidebar-brand-row,
+    .admin-sidebar-collapsed .sidebar-logo {
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.7rem;
+    }
+
+    .admin-sidebar-collapsed .sidebar-logo__copy {
+        width: 0;
+        height: 0;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .admin-sidebar-collapsed .sidebar-toggle__collapse { display: none; }
+    .admin-sidebar-collapsed .sidebar-toggle__expand { display: block; }
+
+    .admin-sidebar-collapsed .admin-sidebar__nav {
+        padding: 0.75rem 0.55rem;
+    }
+
+    .admin-sidebar-collapsed .admin-nav-section {
+        height: 0.55rem;
+        margin: 0.45rem 0 0.35rem;
+        padding: 0;
+        overflow: hidden;
+        color: transparent;
+    }
+
+    .admin-sidebar-collapsed .admin-nav-link {
+        justify-content: center;
+        gap: 0;
+        padding: 0.7rem 0;
+        font-size: 0;
+    }
+
+    .admin-sidebar-collapsed .admin-nav-link svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .admin-sidebar-collapsed .sidebar-user {
+        justify-content: center;
+        margin: 0 0.55rem 0.75rem;
+        padding: 0.65rem 0;
+    }
+
+    .admin-sidebar-collapsed .sidebar-user > div:not(.sidebar-user__avatar) {
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
     }
 
     /* ─── Main area ───────────────────────────────────────── */

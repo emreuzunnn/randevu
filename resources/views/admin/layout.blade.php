@@ -91,6 +91,13 @@
     <meta name="firebase-web-app-id"        content="{{ config('services.firebase.web.appId') }}">
     <meta name="firebase-web-measurement-id" content="{{ config('services.firebase.web.measurementId') }}">
     <meta name="firebase-web-vapid-key"     content="{{ config('services.firebase.web_vapid_key') }}">
+    <script>
+        try {
+            if (localStorage.getItem('adminSidebarCollapsed') === '1') {
+                document.documentElement.classList.add('admin-sidebar-collapsed');
+            }
+        } catch (error) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap" rel="stylesheet">
@@ -105,21 +112,31 @@
 
             {{-- Brand --}}
             <div class="admin-sidebar__brand">
-                <div class="sidebar-logo">
-                    <div class="sidebar-logo__mark">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2"/>
-                            <line x1="16" y1="2" x2="16" y2="6"/>
-                            <line x1="8" y1="2" x2="8" y2="6"/>
-                            <line x1="3" y1="10" x2="21" y2="10"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="sidebar-logo__text">TattooDesk</div>
-                        <div class="sidebar-logo__sub">
-                            Business Management
+                <div class="sidebar-brand-row">
+                    <div class="sidebar-logo">
+                        <div class="sidebar-logo__mark">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                        </div>
+                        <div class="sidebar-logo__copy">
+                            <div class="sidebar-logo__text">TattooDesk</div>
+                            <div class="sidebar-logo__sub">
+                                Business Management
+                            </div>
                         </div>
                     </div>
+                    <button type="button" class="sidebar-toggle" id="admin-sidebar-toggle" aria-label="Menüyü daralt" aria-expanded="true" title="Menüyü daralt">
+                        <svg class="sidebar-toggle__collapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                        <svg class="sidebar-toggle__expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -346,5 +363,27 @@
 
     <div class="toast-stack" id="admin-toast-root"></div>
 
+    <script>
+        (() => {
+            const toggle = document.getElementById('admin-sidebar-toggle');
+            if (!toggle) return;
+
+            const syncToggle = () => {
+                const isCollapsed = document.documentElement.classList.contains('admin-sidebar-collapsed');
+                toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+                toggle.setAttribute('aria-label', isCollapsed ? 'Menüyü genişlet' : 'Menüyü daralt');
+                toggle.setAttribute('title', isCollapsed ? 'Menüyü genişlet' : 'Menüyü daralt');
+            };
+
+            syncToggle();
+            toggle.addEventListener('click', () => {
+                const isCollapsed = document.documentElement.classList.toggle('admin-sidebar-collapsed');
+                try {
+                    localStorage.setItem('adminSidebarCollapsed', isCollapsed ? '1' : '0');
+                } catch (error) {}
+                syncToggle();
+            });
+        })();
+    </script>
 </body>
 </html>

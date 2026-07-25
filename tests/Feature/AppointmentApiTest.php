@@ -505,7 +505,7 @@ class AppointmentApiTest extends TestCase
         ]);
     }
 
-    public function test_employee_can_delete_appointment(): void
+    public function test_only_admin_can_delete_appointment(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
 
@@ -520,6 +520,16 @@ class AppointmentApiTest extends TestCase
 
         $this->actingAs($employee)
             ->deleteJson("/api/studios/{$studio->id}/appointments/{$appointmentId}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointmentId,
+        ]);
+
+        [$admin] = $this->createStudioMember(UserRole::Admin, $studio);
+
+        $this->actingAs($admin)
+            ->deleteJson("/api/studios/{$studio->id}/appointments/{$appointmentId}")
             ->assertOk();
 
         $this->assertDatabaseMissing('appointments', [
@@ -530,13 +540,13 @@ class AppointmentApiTest extends TestCase
     /**
      * @return array{0:User,1:Studio}
      */
-    private function createStudioMember(UserRole $role): array
+    private function createStudioMember(UserRole $role, ?Studio $studio = null): array
     {
         $user = User::factory()->create([
             'role' => $role,
         ]);
 
-        $studio = Studio::factory()->create([
+        $studio ??= Studio::factory()->create([
             'owner_user_id' => $user->id,
         ]);
 
