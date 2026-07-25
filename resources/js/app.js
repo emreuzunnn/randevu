@@ -959,7 +959,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 @page { size: A4; margin: 0; }
                 * { box-sizing: border-box; }
                 body { margin: 0; background: #eceff3; color: #1b1f28; font-family: Arial, Helvetica, sans-serif; }
-                .sheet { width: 210mm; height: 297mm; margin: 0 auto; padding: 18mm 18mm 10mm; background: #fff; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+                .sheet { width: 210mm; height: 297mm; margin: 0 auto; padding: 18mm 18mm 4mm; background: #fff; position: relative; overflow: hidden; display: flex; flex-direction: column; }
                 .watermark { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: 620px; height: 620px; opacity: .18; pointer-events: none; display: grid; place-items: center; }
                 .watermark img { max-width: 100%; max-height: 100%; object-fit: contain; }
                 .ticket-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
@@ -984,9 +984,9 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .contract { margin-top: 34px; font-size: 12px; line-height: 1.75; color: #222733; }
                 .contract p { margin: 0 0 11px; }
                 .acceptance { margin-top: 24px; font-size: 12px; line-height: 1.65; }
-                .signature { margin-top: 34px; display: grid; grid-template-columns: 1fr 190px; gap: 30px; align-items: end; }
-                .signature-line { border-bottom: 1px solid #111827; height: 54px; }
-                .signature-title { margin-top: 8px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+                .signature { margin-top: 18px; margin-bottom: 0; display: block; }
+                .signature-date { font-size: 12px; color: #111827; }
+                .signature-date-title { margin-top: 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
                 .footer { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; flex-shrink: 0; }
                 .footer-contact { max-width: 62%; line-height: 1.55; }
                 .footer-social { margin-left: auto; text-align: right; line-height: 1.4; }
@@ -1029,10 +1029,9 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                     <p>${escapeHtml(translation.confirmationText || '')}</p>
                 </section>
                 <section class="signature">
-                    <div>${escapeHtml(data.documentDate)} ${escapeHtml(data.documentTime)}</div>
-                    <div>
-                        <div class="signature-line"></div>
-                        <div class="signature-title">${escapeHtml(labels.signature || 'SIGNATURE')}</div>
+                    <div class="signature-date">
+                        <div>${escapeHtml(data.documentDate)} ${escapeHtml(data.documentTime)}</div>
+                        <div class="signature-date-title">${escapeHtml(labels.signature || 'SIGNATURE')}</div>
                     </div>
                 </section>
                 <footer class="footer">
