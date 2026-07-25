@@ -15,12 +15,33 @@ class StudioController extends Controller
     public function overview(Request $request): JsonResponse
     {
         $user = $request->user();
+        $studioIds = $user?->accessibleStudioIds() ?? [];
+
+        if ($user?->hasRole(UserRole::Yonetici)) {
+            $ownedStudioIds = Studio::query()
+                ->where('owner_user_id', $user->id)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            $activeStudioIds = $user->studios()
+                ->wherePivot('is_active', true)
+                ->pluck('studios.id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            $studioIds = array_values(array_unique(array_map('intval', [
+                ...$studioIds,
+                ...$ownedStudioIds,
+                ...$activeStudioIds,
+            ])));
+        }
 
         $studios = Studio::query()
             ->with('company')
             ->when(
                 ! $user?->hasRole(\App\Enums\UserRole::Admin),
-                fn ($query) => $query->whereIn('id', $user?->accessibleStudioIds() ?? [])
+                fn ($query) => $query->whereIn('id', $studioIds)
             )
             ->withCount([
                 'appointments',

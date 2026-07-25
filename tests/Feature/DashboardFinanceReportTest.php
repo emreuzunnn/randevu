@@ -112,4 +112,47 @@ class DashboardFinanceReportTest extends TestCase
             ->getJson('/api/reports/hotel-revenues')
             ->assertForbidden();
     }
+
+    public function test_manager_hotel_revenue_uses_owned_studio_scope(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::Yonetici]);
+        $company = Company::query()->create([
+            'name' => 'Owner Scoped Company',
+            'manager_user_id' => null,
+            'is_active' => true,
+            'max_studio_count' => 10,
+        ]);
+        $studio = Studio::factory()->create([
+            'company_id' => $company->id,
+            'owner_user_id' => $manager->id,
+            'name' => 'Owner Studio',
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'created_by_user_id' => $manager->id,
+            'appointment_type' => 'tattoo',
+            'status' => 'completed',
+            'hotel_name' => 'Manager Hotel',
+            'pax' => 3,
+            'price' => 900,
+            'deposit_amount' => 150,
+            'appointment_at' => now(),
+        ]);
+
+        $this->actingAs($manager)
+            ->getJson('/api/reports/hotel-revenues')
+            ->assertOk()
+            ->assertJsonPath('data.totals.ticket_count', 1)
+            ->assertJsonPath('data.totals.customer_count', 3)
+            ->assertJsonPath('data.totals.revenue', 900)
+            ->assertJsonPath('data.totals.completed_revenue', 900)
+            ->assertJsonPath('data.totals.deposit_total', 150)
+            ->assertJsonPath('data.items.0.hotel_name', 'Manager Hotel');
+
+        $this->actingAs($manager)
+            ->getJson('/api/studios/overview')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', 'Owner Studio');
+    }
 }

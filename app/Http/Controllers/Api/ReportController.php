@@ -50,7 +50,7 @@ class ReportController extends Controller
 
         $query = Appointment::query()
             ->whereIn('studio_id', $studioIds)
-            ->where('appointment_type', 'tattoo')
+            ->where(fn ($builder) => $this->ticketOnly($builder))
             ->when($validated['date_from'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '>=', $date))
             ->when($validated['date_to'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '<=', $date))
             ->when($validated['search'] ?? null, function ($builder, string $search): void {
@@ -199,11 +199,14 @@ class ReportController extends Controller
     private function scopedStudioIds($user, ?int $companyId = null, ?int $studioId = null): array
     {
         if (! $user->hasRole(UserRole::Admin)) {
-            if ($companyId !== null && $companyId > 0 && ! $user->managedCompanies()->whereKey($companyId)->exists()) {
+            $companyIds = $this->managerScopedCompanyIds($user);
+            $baseStudioIds = $this->managerScopedStudioIds($user);
+
+            if ($companyId !== null && $companyId > 0 && ! in_array($companyId, $companyIds, true)) {
                 abort(403);
             }
 
-            if ($studioId !== null && $studioId > 0 && ! $user->canManageStudio($studioId)) {
+            if ($studioId !== null && $studioId > 0 && ! in_array($studioId, $baseStudioIds, true)) {
                 abort(403);
             }
         }
@@ -211,7 +214,7 @@ class ReportController extends Controller
         $query = Studio::query();
 
         if (! $user->hasRole(UserRole::Admin)) {
-            $query->whereIn('id', $user->staffScopeStudioIds());
+            $query->whereIn('id', $baseStudioIds ?? $this->managerScopedStudioIds($user));
         }
 
         if ($companyId !== null && $companyId > 0) {
@@ -225,5 +228,64 @@ class ReportController extends Controller
         $ids = $query->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
 
         return $ids;
+    }
+
+    private function ticketOnly($query): void
+    {
+        $query
+            ->where('appointment_type', 'tattoo')
+            ->orWhereNotNull('ticket_types')
+            ->orWhereNotNull('tattoo_type')
+            ->orWhereNotNull('deposit_amount')
+            ->orWhereNotNull('payment_method');
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function managerScopedStudioIds($user): array
+    {
+        $ids = $user->staffScopeStudioIds();
+
+        $ownedStudioIds = Studio::query()
+            ->where('owner_user_id', $user->id)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $activeStudioIds = $user->studios()
+            ->wherePivot('is_active', true)
+            ->pluck('studios.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        return array_values(array_unique(array_map('intval', [
+            ...$ids,
+            ...$ownedStudioIds,
+            ...$activeStudioIds,
+        ])));
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function managerScopedCompanyIds($user): array
+    {
+        $directCompanyIds = $user->managedCompanies()
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $studioCompanyIds = Studio::query()
+            ->whereIn('id', $this->managerScopedStudioIds($user))
+            ->whereNotNull('company_id')
+            ->pluck('company_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        return array_values(array_unique([
+            ...$directCompanyIds,
+            ...$studioCompanyIds,
+        ]));
     }
 }
