@@ -1283,14 +1283,27 @@ const skeletonGrid = (count = 4) =>
 
 const animateCounters = (scope = document) => {
     scope.querySelectorAll('[data-counter]').forEach((node) => {
-        const target   = Number(node.getAttribute('data-counter') || '0');
+        const targetText = node.getAttribute('data-counter') || '0';
+        const normalizedTarget = targetText
+            .replace(/[^\d,.-]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+        const target = Number(normalizedTarget);
+
+        if (!Number.isFinite(target)) {
+            node.textContent = targetText;
+            return;
+        }
+
         const duration = 650;
         const startTime = performance.now();
 
         const tick = (time) => {
             const progress = Math.min((time - startTime) / duration, 1);
             const eased    = 1 - Math.pow(1 - progress, 3);
-            node.textContent = Math.round(target * eased).toLocaleString('tr-TR');
+            node.textContent = progress < 1
+                ? Math.round(target * eased).toLocaleString('tr-TR')
+                : targetText;
             if (progress < 1) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
@@ -3885,6 +3898,7 @@ const renderHotelRevenuesPage = async (root) => {
                 </div>
             </div>
         `;
+        animateCounters(content);
     };
 
     await load();
@@ -3971,6 +3985,7 @@ const renderOldCustomersPage = async (root) => {
                 </div>
             </div>
         `;
+        animateCounters(content);
     };
 
     await load();
