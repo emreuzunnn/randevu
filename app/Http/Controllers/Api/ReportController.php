@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
-use App\Models\Customer;
 use App\Models\Studio;
 use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class ReportController extends Controller
 {
@@ -131,52 +131,82 @@ class ReportController extends Controller
             $validated['studio_id'] ?? null,
         );
 
-        $customers = Customer::query()
+        $dateFrom = isset($validated['date_from'])
+            ? Carbon::parse($validated['date_from'])->startOfDay()
+            : null;
+        $dateTo = isset($validated['date_to'])
+            ? Carbon::parse($validated['date_to'])->endOfDay()
+            : null;
+        $search = mb_strtolower(trim((string) ($validated['search'] ?? '')));
+
+        $appointments = Appointment::query()
             ->with('studio:id,name,company_id')
             ->whereIn('studio_id', $studioIds)
-            ->where('appointments_count', '>', 1)
-            ->whereHas('appointments', function ($query) use ($validated): void {
+            ->where(function ($query): void {
                 $query
-                    ->when($validated['date_from'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '>=', $date))
-                    ->when($validated['date_to'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '<=', $date));
+                    ->where(function ($phoneQuery): void {
+                        $phoneQuery
+                            ->whereNotNull('phone_number')
+                            ->where('phone_number', '!=', '');
+                    })
+                    ->orWhere(function ($nameQuery): void {
+                        $nameQuery
+                            ->whereNotNull('first_name')
+                            ->where('first_name', '!=', '')
+                            ->whereNotNull('last_name')
+                            ->where('last_name', '!=', '');
+                    });
             })
-            ->when($validated['search'] ?? null, function ($query, string $search): void {
-                $query->where(function ($searchQuery) use ($search): void {
-                    $searchQuery
-                        ->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('phone_number', 'like', "%{$search}%")
-                        ->orWhere('hotel_name', 'like', "%{$search}%")
-                        ->orWhere('room_number', 'like', "%{$search}%");
+            ->get();
+
+        $customers = $appointments
+            ->groupBy(fn (Appointment $appointment): string => $this->oldCustomerGroupKey($appointment))
+            ->filter(fn ($group): bool => $group->count() > 1)
+            ->map(function ($group) use ($dateFrom, $dateTo, $search): ?array {
+                if ($search !== '' && ! $group->contains(fn (Appointment $appointment): bool => $this->appointmentMatchesSearch($appointment, $search))) {
+                    return null;
+                }
+
+                $periodAppointments = $group->filter(function (Appointment $appointment) use ($dateFrom, $dateTo): bool {
+                    if ($dateFrom === null && $dateTo === null) {
+                        return true;
+                    }
+
+                    if ($appointment->appointment_at === null) {
+                        return false;
+                    }
+
+                    return ($dateFrom === null || $appointment->appointment_at->greaterThanOrEqualTo($dateFrom))
+                        && ($dateTo === null || $appointment->appointment_at->lessThanOrEqualTo($dateTo));
                 });
-            })
-            ->withCount([
-                'appointments as period_appointment_count' => fn ($query) => $query
-                    ->when($validated['date_from'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '>=', $date))
-                    ->when($validated['date_to'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '<=', $date)),
-            ])
-            ->withSum([
-                'appointments as period_revenue' => fn ($query) => $query
+
+                if ($periodAppointments->isEmpty()) {
+                    return null;
+                }
+
+                $first = $group->sortBy('appointment_at')->first();
+                $last = $group->sortByDesc('appointment_at')->first();
+                $periodRevenue = $periodAppointments
                     ->where('status', '!=', 'cancelled')
-                    ->when($validated['date_from'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '>=', $date))
-                    ->when($validated['date_to'] ?? null, fn ($builder, $date) => $builder->whereDate('appointment_at', '<=', $date)),
-            ], 'price')
-            ->orderByDesc('last_appointment_at')
-            ->limit(100)
-            ->get()
-            ->map(fn (Customer $customer): array => [
-                'id' => $customer->id,
-                'name' => trim($customer->first_name . ' ' . $customer->last_name) ?: 'İsimsiz müşteri',
-                'phone' => trim(($customer->phone_country_code ?? '') . ' ' . ($customer->phone_number ?? '')),
-                'hotel_name' => $customer->hotel_name,
-                'room_number' => $customer->room_number,
-                'studio_name' => $customer->studio?->name,
-                'appointments_count' => (int) $customer->appointments_count,
-                'period_appointment_count' => (int) $customer->period_appointment_count,
-                'period_revenue' => round((float) ($customer->period_revenue ?? 0), 2),
-                'first_appointment_at' => $customer->first_appointment_at?->toIso8601String(),
-                'last_appointment_at' => $customer->last_appointment_at?->toIso8601String(),
-            ])
+                    ->sum(fn (Appointment $appointment): float => (float) ($appointment->price ?? 0));
+
+                return [
+                    'id' => $last?->customer_id ?? $last?->id,
+                    'name' => trim(($last?->first_name ?? '') . ' ' . ($last?->last_name ?? '')) ?: 'İsimsiz müşteri',
+                    'phone' => trim(($last?->phone_country_code ?? '') . ' ' . ($last?->phone_number ?? '')),
+                    'hotel_name' => $last?->hotel_name,
+                    'room_number' => $last?->room_number,
+                    'studio_name' => $last?->studio?->name,
+                    'appointments_count' => $group->count(),
+                    'period_appointment_count' => $periodAppointments->count(),
+                    'period_revenue' => round((float) $periodRevenue, 2),
+                    'first_appointment_at' => $first?->appointment_at?->toIso8601String(),
+                    'last_appointment_at' => $last?->appointment_at?->toIso8601String(),
+                ];
+            })
+            ->filter()
+            ->sortByDesc('last_appointment_at')
+            ->take(100)
             ->values();
 
         return response()->json([
@@ -238,6 +268,43 @@ class ReportController extends Controller
             ->orWhereNotNull('tattoo_type')
             ->orWhereNotNull('deposit_amount')
             ->orWhereNotNull('payment_method');
+    }
+
+    private function oldCustomerGroupKey(Appointment $appointment): string
+    {
+        $phoneNumber = preg_replace('/\D+/', '', (string) $appointment->phone_number) ?? '';
+        $phoneCountryCode = preg_replace('/\D+/', '', (string) $appointment->phone_country_code) ?? '';
+
+        if ($phoneNumber !== '') {
+            return implode('|', [
+                $appointment->studio_id,
+                'phone',
+                $phoneCountryCode,
+                $phoneNumber,
+            ]);
+        }
+
+        return implode('|', [
+            $appointment->studio_id,
+            'name',
+            mb_strtolower((string) $appointment->first_name),
+            mb_strtolower((string) $appointment->last_name),
+        ]);
+    }
+
+    private function appointmentMatchesSearch(Appointment $appointment, string $search): bool
+    {
+        $haystack = mb_strtolower(implode(' ', [
+            $appointment->first_name,
+            $appointment->last_name,
+            $appointment->phone_country_code,
+            $appointment->phone_number,
+            $appointment->hotel_name,
+            $appointment->room_number,
+            $appointment->studio?->name,
+        ]));
+
+        return str_contains($haystack, $search);
     }
 
     /**

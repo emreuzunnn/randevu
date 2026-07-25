@@ -3804,6 +3804,8 @@ const reportQuery = (state) => {
     return params.toString();
 };
 
+const reportResponseData = (payload) => payload?.data?.data || payload?.data || {};
+
 const renderHotelRevenuesPage = async (root) => {
     if (!canViewCustomerReports()) {
         root.innerHTML = `
@@ -3833,7 +3835,7 @@ const renderHotelRevenuesPage = async (root) => {
 
         const query = reportQuery(state);
         const payload = await apiFetch(`/reports/hotel-revenues${query ? `?${query}` : ''}`);
-        const data = payload.data || {};
+        const data = reportResponseData(payload);
         const totals = data.totals || {};
         const hotels = data.items || [];
         const content = qs('[data-hotel-revenue-content]', root);
@@ -3917,7 +3919,7 @@ const renderOldCustomersPage = async (root) => {
 
         const query = reportQuery(state);
         const payload = await apiFetch(`/reports/old-customers${query ? `?${query}` : ''}`);
-        const data = payload.data || {};
+        const data = reportResponseData(payload);
         const totals = data.totals || {};
         const customers = data.items || [];
         const content = qs('[data-old-customers-content]', root);
