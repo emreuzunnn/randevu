@@ -49,6 +49,8 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::get('/tickets', [AdminAppointmentController::class, 'tickets'])->name('tickets.index');
     Route::get('/tickets/{appointment}', [AdminAppointmentController::class, 'show'])->name('tickets.show');
     Route::view('/ticket-pdf-template', 'admin.ticket-pdf-template.index')->name('ticket-pdf-template.index');
+    Route::view('/hotel-revenues', 'admin.hotel-revenues.index')->name('hotel-revenues.index');
+    Route::view('/old-customers', 'admin.old-customers.index')->name('old-customers.index');
     Route::view('/earnings', 'admin.earnings.index')->name('earnings.index');
 
     Route::view('/appointment-requests', 'admin.appointment-requests.index')->name('appointment-requests.index');

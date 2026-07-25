@@ -8,6 +8,7 @@ use App\Models\Studio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DiscoverySettingsController extends Controller
 {
@@ -36,6 +37,10 @@ class DiscoverySettingsController extends Controller
             }
 
             foreach ($validated['studios'] ?? [] as $item) {
+                if (! Schema::hasColumn('studios', 'discovery_visible')) {
+                    continue;
+                }
+
                 Studio::query()
                     ->whereKey($item['id'])
                     ->update(['discovery_visible' => (bool) $item['discovery_visible']]);
@@ -64,7 +69,9 @@ class DiscoverySettingsController extends Controller
                 'id' => $studio->id,
                 'name' => $studio->name,
                 'location' => $studio->location,
-                'discovery_visible' => (bool) $studio->discovery_visible,
+                'discovery_visible' => Schema::hasColumn('studios', 'discovery_visible')
+                    ? (bool) $studio->discovery_visible
+                    : true,
                 'company' => $studio->company ? [
                     'id' => $studio->company->id,
                     'name' => $studio->company->name,

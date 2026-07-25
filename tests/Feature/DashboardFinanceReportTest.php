@@ -92,5 +92,24 @@ class DashboardFinanceReportTest extends TestCase
             ->assertJsonPath('data.old_customers.0.period_revenue', 300)
             ->assertJsonPath('data.staff_earnings.0.user_id', $staff->id)
             ->assertJsonPath('data.staff_earnings.0.earning_amount', 500);
+
+        $this->actingAs($admin)
+            ->getJson('/api/reports/hotel-revenues?search=Old')
+            ->assertOk()
+            ->assertJsonPath('data.totals.ticket_count', 2)
+            ->assertJsonPath('data.totals.revenue', 500)
+            ->assertJsonPath('data.items.0.hotel_name', 'Old Hotel');
+
+        $this->actingAs($admin)
+            ->getJson('/api/reports/old-customers?search=5551112233')
+            ->assertOk()
+            ->assertJsonPath('data.totals.customer_count', 1)
+            ->assertJsonPath('data.items.0.name', 'Eski Müşteri');
+
+        $supervisor = User::factory()->create(['role' => UserRole::Supervisor]);
+
+        $this->actingAs($supervisor)
+            ->getJson('/api/reports/hotel-revenues')
+            ->assertForbidden();
     }
 }

@@ -10,6 +10,7 @@ use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -176,7 +177,7 @@ class DashboardController extends Controller
 
         $studios = Studio::query()
             ->with('company')
-            ->where('discovery_visible', true)
+            ->when(Schema::hasColumn('studios', 'discovery_visible'), fn ($query) => $query->where('discovery_visible', true))
             ->where(fn ($query) => $query
                 ->whereHas('company', fn ($companyQuery) => $companyQuery->where('is_active', true))
                 ->orWhereNull('company_id'))

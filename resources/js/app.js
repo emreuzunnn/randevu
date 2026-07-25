@@ -1400,7 +1400,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
         <div class="panel-card dashboard-period-chart" data-dashboard-reports>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-ticket-appointment-chart>${skeletonGrid(3)}</div>
         <div class="panel-card" data-dashboard-finance>${skeletonGrid(2)}</div>
-        <div class="panel-card" data-dashboard-hotels>${skeletonGrid(1)}</div>
         <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
             <div class="panel-card" data-dashboard-studios>${skeletonGrid(1)}</div>
             <div class="panel-card" data-dashboard-appointments>${skeletonGrid(1)}</div>
@@ -1569,8 +1568,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
 
     const studioRevenues = data.studio_revenues || [];
     const companyRevenues = data.company_revenues || [];
-    const hotelSources = data.hotel_sources || [];
-    const oldCustomers = data.old_customers || [];
 
     qs('[data-dashboard-finance]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
@@ -1628,77 +1625,6 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     </tbody>
                 </table>
             </div>
-        </div>
-    `;
-
-    qs('[data-dashboard-hotels]', root).innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
-            <div>
-                <div class="section-eyebrow" style="margin-bottom:0.3rem">Müşteri Kaynağı</div>
-                <div class="section-title">Otele Göre Gelen Müşteriler</div>
-            </div>
-            <span class="badge-pill">${hotelSources.length} otel</span>
-        </div>
-        <div class="table-shell">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Otel</th>
-                        <th>Müşteri</th>
-                            <th>Randevu</th>
-                            <th>Ciro</th>
-                            <th>Bilet / Tasarım</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    ${hotelSources.map((hotel) => `
-                        <tr>
-                            <td style="font-weight:600">${escapeHtml(hotel.hotel_name || 'Belirtilmeyen')}</td>
-                            <td><span class="badge-pill badge-pill--success" style="font-size:0.65rem">${hotel.customer_count || 0}</span></td>
-                            <td>${hotel.appointment_count || 0}</td>
-                            <td style="font-weight:700">${formatMoney(hotel.revenue)}</td>
-                            <td style="font-size:0.72rem;color:var(--text-muted)">${formatMoney(hotel.ticket_revenue)} / ${formatMoney(hotel.design_revenue)}</td>
-                        </tr>
-                    `).join('') || '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">Otel kaynaklı müşteri kaydı bulunamadı.</td></tr>'}
-                </tbody>
-            </table>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.35rem 0 1rem">
-            <div>
-                <div class="section-eyebrow" style="margin-bottom:0.3rem">Müşteri Arşivi</div>
-                <div class="section-title">Eski Müşteriler</div>
-            </div>
-            <span class="badge-pill">${oldCustomers.length} müşteri</span>
-        </div>
-        <div class="table-shell">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Müşteri</th>
-                        <th>Otel / Oda</th>
-                        <th>Kayıt</th>
-                        <th>Dönem Cirosu</th>
-                        <th>Son Geliş</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${oldCustomers.map((customer) => `
-                        <tr>
-                            <td>
-                                <div style="font-weight:700">${escapeHtml(customer.name || 'İsimsiz müşteri')}</div>
-                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(customer.phone || 'Telefon yok')}</div>
-                            </td>
-                            <td>
-                                <div style="font-weight:600">${escapeHtml(customer.hotel_name || 'Belirtilmeyen')}</div>
-                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(customer.room_number ? `Oda ${customer.room_number}` : (customer.studio_name || ''))}</div>
-                            </td>
-                            <td>${customer.period_appointment_count || 0} / ${customer.appointments_count || 0}</td>
-                            <td style="font-weight:700">${formatMoney(customer.period_revenue)}</td>
-                            <td>${escapeHtml(customer.last_appointment_at ? formatDateTime(customer.last_appointment_at) : '—')}</td>
-                        </tr>
-                    `).join('') || '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">Eski müşteri kaydı bulunamadı.</td></tr>'}
-                </tbody>
-            </table>
         </div>
     `;
 
@@ -3799,6 +3725,255 @@ const renderPublicArtistDetailPage = async (root) => {
     `;
 };
 
+/* ── Otel Ciroları / Eski Müşteriler ───────────────────────── */
+
+const canViewCustomerReports = () => ['admin', 'yonetici'].includes(adminConfig.role);
+
+const reportScopeFilters = async () => {
+    const [companiesPayload, studiosPayload] = await Promise.all([
+        apiFetch('/companies'),
+        apiFetch('/studios/overview'),
+    ]);
+
+    return {
+        companies: companiesPayload.data || [],
+        studios: studiosPayload.data || [],
+    };
+};
+
+const reportFilterMarkup = ({ companies, studios, selectedCompanyId, selectedStudioId, search, searchPlaceholder }) => {
+    const visibleStudios = adminConfig.isAdmin && selectedCompanyId
+        ? studios.filter((studio) => String(studio.company?.id ?? studio.company_id ?? '') === String(selectedCompanyId))
+        : studios;
+
+    return `
+        <div class="panel-card" style="margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;align-items:end">
+                ${adminConfig.isAdmin ? `
+                    <div class="field-wrap">
+                        <label class="field-label">Şirket</label>
+                        <select class="field-select" data-report-company>
+                            <option value="">Tüm şirketler</option>
+                            ${companies.map((company) => `<option value="${company.id}" ${String(selectedCompanyId) === String(company.id) ? 'selected' : ''}>${escapeHtml(company.name)}</option>`).join('')}
+                        </select>
+                    </div>
+                ` : ''}
+                <div class="field-wrap">
+                    <label class="field-label">Stüdyo</label>
+                    <select class="field-select" data-report-studio>
+                        <option value="">Tüm stüdyolar</option>
+                        ${visibleStudios.map((studio) => `<option value="${studio.id}" ${String(selectedStudioId) === String(studio.id) ? 'selected' : ''}>${escapeHtml(studio.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="field-wrap">
+                    <label class="field-label">Arama</label>
+                    <input class="field-input" data-report-search value="${escapeHtml(search)}" placeholder="${escapeHtml(searchPlaceholder)}">
+                </div>
+                <button class="button-primary" data-report-search-button style="height:42px;justify-content:center">Listele</button>
+            </div>
+        </div>
+    `;
+};
+
+const bindReportFilters = (root, state, load) => {
+    qs('[data-report-company]', root)?.addEventListener('change', (event) => {
+        state.selectedCompanyId = event.target.value;
+        state.selectedStudioId = '';
+        handleAsync(load);
+    });
+    qs('[data-report-studio]', root)?.addEventListener('change', (event) => {
+        state.selectedStudioId = event.target.value;
+        handleAsync(load);
+    });
+    const searchInput = qs('[data-report-search]', root);
+    const applySearch = () => {
+        state.search = searchInput?.value?.trim() || '';
+        handleAsync(load);
+    };
+    qs('[data-report-search-button]', root)?.addEventListener('click', applySearch);
+    searchInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') applySearch();
+    });
+};
+
+const reportQuery = (state) => {
+    const params = new URLSearchParams();
+    if (adminConfig.isAdmin && state.selectedCompanyId) params.set('company_id', state.selectedCompanyId);
+    if (state.selectedStudioId) params.set('studio_id', state.selectedStudioId);
+    if (state.search) params.set('search', state.search);
+    return params.toString();
+};
+
+const renderHotelRevenuesPage = async (root) => {
+    if (!canViewCustomerReports()) {
+        root.innerHTML = `
+            ${pageHeader('Raporlar', 'Yetkisiz Alan', 'Otel cirolarını yalnızca admin ve şirket yöneticisi görüntüleyebilir.', '<span class="badge-pill badge-pill--danger">403</span>')}
+            <div class="empty-state">Bu sayfaya erişim yetkiniz yok.</div>
+        `;
+        return;
+    }
+
+    const state = {
+        ...(await reportScopeFilters()),
+        selectedCompanyId: '',
+        selectedStudioId: '',
+        search: '',
+    };
+
+    const load = async () => {
+        root.innerHTML = `
+            ${pageHeader('Finans', 'Otel Bazlı Ciro', 'Bilet gelirlerini otel, şirket ve stüdyo kapsamına göre listeleyin.', '<span class="badge-pill badge-pill--success">Bilet Cirosu</span>')}
+            ${reportFilterMarkup({
+                ...state,
+                searchPlaceholder: 'Otel, müşteri, telefon veya oda ara...',
+            })}
+            <div data-hotel-revenue-content>${skeletonGrid(4)}</div>
+        `;
+        bindReportFilters(root, state, load);
+
+        const query = reportQuery(state);
+        const payload = await apiFetch(`/reports/hotel-revenues${query ? `?${query}` : ''}`);
+        const data = payload.data || {};
+        const totals = data.totals || {};
+        const hotels = data.items || [];
+        const content = qs('[data-hotel-revenue-content]', root);
+
+        content.innerHTML = `
+            <div class="metric-grid" style="margin-bottom:1rem">
+                ${metricCard('Toplam Bilet Cirosu', formatMoney(totals.revenue), `${Number(totals.ticket_count || 0).toLocaleString('tr-TR')} bilet`, 'var(--success)', '1')}
+                ${metricCard('Tamamlanan Ciro', formatMoney(totals.completed_revenue), 'Tamamlanan biletler', 'var(--accent)', '2')}
+                ${metricCard('Toplam Depozito', formatMoney(totals.deposit_total), 'İptal olmayan biletler', 'var(--warning)', '3')}
+                ${metricCard('Müşteri Sayısı', Number(totals.customer_count || 0).toLocaleString('tr-TR'), 'Pax toplamı', 'var(--info)', '4')}
+            </div>
+            <div class="panel-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+                    <div>
+                        <div class="section-eyebrow">Otel Listesi</div>
+                        <div class="section-title">Listelenen Bilet Cirosu</div>
+                    </div>
+                    <span class="badge-pill">${hotels.length} otel</span>
+                </div>
+                <div class="table-shell">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Otel</th>
+                                <th>Bilet</th>
+                                <th>Müşteri</th>
+                                <th>Toplam Ciro</th>
+                                <th>Tamamlanan</th>
+                                <th>Depozito</th>
+                                <th>Son Bilet</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${hotels.map((hotel) => `
+                                <tr>
+                                    <td style="font-weight:750">${escapeHtml(hotel.hotel_name || 'Belirtilmeyen')}</td>
+                                    <td>${Number(hotel.ticket_count || 0).toLocaleString('tr-TR')}</td>
+                                    <td>${Number(hotel.customer_count || 0).toLocaleString('tr-TR')}</td>
+                                    <td style="font-weight:850">${formatMoney(hotel.revenue)}</td>
+                                    <td>${formatMoney(hotel.completed_revenue)}</td>
+                                    <td>${formatMoney(hotel.deposit_total)}</td>
+                                    <td>${escapeHtml(hotel.last_ticket_at ? formatDateTime(hotel.last_ticket_at) : '—')}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem">Otel bazlı bilet cirosu bulunamadı.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    };
+
+    await load();
+};
+
+const renderOldCustomersPage = async (root) => {
+    if (!canViewCustomerReports()) {
+        root.innerHTML = `
+            ${pageHeader('Raporlar', 'Yetkisiz Alan', 'Eski müşterileri yalnızca admin ve şirket yöneticisi görüntüleyebilir.', '<span class="badge-pill badge-pill--danger">403</span>')}
+            <div class="empty-state">Bu sayfaya erişim yetkiniz yok.</div>
+        `;
+        return;
+    }
+
+    const state = {
+        ...(await reportScopeFilters()),
+        selectedCompanyId: '',
+        selectedStudioId: '',
+        search: '',
+    };
+
+    const load = async () => {
+        root.innerHTML = `
+            ${pageHeader('Müşteri Arşivi', 'Eski Müşteriler', 'Birden fazla kaydı olan müşterileri şirket ve stüdyo kapsamına göre görüntüleyin.', '<span class="badge-pill badge-pill--teal">Müşteri Geçmişi</span>')}
+            ${reportFilterMarkup({
+                ...state,
+                searchPlaceholder: 'Ad, telefon, otel veya oda ara...',
+            })}
+            <div data-old-customers-content>${skeletonGrid(4)}</div>
+        `;
+        bindReportFilters(root, state, load);
+
+        const query = reportQuery(state);
+        const payload = await apiFetch(`/reports/old-customers${query ? `?${query}` : ''}`);
+        const data = payload.data || {};
+        const totals = data.totals || {};
+        const customers = data.items || [];
+        const content = qs('[data-old-customers-content]', root);
+
+        content.innerHTML = `
+            <div class="metric-grid" style="margin-bottom:1rem">
+                ${metricCard('Eski Müşteri', Number(totals.customer_count || 0).toLocaleString('tr-TR'), 'Birden fazla kayıt', 'var(--accent)', '1')}
+                ${metricCard('Geçmiş Kayıt', Number(totals.appointment_count || 0).toLocaleString('tr-TR'), 'Seçili kapsam', 'var(--info)', '2')}
+                ${metricCard('Toplam Ciro', formatMoney(totals.revenue), 'İptal olmayan kayıtlar', 'var(--success)', '3')}
+            </div>
+            <div class="panel-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+                    <div>
+                        <div class="section-eyebrow">Müşteri Listesi</div>
+                        <div class="section-title">Eski Müşteri Kayıtları</div>
+                    </div>
+                    <span class="badge-pill">${customers.length} müşteri</span>
+                </div>
+                <div class="table-shell">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Müşteri</th>
+                                <th>Telefon</th>
+                                <th>Otel / Oda</th>
+                                <th>Stüdyo</th>
+                                <th>Kayıt</th>
+                                <th>Ciro</th>
+                                <th>Son Geliş</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${customers.map((customer) => `
+                                <tr>
+                                    <td style="font-weight:750">${escapeHtml(customer.name || 'İsimsiz müşteri')}</td>
+                                    <td>${escapeHtml(customer.phone || '—')}</td>
+                                    <td>
+                                        <div style="font-weight:650">${escapeHtml(customer.hotel_name || 'Belirtilmeyen')}</div>
+                                        <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(customer.room_number ? `Oda ${customer.room_number}` : 'Oda yok')}</div>
+                                    </td>
+                                    <td>${escapeHtml(customer.studio_name || '—')}</td>
+                                    <td>${Number(customer.period_appointment_count || 0).toLocaleString('tr-TR')} / ${Number(customer.appointments_count || 0).toLocaleString('tr-TR')}</td>
+                                    <td style="font-weight:800">${formatMoney(customer.period_revenue)}</td>
+                                    <td>${escapeHtml(customer.last_appointment_at ? formatDateTime(customer.last_appointment_at) : '—')}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem">Eski müşteri kaydı bulunamadı.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    };
+
+    await load();
+};
+
 /* ── Profil / Portfolyo / Ayarlar ───────────────────────────── */
 
 const renderProfilePage = async (root) => {
@@ -4914,6 +5089,8 @@ const pageInitializers = [
     ['[data-admin-profile]', renderProfilePage],
     ['[data-admin-profile-appointments]', renderProfileAppointmentsPage],
     ['[data-admin-earnings]', renderEarningsPage],
+    ['[data-admin-hotel-revenues]', renderHotelRevenuesPage],
+    ['[data-admin-old-customers]', renderOldCustomersPage],
     ['[data-admin-ticket-pdf-template]', renderTicketPdfTemplatePage],
     ['[data-admin-settings]', renderSettingsPage],
     ['[data-admin-studios]',      renderStudiosPage],

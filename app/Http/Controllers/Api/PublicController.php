@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -26,7 +27,7 @@ class PublicController extends Controller
     {
         abort_if(
             ! AppSetting::boolean(self::DISCOVERY_STUDIOS_ENABLED_KEY, true)
-                || ! $studio->discovery_visible,
+                || ($this->hasDiscoveryVisibilityColumn() && ! $studio->discovery_visible),
             404
         );
 
@@ -582,7 +583,7 @@ class PublicController extends Controller
 
         $studios = Studio::query()
             ->with('company')
-            ->where('discovery_visible', true)
+            ->when($this->hasDiscoveryVisibilityColumn(), fn ($query) => $query->where('discovery_visible', true))
             ->orderBy('name')
             ->get();
 
@@ -606,6 +607,11 @@ class PublicController extends Controller
                 ] : null,
             ])->values(),
         ]);
+    }
+
+    private function hasDiscoveryVisibilityColumn(): bool
+    {
+        return Schema::hasColumn('studios', 'discovery_visible');
     }
 
     /** Artist listesi (herkese açık) */

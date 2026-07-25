@@ -142,6 +142,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici,supervisor'])->group(functio
 
 Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void {
     Route::get('/companies', [CompanyController::class, 'index']);
+    Route::get('/reports/hotel-revenues', [ReportController::class, 'hotelRevenues']);
+    Route::get('/reports/old-customers', [ReportController::class, 'oldCustomers']);
     // Yeni stüdyo oluşturur (şirket limiti kontrol edilir).
     Route::post('/studios', [StudioController::class, 'store']);
     Route::patch('/companies/{company}/ticket-pdf-template', [TicketPdfTemplateController::class, 'update']);
