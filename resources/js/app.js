@@ -987,7 +987,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .signature { margin-top: 18px; margin-bottom: 0; display: block; }
                 .signature-date { font-size: 12px; color: #111827; }
                 .signature-date-title { margin-top: 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
-                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 2mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; }
+                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 7mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; }
                 .footer-contact { max-width: 62%; line-height: 1.55; }
                 .footer-social { margin-left: auto; text-align: right; line-height: 1.4; }
                 .footer strong { color: #b79a50; }
@@ -1570,6 +1570,7 @@ const renderDashboard = async (root, selectedStudioId = '') => {
     const studioRevenues = data.studio_revenues || [];
     const companyRevenues = data.company_revenues || [];
     const hotelSources = data.hotel_sources || [];
+    const oldCustomers = data.old_customers || [];
 
     qs('[data-dashboard-finance]', root).innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.25rem">
@@ -1644,19 +1645,58 @@ const renderDashboard = async (root, selectedStudioId = '') => {
                     <tr>
                         <th>Otel</th>
                         <th>Müşteri</th>
-                        <th>Randevu</th>
-                        <th>Ciro</th>
-                    </tr>
-                </thead>
-                <tbody>
+                            <th>Randevu</th>
+                            <th>Ciro</th>
+                            <th>Bilet / Tasarım</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                     ${hotelSources.map((hotel) => `
                         <tr>
                             <td style="font-weight:600">${escapeHtml(hotel.hotel_name || 'Belirtilmeyen')}</td>
                             <td><span class="badge-pill badge-pill--success" style="font-size:0.65rem">${hotel.customer_count || 0}</span></td>
                             <td>${hotel.appointment_count || 0}</td>
                             <td style="font-weight:700">${formatMoney(hotel.revenue)}</td>
+                            <td style="font-size:0.72rem;color:var(--text-muted)">${formatMoney(hotel.ticket_revenue)} / ${formatMoney(hotel.design_revenue)}</td>
                         </tr>
-                    `).join('') || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1.5rem">Otel kaynaklı müşteri kaydı bulunamadı.</td></tr>'}
+                    `).join('') || '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">Otel kaynaklı müşteri kaydı bulunamadı.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.35rem 0 1rem">
+            <div>
+                <div class="section-eyebrow" style="margin-bottom:0.3rem">Müşteri Arşivi</div>
+                <div class="section-title">Eski Müşteriler</div>
+            </div>
+            <span class="badge-pill">${oldCustomers.length} müşteri</span>
+        </div>
+        <div class="table-shell">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Müşteri</th>
+                        <th>Otel / Oda</th>
+                        <th>Kayıt</th>
+                        <th>Dönem Cirosu</th>
+                        <th>Son Geliş</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${oldCustomers.map((customer) => `
+                        <tr>
+                            <td>
+                                <div style="font-weight:700">${escapeHtml(customer.name || 'İsimsiz müşteri')}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(customer.phone || 'Telefon yok')}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight:600">${escapeHtml(customer.hotel_name || 'Belirtilmeyen')}</div>
+                                <div style="font-size:0.7rem;color:var(--text-muted)">${escapeHtml(customer.room_number ? `Oda ${customer.room_number}` : (customer.studio_name || ''))}</div>
+                            </td>
+                            <td>${customer.period_appointment_count || 0} / ${customer.appointments_count || 0}</td>
+                            <td style="font-weight:700">${formatMoney(customer.period_revenue)}</td>
+                            <td>${escapeHtml(customer.last_appointment_at ? formatDateTime(customer.last_appointment_at) : '—')}</td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">Eski müşteri kaydı bulunamadı.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -3981,9 +4021,10 @@ const renderProfileAppointmentsPage = async (root) => {
 
 const renderSettingsPage = async (root) => {
     const canSendTestNotification = adminConfig.isAdmin || adminConfig.role === 'admin';
+    const canManageDiscoverySettings = adminConfig.isAdmin || adminConfig.role === 'admin';
 
     root.innerHTML = `
-        ${pageHeader('Ayarlar', 'Uygulama Ayarları', canSendTestNotification ? 'Web panel teması ve bildirim testi.' : 'Web panel teması.', '<span class="badge-pill">Web</span>')}
+        ${pageHeader('Ayarlar', 'Uygulama Ayarları', canManageDiscoverySettings ? 'Web panel teması, bildirim testi ve keşfet görünürlük ayarları.' : canSendTestNotification ? 'Web panel teması ve bildirim testi.' : 'Web panel teması.', '<span class="badge-pill">Web</span>')}
         <div class="data-grid">
             <div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Tema</div>
@@ -3994,11 +4035,97 @@ const renderSettingsPage = async (root) => {
                 <button class="button-primary" data-test-notification style="justify-content:center">Test Bildirimi Gönder</button>
             </div>` : ''}
         </div>
+        ${canManageDiscoverySettings ? `
+            <div class="panel-card" style="margin-top:1rem" data-discovery-settings-panel>
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:1rem">
+                    <div>
+                        <div class="section-eyebrow">Admin Kontrolü</div>
+                        <div class="section-title">Keşfet Stüdyo Alanı</div>
+                        <p style="margin-top:0.35rem;font-size:0.78rem;color:var(--text-muted);line-height:1.55;max-width:620px">
+                            Mobil ve web keşfette stüdyo alanını komple kapatabilir veya açıkken hangi stüdyoların görüneceğini seçebilirsin.
+                        </p>
+                    </div>
+                    <button class="button-primary" data-save-discovery-settings style="padding:0.58rem 0.95rem">Kaydet</button>
+                </div>
+                <div data-discovery-settings-content>${skeletonGrid(2)}</div>
+            </div>
+        ` : ''}
     `;
     qs('[data-test-notification]', root)?.addEventListener('click', () => handleAsync(async () => {
         await apiFetch('/notifications/test', { method: 'POST', body: {} });
         showToast('Test bildirimi tetiklendi.', 'success');
     }));
+
+    if (canManageDiscoverySettings) {
+        const content = qs('[data-discovery-settings-content]', root);
+        const saveButton = qs('[data-save-discovery-settings]', root);
+        let discoverySettings = null;
+
+        const renderDiscoverySettings = () => {
+            const studios = discoverySettings?.studios || [];
+            const studiosEnabled = discoverySettings?.studios_enabled !== false;
+            content.innerHTML = `
+                <label class="list-card" style="padding:0.9rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+                    <div>
+                        <div style="font-weight:800;color:var(--text-main)">Stüdyo alanı keşfette gözüksün</div>
+                        <div style="margin-top:0.24rem;font-size:0.74rem;color:var(--text-muted)">Kapalıyken keşfet ekranında hiçbir stüdyo listelenmez.</div>
+                    </div>
+                    <input type="checkbox" data-discovery-studios-enabled ${studiosEnabled ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--primary);flex-shrink:0">
+                </label>
+                <div style="margin-top:1rem">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
+                        <div>
+                            <div class="section-title">Görünecek Stüdyolar</div>
+                            <div style="margin-top:0.22rem;font-size:0.74rem;color:var(--text-muted)">Stüdyo alanı açıksa sadece seçili stüdyolar keşfette görünür.</div>
+                        </div>
+                        <span class="badge-pill">${studios.filter((studio) => studio.discovery_visible !== false).length} / ${studios.length} açık</span>
+                    </div>
+                    <div class="list-stack">
+                        ${studios.map((studio) => `
+                            <label class="list-card" style="padding:0.82rem 0.95rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer;${!studiosEnabled ? 'opacity:0.55' : ''}">
+                                <div style="min-width:0">
+                                    <div style="font-weight:750;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(studio.name || 'Stüdyo')}</div>
+                                    <div style="margin-top:0.18rem;font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                                        ${escapeHtml([studio.company?.name, studio.location].filter(Boolean).join(' · ') || 'Şirket / konum yok')}
+                                    </div>
+                                </div>
+                                <input type="checkbox" data-discovery-studio-visible data-studio-id="${studio.id}" ${studio.discovery_visible !== false ? 'checked' : ''} ${!studiosEnabled ? 'disabled' : ''} style="width:19px;height:19px;accent-color:var(--primary);flex-shrink:0">
+                            </label>
+                        `).join('') || '<div class="empty-state">Stüdyo bulunmuyor.</div>'}
+                    </div>
+                </div>
+            `;
+            qs('[data-discovery-studios-enabled]', content)?.addEventListener('change', (event) => {
+                discoverySettings.studios_enabled = event.target.checked;
+                renderDiscoverySettings();
+            });
+        };
+
+        const loadDiscoverySettings = async () => {
+            const payload = await apiFetch('/discovery/settings');
+            discoverySettings = payload.data || { studios_enabled: true, studios: [] };
+            renderDiscoverySettings();
+        };
+
+        saveButton?.addEventListener('click', () => handleAsync(async () => {
+            const enabledInput = qs('[data-discovery-studios-enabled]', content);
+            const studioInputs = Array.from(content.querySelectorAll('[data-discovery-studio-visible]'));
+            await apiFetch('/discovery/settings', {
+                method: 'PATCH',
+                body: {
+                    studios_enabled: enabledInput?.checked ?? true,
+                    studios: studioInputs.map((input) => ({
+                        id: Number(input.getAttribute('data-studio-id')),
+                        discovery_visible: input.checked,
+                    })),
+                },
+            });
+            showToast('Keşfet stüdyo görünürlüğü güncellendi.', 'success');
+            await loadDiscoverySettings();
+        }));
+
+        await loadDiscoverySettings();
+    }
 };
 
 const renderTicketPdfTemplatePage = async (root) => {

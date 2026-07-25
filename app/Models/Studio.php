@@ -28,12 +28,14 @@ class Studio extends Model
         'gallery_images',
         'owner_user_id',
         'company_id',
+        'discovery_visible',
     ];
 
     protected function casts(): array
     {
         return [
             'gallery_images' => 'array',
+            'discovery_visible' => 'boolean',
         ];
     }
 

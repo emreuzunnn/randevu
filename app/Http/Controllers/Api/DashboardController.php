@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Studio;
 use App\Services\AppointmentReportService;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    private const DISCOVERY_STUDIOS_ENABLED_KEY = 'discovery_studios_enabled';
+
     public function index(Request $request, AppointmentReportService $appointmentReportService): JsonResponse
     {
         $user = $request->user();
@@ -107,7 +110,7 @@ class DashboardController extends Controller
             ? $appointmentReportService->buildPeriodReports($user, $reportStudioId)
             : [];
         $currentReport = $user !== null
-            ? $appointmentReportService->buildReport($user, 'monthly', $reportStudioId, includeStaff: false)
+            ? $appointmentReportService->buildReport($user, 'monthly', $reportStudioId)
             : [];
 
         return response()->json([
@@ -132,8 +135,10 @@ class DashboardController extends Controller
                 ],
                 'reports' => $reports,
                 'hotel_sources' => $currentReport['hotel_sources'] ?? [],
+                'old_customers' => $currentReport['old_customers'] ?? [],
                 'studio_revenues' => $currentReport['studio_revenues'] ?? [],
                 'company_revenues' => $currentReport['company_revenues'] ?? [],
+                'staff_earnings' => $currentReport['staff_earnings'] ?? [],
                 'studios' => $studios->map(fn (Studio $studio): array => [
                     'id' => $studio->id,
                     'name' => $studio->name,
@@ -159,8 +164,19 @@ class DashboardController extends Controller
 
     private function discoveryResponse(): JsonResponse
     {
+        if (! AppSetting::boolean(self::DISCOVERY_STUDIOS_ENABLED_KEY, true)) {
+            return response()->json([
+                'status' => 'success',
+                'type'   => 'discovery',
+                'data'   => [
+                    'studios' => [],
+                ],
+            ]);
+        }
+
         $studios = Studio::query()
             ->with('company')
+            ->where('discovery_visible', true)
             ->where(fn ($query) => $query
                 ->whereHas('company', fn ($companyQuery) => $companyQuery->where('is_active', true))
                 ->orWhereNull('company_id'))

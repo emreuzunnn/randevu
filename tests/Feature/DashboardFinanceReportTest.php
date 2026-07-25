@@ -49,15 +49,47 @@ class DashboardFinanceReportTest extends TestCase
             'appointment_at' => now(),
         ]);
 
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'created_by_user_id' => $admin->id,
+            'appointment_type' => 'tattoo',
+            'status' => 'completed',
+            'first_name' => 'Eski',
+            'last_name' => 'Müşteri',
+            'phone_country_code' => '+90',
+            'phone_number' => '5551112233',
+            'hotel_name' => 'Old Hotel',
+            'pax' => 1,
+            'price' => 200,
+            'appointment_at' => now()->subMonth(),
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'created_by_user_id' => $admin->id,
+            'appointment_type' => 'tattoo',
+            'status' => 'completed',
+            'first_name' => 'Eski',
+            'last_name' => 'Müşteri',
+            'phone_country_code' => '+90',
+            'phone_number' => '5551112233',
+            'hotel_name' => 'Old Hotel',
+            'pax' => 1,
+            'price' => 300,
+            'appointment_at' => now(),
+        ]);
+
         $this->actingAs($admin)
             ->getJson('/api/home')
             ->assertOk()
             ->assertJsonPath('data.hotel_sources.0.hotel_name', 'Demo Hotel')
             ->assertJsonPath('data.hotel_sources.0.customer_count', 2)
             ->assertJsonPath('data.studio_revenues.0.name', 'Test Studio')
-            ->assertJsonPath('data.studio_revenues.0.revenue', 5000)
+            ->assertJsonPath('data.studio_revenues.0.revenue', 5300)
             ->assertJsonPath('data.company_revenues.0.name', 'Test Company')
-            ->assertJsonPath('data.company_revenues.0.revenue', 5000)
+            ->assertJsonPath('data.company_revenues.0.revenue', 5300)
+            ->assertJsonPath('data.old_customers.0.name', 'Eski Müşteri')
+            ->assertJsonPath('data.old_customers.0.period_revenue', 300)
             ->assertJsonPath('data.staff_earnings.0.user_id', $staff->id)
             ->assertJsonPath('data.staff_earnings.0.earning_amount', 500);
     }

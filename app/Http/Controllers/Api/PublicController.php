@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Appointment;
 use App\Models\ContentReport;
 use App\Models\Review;
@@ -18,9 +19,17 @@ use Illuminate\Support\Str;
 
 class PublicController extends Controller
 {
+    private const DISCOVERY_STUDIOS_ENABLED_KEY = 'discovery_studios_enabled';
+
     /** Stüdyo herkese açık detay + portfolio + istatistikler */
     public function studio(Studio $studio): JsonResponse
     {
+        abort_if(
+            ! AppSetting::boolean(self::DISCOVERY_STUDIOS_ENABLED_KEY, true)
+                || ! $studio->discovery_visible,
+            404
+        );
+
         $studio->load('company');
 
         $artists = $studio->users()
@@ -564,8 +573,16 @@ class PublicController extends Controller
     /** Stüdyo listesi (herkese açık, discovery için) */
     public function studios(): JsonResponse
     {
+        if (! AppSetting::boolean(self::DISCOVERY_STUDIOS_ENABLED_KEY, true)) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [],
+            ]);
+        }
+
         $studios = Studio::query()
             ->with('company')
+            ->where('discovery_visible', true)
             ->orderBy('name')
             ->get();
 

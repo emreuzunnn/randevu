@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Studio;
 use App\Models\User;
@@ -373,6 +374,59 @@ class AppointmentApiTest extends TestCase
             ->assertJsonPath('data.0.customer.first_name', 'Ticket');
     }
 
+    public function test_designer_can_list_all_studio_appointments_and_tickets_with_prices(): void
+    {
+        [$designer, $studio] = $this->createStudioMember(UserRole::Designer);
+        $artist = User::factory()->create(['role' => UserRole::Artist]);
+        $studio->users()->attach($artist->id, [
+            'role' => UserRole::Artist->value,
+            'work_status' => 'working',
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'appointment_type' => 'designer',
+            'assigned_artist_user_id' => null,
+            'first_name' => 'Design',
+            'last_name' => 'Visible',
+            'price' => 120,
+            'status' => 'confirmed',
+        ]);
+
+        Appointment::factory()->create([
+            'studio_id' => $studio->id,
+            'appointment_type' => 'tattoo',
+            'assigned_artist_user_id' => $artist->id,
+            'first_name' => 'Ticket',
+            'last_name' => 'Visible',
+            'price' => 450,
+            'deposit_amount' => 50,
+            'payment_method' => 'cash',
+            'ticket_types' => ['tattoo'],
+            'tattoo_type' => 'freehand',
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->actingAs($designer)
+            ->getJson('/api/my-artist-appointments');
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment([
+                'appointment_type' => 'designer',
+                'price' => '120.00',
+                'artist_limited_view' => false,
+            ])
+            ->assertJsonFragment([
+                'appointment_type' => 'tattoo',
+                'price' => '450.00',
+                'deposit_amount' => '50.00',
+                'artist_limited_view' => false,
+            ]);
+    }
+
     public function test_second_appointment_for_same_customer_is_marked_old(): void
     {
         [$employee, $studio] = $this->createStudioMember(UserRole::Calisan);
@@ -467,6 +521,31 @@ class AppointmentApiTest extends TestCase
             'room_number' => '555',
             'pax' => 4,
             'status' => 'rescheduled',
+        ]);
+    }
+
+    public function test_info_can_create_but_cannot_update_appointment(): void
+    {
+        [$info, $studio] = $this->createStudioMember(UserRole::Info);
+
+        $appointmentId = $this->actingAs($info)->postJson("/api/studios/{$studio->id}/appointments", [
+            'customer' => [
+                'first_name' => 'Info',
+                'last_name' => 'Musteri',
+            ],
+            'pax' => 1,
+            'appointment_at' => '2026-04-18 18:00:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($info)->patchJson("/api/studios/{$studio->id}/appointments/{$appointmentId}", [
+            'customer' => [
+                'hotel_name' => 'Info Updated Hotel',
+            ],
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('appointments', [
+            'id' => $appointmentId,
+            'hotel_name' => 'Info Updated Hotel',
         ]);
     }
 

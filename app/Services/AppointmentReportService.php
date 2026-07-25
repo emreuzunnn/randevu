@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Models\Appointment;
 use App\Models\Company;
+use App\Models\Customer;
 use App\Models\StaffEarning;
 use App\Models\Studio;
 use App\Models\User;
@@ -67,6 +68,7 @@ class AppointmentReportService
             'weekly_data'  => $this->buildWeeklyData($base, $weekStart),
             'performance'  => $this->buildPerformance($periodQuery),
             'hotel_sources' => $this->buildHotelSources($periodQuery),
+            'old_customers' => $this->buildOldCustomers($user, $start, $end, $studioId),
             'studio_revenues' => $this->buildStudioRevenues($user, $start, $end, $studioId),
             'company_revenues' => $this->buildCompanyRevenues($user, $start, $end, $studioId),
             'insight'      => $this->buildInsight($thisWeek, $lastWeekCount),
@@ -261,6 +263,9 @@ class AppointmentReportService
                 DB::raw('count(*) as appointment_count'),
                 DB::raw('sum(pax) as customer_count'),
                 DB::raw("sum(case when status != 'cancelled' then coalesce(price, 0) else 0 end) as revenue"),
+                DB::raw("sum(case when status = 'completed' then coalesce(price, 0) else 0 end) as completed_revenue"),
+                DB::raw("sum(case when appointment_type = 'tattoo' and status != 'cancelled' then coalesce(price, 0) else 0 end) as ticket_revenue"),
+                DB::raw("sum(case when appointment_type = 'designer' and status != 'cancelled' then coalesce(price, 0) else 0 end) as design_revenue"),
             )
             ->groupBy(DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen')"))
             ->orderByDesc('customer_count')
@@ -271,6 +276,60 @@ class AppointmentReportService
                 'appointment_count' => (int) $row->appointment_count,
                 'customer_count' => (int) $row->customer_count,
                 'revenue' => round((float) $row->revenue, 2),
+                'completed_revenue' => round((float) $row->completed_revenue, 2),
+                'ticket_revenue' => round((float) $row->ticket_revenue, 2),
+                'design_revenue' => round((float) $row->design_revenue, 2),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildOldCustomers(User $viewer, CarbonImmutable $start, CarbonImmutable $end, ?int $studioId = null): array
+    {
+        $studioIds = $this->reportStudioIds($viewer);
+        if ($studioId !== null && $studioId > 0) {
+            $studioIds = in_array($studioId, $studioIds, true) || $viewer->hasRole(UserRole::Admin)
+                ? [$studioId]
+                : [];
+        }
+
+        if (! $viewer->hasRole(UserRole::Admin) && $studioIds === []) {
+            return [];
+        }
+
+        return Customer::query()
+            ->when(! $viewer->hasRole(UserRole::Admin), fn ($query) => $query->whereIn('studio_id', $studioIds))
+            ->when($viewer->hasRole(UserRole::Admin) && $studioId !== null && $studioId > 0, fn ($query) => $query->where('studio_id', $studioId))
+            ->where('appointments_count', '>', 1)
+            ->whereHas('appointments', fn ($query) => $query->whereBetween('appointment_at', [$start, $end]))
+            ->with('studio:id,name')
+            ->withCount([
+                'appointments as period_appointment_count' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end]),
+            ])
+            ->withSum([
+                'appointments as period_revenue' => fn ($query) => $query
+                    ->whereBetween('appointment_at', [$start, $end])
+                    ->where('status', '!=', 'cancelled'),
+            ], 'price')
+            ->orderByDesc('last_appointment_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (Customer $customer): array => [
+                'id' => $customer->id,
+                'name' => trim($customer->first_name . ' ' . $customer->last_name) ?: 'İsimsiz müşteri',
+                'phone' => trim(($customer->phone_country_code ?? '') . ' ' . ($customer->phone_number ?? '')),
+                'hotel_name' => $customer->hotel_name,
+                'room_number' => $customer->room_number,
+                'studio_name' => $customer->studio?->name,
+                'appointments_count' => (int) $customer->appointments_count,
+                'period_appointment_count' => (int) $customer->period_appointment_count,
+                'period_revenue' => round((float) ($customer->period_revenue ?? 0), 2),
+                'first_appointment_at' => $customer->first_appointment_at?->toIso8601String(),
+                'last_appointment_at' => $customer->last_appointment_at?->toIso8601String(),
             ])
             ->values()
             ->all();

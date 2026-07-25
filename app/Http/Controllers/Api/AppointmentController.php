@@ -177,7 +177,7 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /** Artist/designer kendi aktif stüdyosundaki uygun randevuları görür */
+    /** Artist kendine atananları, designer ise aktif stüdyosundaki tüm randevu ve biletleri görür. */
     public function myArtistAppointments(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -196,18 +196,17 @@ class AppointmentController extends Controller
             ->with(['studio.company', 'createdBy'])
             ->where(function ($query) use ($artistStudioIds, $designerStudioIds, $isIndependentArtist, $user): void {
                 if ($artistStudioIds !== []) {
-                    $query->orWhere(function ($artistQuery) use ($artistStudioIds): void {
+                    $query->orWhere(function ($artistQuery) use ($artistStudioIds, $user): void {
                         $artistQuery
                             ->whereIn('studio_id', $artistStudioIds)
-                            ->where('appointment_type', 'tattoo');
+                            ->where('appointment_type', 'tattoo')
+                            ->where('assigned_artist_user_id', $user->id);
                     });
                 }
 
                 if ($designerStudioIds !== []) {
                     $query->orWhere(function ($designerQuery) use ($designerStudioIds): void {
-                        $designerQuery
-                            ->whereIn('studio_id', $designerStudioIds)
-                            ->where('appointment_type', 'designer');
+                        $designerQuery->whereIn('studio_id', $designerStudioIds);
                     });
                 }
 
@@ -219,7 +218,6 @@ class AppointmentController extends Controller
                     });
                 }
             })
-            ->where('assigned_artist_user_id', $user->id)
             ->orderBy('appointment_at')
             ->get();
 
@@ -780,6 +778,8 @@ class AppointmentController extends Controller
         AppointmentService $appointmentService,
         AppointmentNotificationService $appointmentNotificationService
     ): JsonResponse {
+        abort_if($request->user()?->hasRole(UserRole::Info), 403, 'Info rolü randevu düzenleyemez.');
+
         $previousStatus = $appointment->status;
 
         $validated = $request->validate([
@@ -1130,7 +1130,6 @@ class AppointmentController extends Controller
             && ! $user->isIndependentProfessional()
             && $user->hasStudioRole((int) $appointment->studio_id, [
                 UserRole::Artist,
-                UserRole::Designer,
             ]);
     }
 

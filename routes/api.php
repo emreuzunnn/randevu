@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ContentModerationController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DiscoverySettingsController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
@@ -147,6 +148,11 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
     Route::post('/companies/{company}/ticket-pdf-template/logo', [TicketPdfTemplateController::class, 'uploadLogo']);
 });
 
+Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
+    Route::get('/discovery/settings', [DiscoverySettingsController::class, 'show']);
+    Route::patch('/discovery/settings', [DiscoverySettingsController::class, 'update']);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Stüdyo Yönetimi: Stüdyo Admini
@@ -282,14 +288,18 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
 |--------------------------------------------------------------------------
 */
 
-// Randevu oluşturma/güncelleme: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
+// Randevu oluşturma: stüdyo yönetimi + bilgi ekranları + tasarımcı + şoför
 Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,designer,info,sofor,calisan'])->group(function (): void {
-    // Randevu oluşturma/güncelleme ekranları için artist listesi ve sabitleri döndürür.
+    // Randevu oluşturma ekranları için artist listesi ve sabitleri döndürür.
     Route::get('/studios/{studio}/appointment-support', [AppointmentController::class, 'support']);
     // Müşterinin önceki randevusuna bakarak eski mi yeni mi olduğunu kontrol eder.
     Route::post('/studios/{studio}/appointments/check-customer', [AppointmentController::class, 'checkCustomerStatus']);
     // Yeni randevu oluşturur.
     Route::post('/studios/{studio}/appointments', [AppointmentController::class, 'store']);
+});
+
+// Randevu güncelleme: infocu randevu düzenleyemez.
+Route::middleware(['api.auth', 'role:admin,yonetici,supervisor,designer,sofor,calisan'])->group(function (): void {
     // Var olan randevunun durum veya müşteri bilgilerini günceller.
     Route::patch('/studios/{studio}/appointments/{appointment}', [AppointmentController::class, 'update']);
 });
