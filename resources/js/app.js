@@ -987,7 +987,7 @@ const openTicketPdfPrintWindow = async (appointment = null, companyId = null) =>
                 .signature { margin-top: 18px; margin-bottom: 0; display: block; }
                 .signature-date { font-size: 12px; color: #111827; }
                 .signature-date-title { margin-top: 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
-                .footer { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; flex-shrink: 0; }
+                .footer { position: absolute; left: 18mm; right: 18mm; bottom: 2mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; padding-top: 10px; border-top: 1px solid #d8dbe2; font-size: 11px; color: #222733; }
                 .footer-contact { max-width: 62%; line-height: 1.55; }
                 .footer-social { margin-left: auto; text-align: right; line-height: 1.4; }
                 .footer strong { color: #b79a50; }
