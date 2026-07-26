@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
-{
+{  
     // Sistem içinde tipler sabit kalır; kullanıcıya designer=randevu, tattoo=bilet olarak gösterilir.
     public const APPOINTMENT_TYPES = ['designer', 'tattoo'];
     public const TICKET_TYPES = [
