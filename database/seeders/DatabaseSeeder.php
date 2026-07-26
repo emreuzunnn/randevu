@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ApiTestSeeder::class,
             FixArtistOneStudioMembershipSeeder::class,
+            ArtistOneFreelancerAppointmentSeeder::class,
             OldCustomerTestSeeder::class,
             StaffEarningSeeder::class,
         ]);
