@@ -14,10 +14,10 @@ return new class extends Migration
                 ->constrained('users')
                 ->cascadeOnDelete();
             $table->text('token');
-            $table->string('token_hash', 64)->unique();
-            $table->string('platform', 30)->default('unknown');
+            $table->string('token_hash')->unique();
+            $table->string('platform')->default('unknown');
             $table->string('device_id')->nullable();
-            $table->string('app_version', 40)->nullable();
+            $table->string('app_version')->nullable();
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
 

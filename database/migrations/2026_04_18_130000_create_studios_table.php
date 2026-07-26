@@ -21,10 +21,13 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->string('location')->nullable();
             $table->string('logo_path')->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('facebook')->nullable();
             $table->text('about')->nullable();
             $table->time('opening_time')->nullable();
             $table->time('closing_time')->nullable();
             $table->json('gallery_images')->nullable();
+            $table->boolean('discovery_visible')->default(true);
             $table->timestamps();
         });
 
@@ -38,6 +41,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->string('role');
             $table->string('work_status')->default('working');
+            $table->decimal('commission_rate', 5, 2)->default(0);
             $table->boolean('is_active')->default(true);
             $table->timestamp('joined_at')->nullable();
             $table->timestamp('left_at')->nullable();

@@ -16,8 +16,8 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('phone_country_code', 10)->nullable();
-            $table->string('phone_number', 30)->nullable();
+            $table->string('phone_country_code')->nullable();
+            $table->string('phone_number')->nullable();
             $table->string('hotel_name')->nullable();
             $table->string('room_number')->nullable();
             $table->string('place')->nullable();
@@ -45,6 +45,10 @@ return new class extends Migration
             $table->foreignId('created_by_user_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
+            $table->foreignId('assigned_info_user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             $table->foreignId('assigned_driver_user_id')
                 ->nullable()
                 ->constrained('users')
@@ -56,8 +60,8 @@ return new class extends Migration
             $table->string('appointment_type')->default('designer');
             $table->string('first_name');
             $table->string('last_name');
-            $table->string('phone_country_code', 10)->nullable();
-            $table->string('phone_number', 30)->nullable();
+            $table->string('phone_country_code')->nullable();
+            $table->string('phone_number')->nullable();
             $table->string('hotel_name')->nullable();
             $table->string('room_number')->nullable();
             $table->string('place')->nullable();
@@ -79,6 +83,7 @@ return new class extends Migration
             $table->json('tattoo_image_paths')->nullable();
             $table->string('completed_tattoo_image_path')->nullable();
             $table->boolean('pickup_required')->default(false);
+            $table->string('public_token')->nullable()->unique();
             $table->timestamps();
 
             $table->index(['studio_id', 'appointment_at']);

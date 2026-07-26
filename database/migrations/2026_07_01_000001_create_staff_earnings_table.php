@@ -8,12 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('studio_user', function (Blueprint $table): void {
-            $table->decimal('commission_rate', 5, 2)
-                ->default(0)
-                ->after('work_status');
-        });
-
         Schema::create('staff_earnings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('appointment_id')
@@ -46,9 +40,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('staff_earnings');
-
-        Schema::table('studio_user', function (Blueprint $table): void {
-            $table->dropColumn('commission_rate');
-        });
     }
 };

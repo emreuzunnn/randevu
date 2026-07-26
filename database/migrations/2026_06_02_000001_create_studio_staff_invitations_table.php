@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreignId('invited_by_user_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
-            $table->string('role', 30);
-            $table->string('status', 20)->default('pending');
+            $table->string('role');
+            $table->string('status')->default('pending');
             $table->timestamp('responded_at')->nullable();
             $table->timestamps();
 

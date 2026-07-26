@@ -8,11 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->timestamp('banned_at')->nullable()->after('api_token');
-            $table->text('ban_reason')->nullable()->after('banned_at');
-        });
-
         Schema::create('content_reports', function (Blueprint $table) {
             $table->id();
             $table->foreignId('reporter_user_id')->constrained('users')->cascadeOnDelete();
@@ -32,8 +27,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('content_reports');
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['banned_at', 'ban_reason']);
-        });
     }
 };

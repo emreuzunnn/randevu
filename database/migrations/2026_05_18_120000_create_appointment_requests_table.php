@@ -22,8 +22,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('phone_country_code', 10)->nullable();
-            $table->string('phone_number', 30)->nullable();
+            $table->string('phone_country_code')->nullable();
+            $table->string('phone_number')->nullable();
             $table->string('hotel_name')->nullable();
             $table->string('room_number')->nullable();
             $table->string('place')->nullable();

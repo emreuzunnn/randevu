@@ -22,11 +22,11 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('push_tokens')
                 ->nullOnDelete();
-            $table->string('platform', 30)->nullable();
-            $table->string('token_hash', 64)->nullable();
-            $table->string('status', 24);
-            $table->string('fcm_status', 80)->nullable();
-            $table->string('fcm_error_code', 80)->nullable();
+            $table->string('platform')->nullable();
+            $table->string('token_hash')->nullable();
+            $table->string('status');
+            $table->string('fcm_status')->nullable();
+            $table->string('fcm_error_code')->nullable();
             $table->string('fcm_message_id')->nullable();
             $table->text('error_message')->nullable();
             $table->json('response')->nullable();

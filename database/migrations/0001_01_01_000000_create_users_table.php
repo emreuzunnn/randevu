@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('username')->nullable()->unique();
             $table->string('phone')->nullable();
             $table->text('bio')->nullable();
-            $table->string('location', 255)->nullable();
+            $table->string('location')->nullable();
             $table->time('availability_start')->nullable();
             $table->time('availability_end')->nullable();
             $table->json('portfolio')->nullable();
@@ -24,13 +24,15 @@ return new class extends Migration
             $table->decimal('rating', 3, 1)->nullable();
             $table->unsignedTinyInteger('experience_years')->nullable();
             $table->json('specializations')->nullable();
-            $table->string('instagram', 100)->nullable();
-            $table->string('whatsapp', 30)->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('whatsapp')->nullable();
             $table->unsignedTinyInteger('response_time_hours')->nullable();
             $table->string('role')->default('kullanici');
             $table->string('requested_staff_role')->nullable();
             $table->boolean('can_open_multiple_studios')->default(false);
-            $table->string('api_token', 80)->nullable()->unique();
+            $table->string('api_token')->nullable()->unique();
+            $table->timestamp('banned_at')->nullable();
+            $table->text('ban_reason')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
@@ -46,7 +48,7 @@ return new class extends Migration
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
             $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
+            $table->string('ip_address')->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
             $table->integer('last_activity')->index();

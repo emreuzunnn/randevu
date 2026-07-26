@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')
                 ->constrained('users')
                 ->cascadeOnDelete();
-            $table->string('type', 60); // appointment_request, artist_response, driver_action, ...
+            $table->string('type'); // appointment_request, artist_response, driver_action, ...
             $table->string('title');
             $table->text('body');
             $table->json('data')->nullable(); // extra payload (appointment_id, studio_id, ...)

@@ -15,17 +15,10 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::table('studios', function (Blueprint $table): void {
-            $table->boolean('discovery_visible')->default(true);
-        });
     }
 
     public function down(): void
     {
-        Schema::table('studios', function (Blueprint $table): void {
-            $table->dropColumn('discovery_visible');
-        });
-
         Schema::dropIfExists('app_settings');
     }
 };

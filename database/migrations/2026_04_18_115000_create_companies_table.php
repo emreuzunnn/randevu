@@ -20,8 +20,9 @@ return new class extends Migration
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->text('about')->nullable();
-            $table->string('website', 255)->nullable();
+            $table->string('website')->nullable();
             $table->json('gallery_images')->nullable();
+            $table->json('ticket_pdf_template')->nullable();
             $table->boolean('is_active')->default(true);
             $table->unsignedSmallInteger('max_studio_count')->default(0);
             $table->timestamps();
