@@ -385,7 +385,7 @@ class ApiTestSeeder extends Seeder
             'is_active'   => true,
             'joined_at'   => now()->subMonths(3),
         ]);
-        $studio3->users()->attach($artist1->id, [
+        $studio3->users()->attach($artist1b->id, [
             'role'        => UserRole::Artist->value,
             'work_status' => 'working',
             'commission_rate' => $this->commissionRate(UserRole::Artist),
@@ -477,7 +477,7 @@ class ApiTestSeeder extends Seeder
                 'is_old_customer'         => true,
                 'created_by_user_id'      => $supervisor3->id,
                 'pickup_required'         => true,
-                'assigned_artist_user_id' => $artist1->id,
+                'assigned_artist_user_id' => $artist1b->id,
                 'appointment_at'          => now()->addDays(2)->setTime(11, 30),
                 'customer_notes'          => 'Sırt için büyük çiçek kompozisyonu.',
             ],
@@ -577,7 +577,7 @@ class ApiTestSeeder extends Seeder
                 'is_old_customer'         => false,
                 'created_by_user_id'      => $supervisor3->id,
                 'pickup_required'         => true,
-                'assigned_artist_user_id' => $artist1->id,
+                'assigned_artist_user_id' => $artist1b->id,
                 'appointment_at'          => now()->subDays(5)->setTime(14, 30),
             ],
             [

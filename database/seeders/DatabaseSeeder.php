@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ApiTestSeeder::class,
+            FixArtistOneStudioMembershipSeeder::class,
             OldCustomerTestSeeder::class,
             StaffEarningSeeder::class,
         ]);
