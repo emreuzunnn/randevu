@@ -28,8 +28,8 @@ return new class extends Migration
             $table->unsignedInteger('appointments_count')->default(0);
             $table->timestamps();
 
-            $table->index(['studio_id', 'phone_country_code', 'phone_number']);
-            $table->index(['studio_id', 'last_name', 'first_name']);
+            $table->index('phone_number');
+            $table->index('last_name');
         });
 
         Schema::create('appointments', function (Blueprint $table) {
@@ -88,7 +88,7 @@ return new class extends Migration
 
             $table->index(['studio_id', 'appointment_at']);
             $table->index(['studio_id', 'status']);
-            $table->index(['studio_id', 'phone_country_code', 'phone_number']);
+            $table->index('phone_number');
             $table->index(['studio_id', 'last_name']);
         });
     }
