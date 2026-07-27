@@ -36,7 +36,7 @@ return new class extends Migration
             $table->index(['status', 'attempted_at']);
             $table->index(['user_id', 'attempted_at']);
             $table->index(['push_notification_id', 'status']);
-            $table->index(['platform', 'status']);
+            $table->index('platform');
         });
     }
 
