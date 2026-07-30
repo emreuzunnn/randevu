@@ -90,7 +90,7 @@ class ReportController extends Controller
                 DB::raw("sum(case when status != 'cancelled' then coalesce(deposit_amount, 0) else 0 end) as deposit_total"),
                 DB::raw('max(appointment_at) as last_ticket_at'),
             )
-            ->groupBy(DB::raw($hotelNameExpression))
+            ->groupBy('appointments.hotel_name')
             ->orderByDesc('revenue')
             ->get()
             ->map(fn ($row): array => [

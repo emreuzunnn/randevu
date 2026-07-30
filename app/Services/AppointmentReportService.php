@@ -269,7 +269,7 @@ class AppointmentReportService
                 DB::raw("sum(case when appointment_type = 'tattoo' and status != 'cancelled' then coalesce(price, 0) else 0 end) as ticket_revenue"),
                 DB::raw("sum(case when appointment_type = 'designer' and status != 'cancelled' then coalesce(price, 0) else 0 end) as design_revenue"),
             )
-            ->groupBy(DB::raw($hotelNameExpression))
+            ->groupBy('appointments.hotel_name')
             ->orderByDesc('customer_count')
             ->limit(12)
             ->get()
