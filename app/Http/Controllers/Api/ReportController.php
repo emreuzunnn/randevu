@@ -78,9 +78,11 @@ class ReportController extends Controller
                 ->sum('deposit_amount'), 2),
         ];
 
+        $hotelNameExpression = "COALESCE(NULLIF(TRIM(appointments.hotel_name), ''), 'Belirtilmeyen')";
+
         $items = (clone $query)
             ->select(
-                DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen') as hotel_name"),
+                DB::raw("{$hotelNameExpression} as hotel_name"),
                 DB::raw('count(*) as ticket_count'),
                 DB::raw('sum(pax) as customer_count'),
                 DB::raw("sum(case when status != 'cancelled' then coalesce(price, 0) else 0 end) as revenue"),
@@ -88,7 +90,7 @@ class ReportController extends Controller
                 DB::raw("sum(case when status != 'cancelled' then coalesce(deposit_amount, 0) else 0 end) as deposit_total"),
                 DB::raw('max(appointment_at) as last_ticket_at'),
             )
-            ->groupBy(DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen')"))
+            ->groupBy(DB::raw($hotelNameExpression))
             ->orderByDesc('revenue')
             ->get()
             ->map(fn ($row): array => [

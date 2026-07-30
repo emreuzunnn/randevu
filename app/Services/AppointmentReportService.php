@@ -257,9 +257,11 @@ class AppointmentReportService
      */
     private function buildHotelSources(Builder $periodQuery): array
     {
+        $hotelNameExpression = "COALESCE(NULLIF(TRIM(appointments.hotel_name), ''), 'Belirtilmeyen')";
+
         return (clone $periodQuery)
             ->select(
-                DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen') as hotel_name"),
+                DB::raw("{$hotelNameExpression} as hotel_name"),
                 DB::raw('count(*) as appointment_count'),
                 DB::raw('sum(pax) as customer_count'),
                 DB::raw("sum(case when status != 'cancelled' then coalesce(price, 0) else 0 end) as revenue"),
@@ -267,7 +269,7 @@ class AppointmentReportService
                 DB::raw("sum(case when appointment_type = 'tattoo' and status != 'cancelled' then coalesce(price, 0) else 0 end) as ticket_revenue"),
                 DB::raw("sum(case when appointment_type = 'designer' and status != 'cancelled' then coalesce(price, 0) else 0 end) as design_revenue"),
             )
-            ->groupBy(DB::raw("COALESCE(NULLIF(TRIM(hotel_name), ''), 'Belirtilmeyen')"))
+            ->groupBy(DB::raw($hotelNameExpression))
             ->orderByDesc('customer_count')
             ->limit(12)
             ->get()
