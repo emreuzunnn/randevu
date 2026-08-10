@@ -133,7 +133,7 @@ class AppointmentNotificationService
         $now = now();
         $appointments = Appointment::query()
             ->with(['assignedArtist', 'createdBy', 'studio.company.manager'])
-            ->where('appointment_type', 'designer')
+            ->whereIn('appointment_type', ['designer', 'tattoo'])
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->whereBetween('appointment_at', [$now, $now->copy()->addMinutes($minutes)])
             ->get();
@@ -141,15 +141,24 @@ class AppointmentNotificationService
         $sent = 0;
 
         foreach ($appointments as $appointment) {
-            foreach ($this->designRecipients($appointment) as $recipient) {
+            $recipients = $appointment->appointment_type === 'tattoo'
+                ? collect([$appointment->assignedArtist])
+                    ->filter(fn ($user): bool => $user instanceof User && $user->hasRole(UserRole::Artist))
+                    ->values()
+                : $this->designRecipients($appointment);
+
+            foreach ($recipients as $recipient) {
                 if ($this->reminderAlreadySent($appointment, $recipient, $minutes)) {
                     continue;
                 }
 
+                $isTicket = $appointment->appointment_type === 'tattoo';
                 $this->fcmService->sendToUser(
                     $recipient,
-                    'Tasarım Rezervasyonu Hatırlatması',
-                    "{$appointment->studio?->name} için {$appointment->appointment_at?->format('H:i')} saatindeki tasarım rezervasyonuna {$minutes} dakika kaldı.",
+                    $isTicket ? 'Dövme Bileti Hatırlatması' : 'Tasarım Rezervasyonu Hatırlatması',
+                    "{$appointment->appointment_at?->format('H:i')} saatindeki "
+                        .($isTicket ? 'dövme/piercing biletine' : 'tasarım rezervasyonuna')
+                        ." {$minutes} dakika kaldı.",
                     'appointment_reminder',
                     [
                         ...$this->appointmentPayload($appointment),
