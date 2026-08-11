@@ -33,6 +33,15 @@ Route::get('/storage/logos/ticket-pdf/{path}', function (string $path) {
     return Storage::disk('public')->response($storagePath);
 })->where('path', '.*')->name('public.ticket-pdf-logo');
 
+Route::get('/media/storage/{path}', function (string $path) {
+    abort_if(str_contains($path, '..'), 404);
+
+    $storagePath = ltrim($path, '/');
+    abort_unless(Storage::disk('public')->exists($storagePath), 404);
+
+    return Storage::disk('public')->response($storagePath);
+})->where('path', '.*')->name('public.storage-media');
+
 Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');

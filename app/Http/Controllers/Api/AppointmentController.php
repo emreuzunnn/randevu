@@ -937,26 +937,23 @@ class AppointmentController extends Controller
         }
 
         if (str_starts_with($path, 'http')) {
-            $host = parse_url($path, PHP_URL_HOST);
-            if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
-                $urlPath = parse_url($path, PHP_URL_PATH) ?: '';
-                $query = parse_url($path, PHP_URL_QUERY);
-
-                return $this->publicOrigin() . $urlPath . ($query ? '?' . $query : '');
+            $urlPath = parse_url($path, PHP_URL_PATH) ?: '';
+            if (str_starts_with($urlPath, '/storage/')) {
+                return $this->publicStorageUrl(substr($urlPath, strlen('/storage/')));
             }
 
             return $path;
         }
 
         if (str_starts_with($path, '/storage/')) {
-            return $this->publicOrigin() . $path;
+            return $this->publicStorageUrl(substr($path, strlen('/storage/')));
         }
 
         if (str_starts_with($path, 'storage/')) {
-            return $this->publicOrigin() . '/' . $path;
+            return $this->publicStorageUrl(substr($path, strlen('storage/')));
         }
 
-        return $this->publicOrigin() . '/storage/' . ltrim($path, '/');
+        return $this->publicStorageUrl($path);
     }
 
     private function publicOrigin(): string
@@ -964,6 +961,11 @@ class AppointmentController extends Controller
         $origin = request()?->getSchemeAndHttpHost() ?: config('app.url');
 
         return rtrim((string) $origin, '/');
+    }
+
+    private function publicStorageUrl(string $path): string
+    {
+        return $this->publicOrigin() . '/media/storage/' . ltrim($path, '/');
     }
 
     private function primaryImageUrl(Appointment $appointment, bool $limitedView = false): ?string
@@ -1254,7 +1256,7 @@ class AppointmentController extends Controller
         $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('appointments/' . $studio->id, $name, 'public');
 
-        return Storage::disk('public')->url($path);
+        return $this->storagePath($path);
     }
 
     private function storeCompletedTattooImage(Request $request, Appointment $appointment): string
@@ -1264,7 +1266,7 @@ class AppointmentController extends Controller
         $folder = $appointment->studio_id ?? 'freelancers';
         $path = $file->storeAs('appointments/' . $folder . '/completed-tattoos', $name, 'public');
 
-        return Storage::disk('public')->url($path);
+        return $this->storagePath($path);
     }
 
     /**
@@ -1278,7 +1280,7 @@ class AppointmentController extends Controller
         foreach ($request->file('tattoo_images', []) as $file) {
             $name = Str::uuid() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs('appointments/' . $studio->id . '/tattoo-images', $name, 'public');
-            $paths[] = Storage::disk('public')->url($path);
+            $paths[] = $this->storagePath($path);
         }
 
         if ($appointmentType === 'tattoo' && count($paths) > 3) {
@@ -1288,5 +1290,10 @@ class AppointmentController extends Controller
         }
 
         return $paths;
+    }
+
+    private function storagePath(string $path): string
+    {
+        return '/storage/' . ltrim($path, '/');
     }
 }
