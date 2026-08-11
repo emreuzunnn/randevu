@@ -720,13 +720,38 @@ class AppointmentRequestController extends Controller
 
     private function imageUrl(?string $path): ?string
     {
-        if ($path === null || $path === '' || str_starts_with($path, 'http')) {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            $host = parse_url($path, PHP_URL_HOST);
+            if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                $urlPath = parse_url($path, PHP_URL_PATH) ?: '';
+                $query = parse_url($path, PHP_URL_QUERY);
+
+                return $this->publicOrigin() . $urlPath . ($query ? '?' . $query : '');
+            }
+
             return $path;
         }
 
-        return str_starts_with($path, 'storage/') || str_starts_with($path, '/storage/')
-            ? url($path)
-            : url('storage/' . $path);
+        if (str_starts_with($path, '/storage/')) {
+            return $this->publicOrigin() . $path;
+        }
+
+        if (str_starts_with($path, 'storage/')) {
+            return $this->publicOrigin() . '/' . $path;
+        }
+
+        return $this->publicOrigin() . '/storage/' . ltrim($path, '/');
+    }
+
+    private function publicOrigin(): string
+    {
+        $origin = request()?->getSchemeAndHttpHost() ?: config('app.url');
+
+        return rtrim((string) $origin, '/');
     }
 
     /**

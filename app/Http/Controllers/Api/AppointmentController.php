@@ -749,7 +749,7 @@ class AppointmentController extends Controller
                 'hotel_name'         => $validated['customer']['hotel_name'] ?? $studio->name,
                 'room_number'        => $validated['customer']['room_number'] ?? null,
                 'place'              => $validated['customer']['hotel_name'] ?? null,
-                'photo_path'         => $validated['slip_image_path'] ?? null,
+                'photo_path'         => $sourceImagePath,
                 'customer_notes'     => $validated['customer']['customer_notes'] ?? null,
             ],
             'appointment_type'  => $appointmentType,
@@ -843,6 +843,12 @@ class AppointmentController extends Controller
         if ($request->hasFile('image')) {
             $validated['source_image_path'] = $this->storeAppointmentImage($request, $studio);
         }
+        if (array_key_exists('source_image_path', $validated) && filled($validated['source_image_path'])) {
+            $validated['customer'] = [
+                ...($validated['customer'] ?? []),
+                'photo_path' => $validated['source_image_path'],
+            ];
+        }
         if ($request->hasFile('tattoo_images') || array_key_exists('tattoo_image_paths', $validated)) {
             $validated['tattoo_image_paths'] = $this->resolveTattooImagePaths(
                 $request,
@@ -899,7 +905,7 @@ class AppointmentController extends Controller
             'phone_number'       => $appointment->phone_number,
             'hotel_name'         => $appointment->hotel_name,
             'room_number'        => $appointment->room_number,
-            'photo_path'         => $this->imageUrl($appointment->photo_path),
+            'photo_path'         => $this->customerPhotoUrl($appointment),
             'customer_notes'     => $appointment->customer_notes,
         ];
     }
@@ -931,18 +937,33 @@ class AppointmentController extends Controller
         }
 
         if (str_starts_with($path, 'http')) {
+            $host = parse_url($path, PHP_URL_HOST);
+            if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                $urlPath = parse_url($path, PHP_URL_PATH) ?: '';
+                $query = parse_url($path, PHP_URL_QUERY);
+
+                return $this->publicOrigin() . $urlPath . ($query ? '?' . $query : '');
+            }
+
             return $path;
         }
 
         if (str_starts_with($path, '/storage/')) {
-            return url($path);
+            return $this->publicOrigin() . $path;
         }
 
         if (str_starts_with($path, 'storage/')) {
-            return url($path);
+            return $this->publicOrigin() . '/' . $path;
         }
 
-        return url('storage/' . $path);
+        return $this->publicOrigin() . '/storage/' . ltrim($path, '/');
+    }
+
+    private function publicOrigin(): string
+    {
+        $origin = request()?->getSchemeAndHttpHost() ?: config('app.url');
+
+        return rtrim((string) $origin, '/');
     }
 
     private function primaryImageUrl(Appointment $appointment, bool $limitedView = false): ?string
@@ -962,6 +983,12 @@ class AppointmentController extends Controller
         }
 
         return $limitedView ? null : $this->imageUrl($appointment->completed_tattoo_image_path);
+    }
+
+    private function customerPhotoUrl(Appointment $appointment): ?string
+    {
+        return $this->imageUrl($appointment->photo_path)
+            ?? $this->imageUrl($appointment->source_image_path);
     }
 
     /**
