@@ -90,6 +90,7 @@ class AppointmentController extends Controller
                 'notes'            => $appointment->notes,
                 'source_image_path' => $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $this->imageUrl($appointment->photo_path),
+                'image_path'        => $this->primaryImageUrl($appointment),
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                 'pickup_required'   => (bool) $appointment->pickup_required,
@@ -162,6 +163,7 @@ class AppointmentController extends Controller
                     'driver_status'     => $limitedView ? null : $appointment->driver_status,
                     'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
                     'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                    'image_path'        => $this->primaryImageUrl($appointment, $limitedView),
                     'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                     'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                     'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
@@ -249,6 +251,7 @@ class AppointmentController extends Controller
                     'notes'            => $limitedView ? null : $appointment->notes,
                     'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
                     'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                    'image_path'        => $this->primaryImageUrl($appointment, $limitedView),
                     'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                     'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                     'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
@@ -349,6 +352,7 @@ class AppointmentController extends Controller
                 'notes'            => $limitedView ? null : $appointment->notes,
                 'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                'image_path'        => $this->primaryImageUrl($appointment, $limitedView),
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                 'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
@@ -471,6 +475,7 @@ class AppointmentController extends Controller
                 'notes'            => $limitedView ? null : $appointment->notes,
                 'source_image_path' => $limitedView ? null : $this->imageUrl($appointment->source_image_path),
                 'photo_path'        => $limitedView ? null : $this->imageUrl($appointment->photo_path),
+                'image_path'        => $this->primaryImageUrl($appointment, $limitedView),
                 'tattoo_image_paths' => $this->imageUrls($appointment->tattoo_image_paths),
                 'completed_tattoo_image_path' => $this->imageUrl($appointment->completed_tattoo_image_path),
                 'pickup_required'   => $limitedView ? null : (bool) $appointment->pickup_required,
@@ -938,6 +943,25 @@ class AppointmentController extends Controller
         }
 
         return url('storage/' . $path);
+    }
+
+    private function primaryImageUrl(Appointment $appointment, bool $limitedView = false): ?string
+    {
+        if (! $limitedView) {
+            foreach ([$appointment->source_image_path, $appointment->photo_path] as $path) {
+                $url = $this->imageUrl($path);
+                if ($url !== null) {
+                    return $url;
+                }
+            }
+        }
+
+        $tattooImage = $this->imageUrls($appointment->tattoo_image_paths)[0] ?? null;
+        if ($tattooImage !== null) {
+            return $tattooImage;
+        }
+
+        return $limitedView ? null : $this->imageUrl($appointment->completed_tattoo_image_path);
     }
 
     /**
