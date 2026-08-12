@@ -142,9 +142,7 @@ class AppointmentNotificationService
 
         foreach ($appointments as $appointment) {
             $recipients = $appointment->appointment_type === 'tattoo'
-                ? collect([$appointment->assignedArtist])
-                    ->filter(fn ($user): bool => $user instanceof User && $user->hasRole(UserRole::Artist))
-                    ->values()
+                ? $this->ticketReminderRecipients($appointment)
                 : $this->designRecipients($appointment);
 
             foreach ($recipients as $recipient) {
@@ -170,6 +168,25 @@ class AppointmentNotificationService
         }
 
         return $sent;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function ticketReminderRecipients(Appointment $appointment): Collection
+    {
+        $collections = [
+            collect([$appointment->assignedArtist])
+                ->filter(fn ($user): bool => $user instanceof User && $user->hasRole(UserRole::Artist)),
+        ];
+
+        if ($appointment->studio instanceof Studio) {
+            $collections[] = $this->studioStaff($appointment->studio, [
+                UserRole::Supervisor,
+            ]);
+        }
+
+        return $this->mergeRecipients(...$collections);
     }
 
     /**
