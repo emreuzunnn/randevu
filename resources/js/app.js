@@ -4244,8 +4244,10 @@ const renderSettingsPage = async (root) => {
         ` : ''}
     `;
     qs('[data-test-notification]', root)?.addEventListener('click', () => handleAsync(async () => {
-        await apiFetch('/notifications/test', { method: 'POST', body: {} });
-        showToast('Test bildirimi tetiklendi.', 'success');
+        const response = await apiFetch('/notifications/test-broadcast', { method: 'POST', body: {} });
+        const tokenCount = response?.data?.token_count ?? 0;
+        const sentCount = response?.data?.delivery?.sent ?? 0;
+        showToast(`Test bildirimi ${tokenCount} token için tetiklendi. Gönderilen: ${sentCount}.`, 'success');
     }));
 
     if (canManageDiscoverySettings) {
