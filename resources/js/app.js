@@ -4214,9 +4214,10 @@ const renderProfileAppointmentsPage = async (root) => {
 const renderSettingsPage = async (root) => {
     const canSendTestNotification = adminConfig.isAdmin || adminConfig.role === 'admin';
     const canManageDiscoverySettings = adminConfig.isAdmin || adminConfig.role === 'admin';
+    const canManageNotificationSettings = adminConfig.isAdmin || adminConfig.role === 'admin';
 
     root.innerHTML = `
-        ${pageHeader('Ayarlar', 'Uygulama Ayarları', canManageDiscoverySettings ? 'Web panel teması, bildirim testi ve keşfet görünürlük ayarları.' : canSendTestNotification ? 'Web panel teması ve bildirim testi.' : 'Web panel teması.', '<span class="badge-pill">Web</span>')}
+        ${pageHeader('Ayarlar', 'Uygulama Ayarları', canManageDiscoverySettings ? 'Web panel teması, bildirim testi, hatırlatma süresi ve keşfet görünürlük ayarları.' : canSendTestNotification ? 'Web panel teması ve bildirim testi.' : 'Web panel teması.', '<span class="badge-pill">Web</span>')}
         <div class="data-grid">
             <div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Tema</div>
@@ -4225,6 +4226,15 @@ const renderSettingsPage = async (root) => {
             ${canSendTestNotification ? `<div class="panel-card">
                 <div class="section-title" style="margin-bottom:0.75rem">Bildirim Testi</div>
                 <button class="button-primary" data-test-notification style="justify-content:center">Test Bildirimi Gönder</button>
+            </div>` : ''}
+            ${canManageNotificationSettings ? `<div class="panel-card" data-notification-settings-panel>
+                <div class="section-title" style="margin-bottom:0.35rem">Randevu Hatırlatma</div>
+                <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;margin-bottom:0.85rem">Yaklaşan randevu ve bilet bildirimlerinin kaç dakika önce gönderileceğini belirler.</p>
+                <div class="field-wrap">
+                    <label class="field-label">Kaç dakika önce?</label>
+                    <input class="field-input" type="number" min="1" max="1440" step="1" data-reminder-minutes placeholder="15">
+                </div>
+                <button class="button-primary" data-save-notification-settings style="justify-content:center;margin-top:0.85rem">Süreyi Kaydet</button>
             </div>` : ''}
         </div>
         ${canManageDiscoverySettings ? `
@@ -4249,6 +4259,31 @@ const renderSettingsPage = async (root) => {
         const sentCount = response?.data?.delivery?.sent ?? 0;
         showToast(`Test bildirimi ${tokenCount} token için tetiklendi. Gönderilen: ${sentCount}.`, 'success');
     }));
+
+    if (canManageNotificationSettings) {
+        const reminderInput = qs('[data-reminder-minutes]', root);
+        const loadNotificationSettings = async () => {
+            const payload = await apiFetch('/notification-settings');
+            if (reminderInput) {
+                reminderInput.value = payload?.data?.appointment_reminder_minutes ?? 15;
+            }
+        };
+
+        qs('[data-save-notification-settings]', root)?.addEventListener('click', () => handleAsync(async () => {
+            const minutes = Number(reminderInput?.value || 15);
+            if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+                throw new Error('Hatırlatma süresi 1 ile 1440 dakika arasında olmalı.');
+            }
+
+            await apiFetch('/notification-settings', {
+                method: 'PATCH',
+                body: { appointment_reminder_minutes: minutes },
+            });
+            showToast('Randevu hatırlatma süresi güncellendi.', 'success');
+        }));
+
+        await loadNotificationSettings();
+    }
 
     if (canManageDiscoverySettings) {
         const content = qs('[data-discovery-settings-content]', root);

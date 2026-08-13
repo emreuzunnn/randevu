@@ -269,8 +269,15 @@ class AppointmentNotificationService
         return User::query()
             ->whereHas('studios', fn ($query) => $query
                 ->where('studios.id', $studio->id)
-                ->where('studio_user.is_active', true)
-                ->whereIn('studio_user.role', $roleValues))
+                ->where('studio_user.is_active', true))
+            ->where(function ($query) use ($studio, $roleValues): void {
+                $query
+                    ->whereIn('role', $roleValues)
+                    ->orWhereHas('studios', fn ($studioQuery) => $studioQuery
+                        ->where('studios.id', $studio->id)
+                        ->where('studio_user.is_active', true)
+                        ->whereIn('studio_user.role', $roleValues));
+            })
             ->get();
     }
 

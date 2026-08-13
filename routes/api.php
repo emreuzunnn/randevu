@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DiscoverySettingsController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationSettingsController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\PushTokenController;
@@ -153,6 +154,8 @@ Route::middleware(['api.auth', 'role:admin,yonetici'])->group(function (): void 
 Route::middleware(['api.auth', 'role:admin'])->group(function (): void {
     Route::get('/discovery/settings', [DiscoverySettingsController::class, 'show']);
     Route::patch('/discovery/settings', [DiscoverySettingsController::class, 'update']);
+    Route::get('/notification-settings', [NotificationSettingsController::class, 'show']);
+    Route::patch('/notification-settings', [NotificationSettingsController::class, 'update']);
 });
 
 /*
