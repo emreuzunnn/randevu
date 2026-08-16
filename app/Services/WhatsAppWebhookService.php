@@ -182,6 +182,11 @@ class WhatsAppWebhookService
         if (! (bool) config('services.whatsapp.auto_reply_enabled', true)) {
             $message->forceFill(['auto_reply_status' => 'disabled'])->save();
 
+            Log::channel('whatsapp')->info('WhatsApp auto reply disabled', [
+                'inbound_message_id' => $message->id,
+                'from' => $message->from_phone,
+            ]);
+
             return false;
         }
 
@@ -190,6 +195,10 @@ class WhatsAppWebhookService
                 'auto_reply_status' => 'skipped',
                 'auto_reply_error' => 'Gönderen telefon numarası yok.',
             ])->save();
+
+            Log::channel('whatsapp')->warning('WhatsApp auto reply skipped: missing sender phone', [
+                'inbound_message_id' => $message->id,
+            ]);
 
             return false;
         }
@@ -207,6 +216,12 @@ class WhatsAppWebhookService
                 'auto_reply_status' => 'skipped',
                 'auto_reply_error' => 'WhatsApp API ayarları eksik.',
             ])->save();
+
+            Log::channel('whatsapp')->warning('WhatsApp auto reply skipped: missing credentials', [
+                'inbound_message_id' => $message->id,
+                'access_token_configured' => $accessToken !== '',
+                'phone_number_id_configured' => $phoneNumberId !== '',
+            ]);
 
             return false;
         }
@@ -240,6 +255,13 @@ class WhatsAppWebhookService
                     'auto_replied_at' => now(),
                 ])->save();
 
+                Log::channel('whatsapp')->info('WhatsApp auto reply sent', [
+                    'inbound_message_id' => $message->id,
+                    'to' => $message->from_phone,
+                    'status' => $response->status(),
+                    'whatsapp_message_id' => $messageId,
+                ]);
+
                 return true;
             }
 
@@ -247,6 +269,13 @@ class WhatsAppWebhookService
                 'auto_reply_status' => 'failed',
                 'auto_reply_error' => (string) (Arr::get($payload, 'error.message') ?: $response->body()),
             ])->save();
+
+            Log::channel('whatsapp')->warning('WhatsApp auto reply failed', [
+                'inbound_message_id' => $message->id,
+                'to' => $message->from_phone,
+                'status' => $response->status(),
+                'response' => $payload ?: $response->body(),
+            ]);
 
             return false;
         } catch (Throwable $exception) {
