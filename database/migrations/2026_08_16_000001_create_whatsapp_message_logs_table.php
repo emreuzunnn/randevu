@@ -14,12 +14,12 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('appointments')
                 ->nullOnDelete();
-            $table->string('event_type');
-            $table->string('recipient_phone');
-            $table->string('template_name');
-            $table->string('language_code')->default('tr');
-            $table->string('status');
-            $table->string('whatsapp_message_id')->nullable();
+            $table->string('event_type', 80);
+            $table->string('recipient_phone', 32);
+            $table->string('template_name', 120);
+            $table->string('language_code', 12)->default('tr');
+            $table->string('status', 32);
+            $table->string('whatsapp_message_id', 128)->nullable();
             $table->text('error_message')->nullable();
             $table->json('request_payload')->nullable();
             $table->json('response_payload')->nullable();
