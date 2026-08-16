@@ -69,6 +69,9 @@ class WhatsAppWebhookController extends Controller
                 'signature_valid' => $signatureValid,
                 'phone_number_id' => config('services.whatsapp.phone_number_id'),
             ]);
+
+            $inboundSummary = $webhookService->processInboundMessages($payload);
+            Log::channel('whatsapp')->info('WhatsApp inbound messages processed', $inboundSummary);
         } catch (Throwable $exception) {
             Log::channel('whatsapp')->error('WhatsApp webhook processing failed', [
                 'message' => $exception->getMessage(),

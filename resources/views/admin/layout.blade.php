@@ -284,6 +284,15 @@
                         </svg>
                         Bildirim Logları
                     </a>
+                    <a href="{{ route('admin.whatsapp-messages.index') }}"
+                       class="admin-nav-link {{ request()->routeIs('admin.whatsapp-messages.*') ? 'is-active' : '' }}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+                            <path d="M8 10h8"/>
+                            <path d="M8 14h5"/>
+                        </svg>
+                        WhatsApp Mesajları
+                    </a>
                     <a href="{{ route('admin.content-reports.index') }}"
                        class="admin-nav-link {{ request()->routeIs('admin.content-reports.*') ? 'is-active' : '' }}">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

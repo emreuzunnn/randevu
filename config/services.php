@@ -67,6 +67,17 @@ return [
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'validate_signature' => env('WHATSAPP_VALIDATE_SIGNATURE', false),
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
+        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'tr'),
+        'auto_reply_enabled' => env('WHATSAPP_AUTO_REPLY_ENABLED', true),
+        'auto_reply_message' => env(
+            'WHATSAPP_AUTO_REPLY_MESSAGE',
+            'Bu numara otomatik bilgilendirme amaçlıdır. Lütfen bu mesaja cevap vermeyiniz.'
+        ),
+        'templates' => [
+            'appointment_created' => env('WHATSAPP_TEMPLATE_APPOINTMENT_CREATED', 'musteri_hatirlatma_tr'),
+            'appointment_reminder' => env('WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER', 'mteri_randevu_hatrlatma'),
+        ],
     ],
 
 ];

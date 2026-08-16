@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\NotificationLogController as AdminNotificationLogController;
 use App\Http\Controllers\Admin\StudioController as AdminStudioController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\WhatsAppMessageController as AdminWhatsAppMessageController;
 use App\Http\Controllers\PublicTicketHistoryController;
 use App\Http\Controllers\Webhook\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Storage;
@@ -72,6 +73,7 @@ Route::middleware(['auth', 'admin.panel'])->prefix('admin')->name('admin.')->gro
     Route::view('/settings', 'admin.settings.index')->name('settings.index');
 
     Route::get('/notifications', AdminNotificationLogController::class)->name('notifications.index');
+    Route::get('/whatsapp-messages', AdminWhatsAppMessageController::class)->name('whatsapp-messages.index');
     Route::get('/content-reports', [AdminContentReportController::class, 'index'])->name('content-reports.index');
     Route::post('/content-reports/{contentReport}/resolve', [AdminContentReportController::class, 'resolve'])->name('content-reports.resolve');
     Route::post('/content-reports/users/{user}/ban', [AdminContentReportController::class, 'ban'])->name('content-reports.ban');

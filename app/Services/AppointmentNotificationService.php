@@ -13,6 +13,7 @@ class AppointmentNotificationService
 {
     public function __construct(
         private readonly FcmService $fcmService,
+        private readonly WhatsAppNotificationService $whatsAppNotificationService,
     ) {}
 
     public function notifyStudioAppointmentCreated(Appointment $appointment, ?User $actor = null): int
@@ -24,6 +25,8 @@ class AppointmentNotificationService
         }
 
         if ($appointment->appointment_type === 'designer') {
+            $this->whatsAppNotificationService->sendAppointmentCreated($appointment);
+
             return $this->send(
                 $this->designRecipients($appointment),
                 'Yeni Tasarım Rezervasyonu',
@@ -141,6 +144,10 @@ class AppointmentNotificationService
         $sent = 0;
 
         foreach ($appointments as $appointment) {
+            if ($appointment->appointment_type === 'designer') {
+                $this->whatsAppNotificationService->sendAppointmentReminder($appointment, $minutes);
+            }
+
             $recipients = $appointment->appointment_type === 'tattoo'
                 ? $this->ticketReminderRecipients($appointment)
                 : $this->designRecipients($appointment);
