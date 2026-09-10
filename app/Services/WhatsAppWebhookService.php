@@ -12,6 +12,23 @@ use Throwable;
 
 class WhatsAppWebhookService
 {
+    private const AUTO_REPLY_MESSAGES = [
+        'default' => 'This number is used for automated informational messages only. Please do not reply to this message.',
+        '7' => 'Этот номер используется только для автоматических информационных сообщений. Пожалуйста, не отвечайте на это сообщение.',
+        '31' => 'Dit nummer wordt alleen gebruikt voor automatische informatieve berichten. Gelieve niet op dit bericht te antwoorden.',
+        '32' => 'Dit nummer wordt alleen gebruikt voor automatische informatieve berichten. Gelieve niet op dit bericht te antwoorden.',
+        '41' => 'Diese Nummer dient ausschließlich automatischen Informationsnachrichten. Bitte antworten Sie nicht auf diese Nachricht.',
+        '44' => 'This number is used for automated informational messages only. Please do not reply to this message.',
+        '45' => 'Dette nummer bruges kun til automatiske informationsbeskeder. Svar venligst ikke på denne besked.',
+        '46' => 'Detta nummer används endast för automatiska informationsmeddelanden. Vänligen svara inte på detta meddelande.',
+        '47' => 'Dette nummeret brukes kun til automatiske informasjonsmeldinger. Vennligst ikke svar på denne meldingen.',
+        '48' => 'Ten numer służy wyłącznie do automatycznych wiadomości informacyjnych. Prosimy nie odpowiadać na tę wiadomość.',
+        '49' => 'Diese Nummer dient ausschließlich automatischen Informationsnachrichten. Bitte antworten Sie nicht auf diese Nachricht.',
+        '90' => 'Bu numara otomatik bilgilendirme amaçlıdır. Lütfen bu mesaja cevap vermeyiniz.',
+        '358' => 'Tätä numeroa käytetään vain automaattisiin tiedotusviesteihin. Älä vastaa tähän viestiin.',
+        '372' => 'Seda numbrit kasutatakse ainult automaatsete teavitussõnumite saatmiseks. Palun ärge sellele sõnumile vastake.',
+    ];
+
     public function verifySignature(Request $request): bool
     {
         $appSecret = (string) config('services.whatsapp.app_secret', '');
@@ -206,10 +223,8 @@ class WhatsAppWebhookService
         $accessToken = (string) config('services.whatsapp.access_token', '');
         $phoneNumberId = (string) config('services.whatsapp.phone_number_id', '');
         $version = (string) config('services.whatsapp.graph_version', 'v23.0');
-        $replyText = (string) config(
-            'services.whatsapp.auto_reply_message',
-            'Bu numara otomatik bilgilendirme amaçlıdır. Lütfen bu mesaja cevap vermeyiniz.'
-        );
+        $countryCode = $this->countryCodeForPhone($message->from_phone);
+        $replyText = $this->autoReplyTextForPhone($message->from_phone);
 
         if ($accessToken === '' || $phoneNumberId === '') {
             $message->forceFill([
@@ -258,6 +273,7 @@ class WhatsAppWebhookService
                 Log::channel('whatsapp')->info('WhatsApp auto reply sent', [
                     'inbound_message_id' => $message->id,
                     'to' => $message->from_phone,
+                    'country_code' => $countryCode,
                     'status' => $response->status(),
                     'whatsapp_message_id' => $messageId,
                 ]);
@@ -273,6 +289,7 @@ class WhatsAppWebhookService
             Log::channel('whatsapp')->warning('WhatsApp auto reply failed', [
                 'inbound_message_id' => $message->id,
                 'to' => $message->from_phone,
+                'country_code' => $countryCode,
                 'status' => $response->status(),
                 'response' => $payload ?: $response->body(),
             ]);
@@ -287,10 +304,39 @@ class WhatsAppWebhookService
             Log::channel('whatsapp')->error('WhatsApp auto reply exception', [
                 'inbound_message_id' => $message->id,
                 'from' => $message->from_phone,
+                'country_code' => $countryCode,
                 'message' => $exception->getMessage(),
             ]);
 
             return false;
         }
+    }
+
+    private function autoReplyTextForPhone(?string $phone): string
+    {
+        $countryCode = $this->countryCodeForPhone($phone);
+
+        if ($countryCode !== null && isset(self::AUTO_REPLY_MESSAGES[$countryCode])) {
+            return self::AUTO_REPLY_MESSAGES[$countryCode];
+        }
+
+        return self::AUTO_REPLY_MESSAGES['default'];
+    }
+
+    private function countryCodeForPhone(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone) ?? '';
+
+        if ($digits === '') {
+            return null;
+        }
+
+        foreach (['358', '372', '90', '49', '44', '48', '31', '41', '32', '46', '47', '45', '7'] as $countryCode) {
+            if (str_starts_with($digits, $countryCode)) {
+                return $countryCode;
+            }
+        }
+
+        return null;
     }
 }

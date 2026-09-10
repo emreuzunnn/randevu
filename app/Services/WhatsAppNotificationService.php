@@ -10,14 +10,21 @@ use Throwable;
 
 class WhatsAppNotificationService
 {
+    public function __construct(
+        private readonly WhatsAppTemplateService $templateService,
+    ) {}
+
     public function sendAppointmentCreated(Appointment $appointment): bool
     {
         $appointment->loadMissing('studio.company');
+        $phone = $this->appointmentPhone($appointment);
+        $template = $this->templateService->templateForPhone('appointment_created', $phone);
 
         return $this->sendTemplate(
             $appointment,
             'appointment_created',
-            (string) config('services.whatsapp.templates.appointment_created', 'musteri_hatirlatma_tr'),
+            $template['name'],
+            $template['language'],
             [
                 [
                     'type' => 'body',
@@ -30,24 +37,30 @@ class WhatsAppNotificationService
                     ],
                 ],
             ],
+            $phone,
         );
     }
 
     public function sendAppointmentReminder(Appointment $appointment, int $minutes): bool
     {
+        $phone = $this->appointmentPhone($appointment);
+        $template = $this->templateService->templateForPhone('appointment_reminder', $phone);
+
         return $this->sendTemplate(
             $appointment,
             "appointment_reminder:{$minutes}",
-            (string) config('services.whatsapp.templates.appointment_reminder', 'mteri_randevu_hatrlatma'),
+            $template['name'],
+            $template['language'],
             [
                 [
                     'type' => 'body',
                     'parameters' => [
-                        $this->text($this->customerName($appointment)),
-                        $this->text((string) $minutes),
+                        $this->namedText('customer_name', $this->customerName($appointment)),
+                        $this->namedText('reminder_minutes', (string) $minutes),
                     ],
                 ],
             ],
+            $phone,
         );
     }
 
@@ -58,10 +71,11 @@ class WhatsAppNotificationService
         Appointment $appointment,
         string $eventType,
         string $templateName,
-        array $components
+        string $languageCode,
+        array $components,
+        ?string $phone = null
     ): bool {
-        $phone = $this->appointmentPhone($appointment);
-        $languageCode = (string) config('services.whatsapp.template_language', 'tr');
+        $phone ??= $this->appointmentPhone($appointment);
 
         if ($phone === null) {
             $this->record($appointment, $eventType, '', $templateName, $languageCode, 'skipped', null, 'Müşteri telefon numarası yok.');
