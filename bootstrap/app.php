@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AdminPanelAccessMiddleware;
 use App\Http\Middleware\ApiTokenMiddleware;
+use App\Http\Middleware\MobileAppointmentDateMiddleware;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -17,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->api(append: [MobileAppointmentDateMiddleware::class]);
+
         $csrfExcept = [
             'webhook/whatsapp',
         ];

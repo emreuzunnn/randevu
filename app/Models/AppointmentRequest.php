@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -48,6 +49,15 @@ class AppointmentRequest extends Model
             'tattoo_image_paths' => 'array',
             'pickup_required' => 'boolean',
         ];
+    }
+
+    public function setRequestedAtAttribute($value): void
+    {
+        // Requests and the appointments created from them use the same timezone.
+        $timezone = config('app.timezone');
+        $this->attributes['requested_at'] = $value === null ? null : $this->fromDateTime(
+            CarbonImmutable::parse($value, $timezone)->setTimezone($timezone)
+        );
     }
 
     public function requester(): BelongsTo

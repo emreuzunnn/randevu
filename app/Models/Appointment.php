@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\AppointmentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -68,6 +69,15 @@ class Appointment extends Model
             'tattoo_image_paths' => 'array',
             'pickup_required' => 'boolean',
         ];
+    }
+
+    public function setAppointmentAtAttribute($value): void
+    {
+        // Normalize offset-bearing input before SQL datetime drops its timezone.
+        $timezone = config('app.timezone');
+        $this->attributes['appointment_at'] = $value === null ? null : $this->fromDateTime(
+            CarbonImmutable::parse($value, $timezone)->setTimezone($timezone)
+        );
     }
 
     public function studio(): BelongsTo
